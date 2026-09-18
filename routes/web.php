@@ -1,6 +1,13 @@
 <?php
 
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\CourseAssessmentController;
+use App\Http\Controllers\CourseChapterController;
+use App\Http\Controllers\CourseChapterDocumentController;
+use App\Http\Controllers\CourseChapterVideoController;
+use App\Http\Controllers\CourseController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -13,6 +20,23 @@ Route::middleware(['auth', 'backend'])->group(function () {
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 
     Route::resource('users', UserController::class)->except(['show']);
+    Route::resource('subjects', SubjectController::class)->except(['show']);
+    Route::resource('courses', CourseController::class);
+    Route::put('courses/{course}/status', [CourseController::class, 'updateStatus'])->name('courses.status');
+
+    Route::post('courses/{course}/chapters', [CourseChapterController::class, 'store'])->name('courses.chapters.store');
+    Route::put('courses/{course}/chapters/{chapter}', [CourseChapterController::class, 'update'])->name('courses.chapters.update');
+    Route::delete('courses/{course}/chapters/{chapter}', [CourseChapterController::class, 'destroy'])->name('courses.chapters.destroy');
+
+    Route::post('courses/{course}/chapters/{chapter}/videos', [CourseChapterVideoController::class, 'store'])->name('courses.chapters.videos.store');
+    Route::put('courses/{course}/chapters/{chapter}/videos/{video}', [CourseChapterVideoController::class, 'update'])->name('courses.chapters.videos.update');
+    Route::delete('courses/{course}/chapters/{chapter}/videos/{video}', [CourseChapterVideoController::class, 'destroy'])->name('courses.chapters.videos.destroy');
+
+    Route::post('courses/{course}/chapters/{chapter}/documents', [CourseChapterDocumentController::class, 'store'])->name('courses.chapters.documents.store');
+    Route::delete('courses/{course}/chapters/{chapter}/documents/{document}', [CourseChapterDocumentController::class, 'destroy'])->name('courses.chapters.documents.destroy');
+
+    Route::post('courses/{course}/assessments', [CourseAssessmentController::class, 'store'])->name('courses.assessments.store');
+    Route::delete('courses/{course}/assessments/{assessment}', [CourseAssessmentController::class, 'destroy'])->name('courses.assessments.destroy');
 
     // dashboard pages
     Route::get('/', function () {
@@ -25,9 +49,9 @@ Route::middleware(['auth', 'backend'])->group(function () {
     })->name('calendar');
 
     // profile pages
-    Route::get('/profile', function () {
-        return view('pages.profile', ['title' => 'Profile']);
-    })->name('profile');
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
 
     // form pages
     Route::get('/form-elements', function () {

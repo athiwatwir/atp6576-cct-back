@@ -77,7 +77,7 @@ class UserController extends Controller
 
         $user->roles()->sync($data['roles']);
 
-        $this->mailService->sendStaffPassword($user, $data['password']);
+        $this->mailService->sendStaffPassword($user, $data['password'], queue: false);
 
         return redirect()
             ->route('users.index')
@@ -126,7 +126,7 @@ class UserController extends Controller
         $user->roles()->sync($data['roles']);
 
         if (! empty($data['password'])) {
-            $this->mailService->sendStaffPassword($user, $data['password']);
+            $this->mailService->sendStaffPassword($user, $data['password'], queue: false);
         }
 
         return redirect()

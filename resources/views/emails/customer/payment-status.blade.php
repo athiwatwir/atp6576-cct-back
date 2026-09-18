@@ -1,7 +1,7 @@
 @component($layout, get_defined_vars())
     <h1 style="margin:0 0 12px;font-size:22px;color:#0f766e;">สถานะการชำระเงิน</h1>
     <p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#334155;">
-        {{ $message ?? 'มีการอัปเดตสถานะการชำระเงินของคุณ' }}
+        {{ $body ?? 'มีการอัปเดตสถานะการชำระเงินของคุณ' }}
     </p>
 
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;">

@@ -1,7 +1,7 @@
 @component($layout, get_defined_vars())
     <h1 style="margin:0 0 12px;font-size:22px;color:#0f766e;">{{ $heading ?? $mailSubject }}</h1>
     <div style="margin:0 0 20px;font-size:15px;line-height:1.7;color:#334155;">
-        {!! nl2br(e($message)) !!}
+        {!! nl2br(e($body)) !!}
     </div>
 
     @if (! empty($actionUrl))

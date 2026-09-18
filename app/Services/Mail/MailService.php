@@ -118,7 +118,7 @@ class MailService
             view: 'emails.staff.notification',
             data: [
                 'heading' => $heading ?? $subject,
-                'message' => $message,
+                'body' => $message,
                 'actionUrl' => $actionUrl,
                 'actionText' => $actionText,
             ],
@@ -183,7 +183,7 @@ class MailService
                 'statusLabel' => $statusLabel ?? $status,
                 'orderNo' => $orderNo,
                 'amount' => $amount,
-                'message' => $message,
+                'body' => $message,
                 'actionUrl' => $actionUrl,
                 'actionText' => 'ดูรายละเอียดคำสั่งซื้อ',
             ],
@@ -206,7 +206,7 @@ class MailService
             view: 'emails.customer.announcement',
             data: [
                 'heading' => $heading ?? $subject,
-                'message' => $message,
+                'body' => $message,
                 'actionUrl' => $actionUrl,
                 'actionText' => $actionText ?? 'อ่านเพิ่มเติม',
             ],
@@ -229,7 +229,7 @@ class MailService
             view: 'emails.customer.notification',
             data: [
                 'heading' => $heading ?? $subject,
-                'message' => $message,
+                'body' => $message,
                 'actionUrl' => $actionUrl,
                 'actionText' => $actionText,
             ],

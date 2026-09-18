@@ -20,14 +20,19 @@ class MenuHelper
                 'path' => '/users',
             ],
             [
+                'icon' => 'task',
+                'name' => 'วิชา',
+                'path' => '/subjects',
+            ],
+            [
+                'icon' => 'forms',
+                'name' => 'คอร์ส',
+                'path' => '/courses',
+            ],
+            [
                 'icon' => 'calendar',
                 'name' => 'Calendar',
                 'path' => '/calendar',
-            ],
-            [
-                'icon' => 'user-profile',
-                'name' => 'User Profile',
-                'path' => '/profile',
             ],
             [
                 'name' => 'Forms',
