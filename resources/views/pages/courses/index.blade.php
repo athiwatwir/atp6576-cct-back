@@ -54,9 +54,9 @@
             <div class="flex gap-2">
                 <select name="status" class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                     <option value="">ทุกสถานะ</option>
-                    <option value="draft" @selected($filters['status']==='draft' )>ร่าง</option>
-                    <option value="published" @selected($filters['status']==='published' )>เปิดใช้งาน</option>
-                    <option value="inactive" @selected($filters['status']==='inactive' )>ปิดใช้งาน</option>
+                    @foreach (\App\Enums\ContentStatus::options(['draft', 'published', 'inactive']) as $value => $label)
+                        <option value="{{ $value }}" @selected($filters['status'] === $value)>{{ $label }}</option>
+                    @endforeach
                 </select>
                 <button type="submit" class="bg-brand-500 hover:bg-brand-600 inline-flex items-center justify-center rounded-lg px-4 text-sm font-medium text-white whitespace-nowrap">
                     ค้นหา
@@ -91,7 +91,7 @@
                                 @endif
                             </div>
                             <div>
-                                <div class="font-medium text-gray-800 dark:text-white/90">{{ $course->name }}</div>
+                                <div class="font-medium text-gray-800 dark:text-white/90"><a href="{{ route('courses.show', $course) }}" class="hover:underline">{{ $course->name }}</a></div>
                                 @if ($course->code)
                                 <div class="mt-1 font-mono text-[11px] text-gray-400">{{ $course->code }}</div>
                                 @endif
@@ -128,21 +128,7 @@
                         {{ $course->chapters_count }}
                     </td>
                     <td class="px-5 py-4">
-                        @php
-                        $statusClasses = [
-                        'draft' => 'bg-gray-100 text-gray-700 dark:bg-white/5 dark:text-gray-300',
-                        'published' => 'bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-400',
-                        'inactive' => 'bg-error-50 text-error-700 dark:bg-error-500/15 dark:text-error-400',
-                        ];
-                        $statusLabels = [
-                        'draft' => 'ร่าง',
-                        'published' => 'เปิดใช้งาน',
-                        'inactive' => 'ปิดใช้งาน',
-                        ];
-                        @endphp
-                        <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium {{ $statusClasses[$course->status] ?? $statusClasses['draft'] }}">
-                            {{ $statusLabels[$course->status] ?? $course->status }}
-                        </span>
+                        <x-common.status-badge :status="$course->status" />
                     </td>
                     <td class="px-5 py-4">
                         <div class="flex items-center justify-end gap-2">
@@ -152,12 +138,7 @@
                             <a href="{{ route('courses.edit', $course) }}" class="inline-flex items-center rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/5">
                                 แก้ไข
                             </a>
-                            <button
-                                type="button"
-                                data-no-loading
-                                @click="$dispatch('open-course-delete-modal', { id: {{ $course->id }}, name: @js($course->name), code: @js($course->code) })"
-                                class="inline-flex items-center rounded-lg border border-error-300 px-3 py-2 text-xs font-medium text-error-600 hover:bg-error-50 dark:border-error-500/40 dark:text-error-400 dark:hover:bg-error-500/10"
-                            >
+                            <button type="button" data-no-loading @click="$dispatch('open-course-delete-modal', { id: {{ $course->id }}, name: @js($course->name), code: @js($course->code) })" class="inline-flex items-center rounded-lg border border-error-300 px-3 py-2 text-xs font-medium text-error-600 hover:bg-error-50 dark:border-error-500/40 dark:text-error-400 dark:hover:bg-error-500/10">
                                 ลบ
                             </button>
                         </div>

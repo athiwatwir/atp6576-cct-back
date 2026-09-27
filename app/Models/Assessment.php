@@ -90,7 +90,7 @@ class Assessment extends Model
     public function scopeForSale($query)
     {
         return $query->independent()
-            ->where('type', 'exam')
+            ->where('type', 'primary_exam')
             ->where('status', 'published');
     }
 

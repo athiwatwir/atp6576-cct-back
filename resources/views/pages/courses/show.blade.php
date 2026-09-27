@@ -8,18 +8,6 @@
 
 </style>
 @php
-$statusLabels = [
-'draft' => 'ร่าง',
-'published' => 'เปิดใช้งาน',
-'inactive' => 'ปิดใช้งาน',
-'active' => 'เปิดใช้งาน',
-];
-$statusClasses = [
-'draft' => 'bg-gray-100 text-gray-700 dark:bg-white/5 dark:text-gray-300',
-'published' => 'bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-400',
-'inactive' => 'bg-error-50 text-error-700 dark:bg-error-500/15 dark:text-error-400',
-'active' => 'bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-400',
-];
 $tabs = [
 'overview' => 'ภาพรวม',
 'chapters' => 'บทเรียน',
@@ -299,9 +287,7 @@ $btn = [
                             <div class="min-w-0">
                                 <div class="flex flex-wrap items-center gap-2">
                                     <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90 sm:text-2xl">{{ $course->name }}</h2>
-                                    <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium {{ $statusClasses[$course->status] ?? $statusClasses['draft'] }}">
-                                        {{ $statusLabels[$course->status] ?? $course->status }}
-                                    </span>
+                                    <x-common.status-badge :status="$course->status" />
                                 </div>
                                 <p class="mt-1 font-mono text-xs text-gray-400 dark:text-gray-500">{{ $course->slug }}</p>
                                 <p class="mt-3 max-w-3xl text-sm leading-6 text-gray-600 dark:text-gray-400">
@@ -348,7 +334,7 @@ $btn = [
                 <div class="p-5 sm:p-6">
                     @include('pages.courses.partials.show-overview')
                     @include('pages.courses.partials.show-chapters')
-                    @include('pages.courses.partials.show-assessments', ['panel' => 'quizzes', 'types' => ['exercise', 'quiz'], 'title' => 'แบบฝึกหัด'])
+                    @include('pages.courses.partials.show-assessments', ['panel' => 'quizzes', 'types' => ['quiz'], 'title' => 'แบบฝึกหัด'])
                     @include('pages.courses.partials.show-assessments', ['panel' => 'exams', 'types' => ['exam'], 'title' => 'ข้อสอบ'])
                     @include('pages.courses.partials.show-materials')
                     @include('pages.courses.partials.show-reviews')
@@ -366,7 +352,7 @@ $btn = [
                     <div>
                         <label class="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">สถานะ</label>
                         <select name="status" class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 shadow-theme-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                            @foreach (['draft' => 'ร่าง', 'published' => 'เปิดใช้งาน', 'inactive' => 'ปิดใช้งาน'] as $value => $label)
+                            @foreach (\App\Enums\ContentStatus::options(['draft', 'published', 'inactive']) as $value => $label)
                             <option value="{{ $value }}" @selected($course->status === $value)>{{ $label }}</option>
                             @endforeach
                         </select>

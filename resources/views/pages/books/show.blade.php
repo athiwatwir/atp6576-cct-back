@@ -1,19 +1,6 @@
 @extends('layouts.app')
 
 @section('content')
-@php
-$statusLabels = [
-    'draft' => 'ร่าง',
-    'active' => 'เปิดขาย',
-    'inactive' => 'ปิดใช้งาน',
-];
-$statusClasses = [
-    'draft' => 'bg-gray-100 text-gray-700 dark:bg-white/5 dark:text-gray-300',
-    'active' => 'bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-400',
-    'inactive' => 'bg-error-50 text-error-700 dark:bg-error-500/15 dark:text-error-400',
-];
-@endphp
-
     <x-common.page-breadcrumb pageTitle="{{ $book->name }}" />
 
     @if (session('success'))
@@ -42,9 +29,7 @@ $statusClasses = [
                     <div class="min-w-0">
                         <div class="flex flex-wrap items-center gap-2">
                             <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90">{{ $book->name }}</h2>
-                            <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium {{ $statusClasses[$book->status] ?? $statusClasses['draft'] }}">
-                                {{ $statusLabels[$book->status] ?? $book->status }}
-                            </span>
+                            <x-common.status-badge :status="$book->status" />
                             <span class="inline-flex rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-medium text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">
                                 หนังสือ
                             </span>

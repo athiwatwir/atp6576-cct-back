@@ -10,6 +10,7 @@ enum MediaType: string
     case InstructorImage = 'instructor_image';
     case ExamThumbnail = 'exam_thumbnail';
     case BookThumbnail = 'book_thumbnail';
+    case CurriculumThumbnail = 'curriculum_thumbnail';
 
     /**
      * @return array<int, mixed>
@@ -17,7 +18,7 @@ enum MediaType: string
     public function rules(): array
     {
         return match ($this) {
-            self::CourseThumbnail, self::InstructorImage, self::ExamThumbnail, self::BookThumbnail => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:2048'],
+            self::CourseThumbnail, self::InstructorImage, self::ExamThumbnail, self::BookThumbnail, self::CurriculumThumbnail => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:2048'],
             self::CourseBanner => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
             self::CourseVideo => ['nullable', 'file', 'mimetypes:video/mp4,video/webm,video/quicktime', 'max:512000'],
         };

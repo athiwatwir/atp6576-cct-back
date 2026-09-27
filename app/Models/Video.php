@@ -62,4 +62,9 @@ class Video extends Model
     {
         return \App\Support\MediaStorage::url($this->storage_key);
     }
+
+    public function getThumbnailUrlAttribute(): ?string
+    {
+        return \App\Support\MediaStorage::url($this->thumbnail);
+    }
 }

@@ -264,7 +264,7 @@
     <div x-show="showBookModal" x-cloak
         @keydown.escape.window="if (showBookModal) closeBookModal()"
         class="modal fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-5" data-modal>
-        <div @click="closeBookModal()" class="fixed inset-0 h-full w-full bg-gray-900/40"></div>
+        <div class="fixed inset-0 h-full w-full bg-gray-900/40"></div>
         <div @click.stop class="relative w-full max-w-3xl rounded-3xl bg-white p-5 shadow-xl sm:p-6 dark:bg-gray-900">
             <div class="mb-4 flex items-start justify-between gap-3">
                 <div>

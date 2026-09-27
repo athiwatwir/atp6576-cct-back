@@ -2,28 +2,6 @@
 
 @section('content')
 @php
-$statusClasses = [
-'pending' => 'bg-gray-100 text-gray-700 dark:bg-white/5 dark:text-gray-300',
-'processing' => 'bg-blue-light-50 text-blue-light-700 dark:bg-blue-light-500/15 dark:text-blue-light-400',
-'shipped' => 'bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-warning-400',
-'completed' => 'bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-400',
-'cancelled' => 'bg-error-50 text-error-700 dark:bg-error-500/15 dark:text-error-400',
-];
-$paymentClasses = [
-'pending' => 'bg-gray-100 text-gray-700 dark:bg-white/5 dark:text-gray-300',
-'awaiting_verification' => 'bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-warning-400',
-'paid' => 'bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-400',
-'failed' => 'bg-error-50 text-error-700 dark:bg-error-500/15 dark:text-error-400',
-'refunded' => 'bg-gray-100 text-gray-700 dark:bg-white/5 dark:text-gray-300',
-];
-$shippingClasses = [
-'pending' => 'bg-gray-100 text-gray-700 dark:bg-white/5 dark:text-gray-300',
-'ready' => 'bg-blue-light-50 text-blue-light-700 dark:bg-blue-light-500/15 dark:text-blue-light-400',
-'shipped' => 'bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-warning-400',
-'delivered' => 'bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-400',
-'failed' => 'bg-error-50 text-error-700 dark:bg-error-500/15 dark:text-error-400',
-'not_required' => 'bg-gray-100 text-gray-700 dark:bg-white/5 dark:text-gray-300',
-];
 $latestPayment = $order->latestPayment ?? $order->payments->first();
 
 $carrierValues = array_keys($shippingCarriers);
@@ -68,15 +46,9 @@ $otherCarrierValue = \App\Enums\ShippingCarrier::Other->value;
     <div>
         <div class="flex flex-wrap items-center gap-2">
             <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90">{{ $order->order_no }}</h2>
-            <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium {{ $statusClasses[$order->status] ?? $statusClasses['pending'] }}">
-                {{ $order->status_label }}
-            </span>
-            <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium {{ $paymentClasses[$order->payment_status] ?? $paymentClasses['pending'] }}">
-                {{ $order->payment_status_label }}
-            </span>
-            <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium {{ $shippingClasses[$order->shipping_status] ?? $shippingClasses['pending'] }}">
-                {{ $order->shipping_status_label }}
-            </span>
+            <x-common.status-badge :status="\App\Enums\OrderStatus::tryFrom($order->status)" />
+            <x-common.status-badge :status="\App\Enums\PaymentStatus::tryFrom($order->payment_status)" />
+            <x-common.status-badge :status="\App\Enums\ShippingStatus::tryFrom($order->shipping_status)" />
         </div>
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">สร้างเมื่อ {{ $order->created_at?->format('d/m/Y H:i') }}</p>
     </div>
@@ -173,9 +145,7 @@ $otherCarrierValue = \App\Enums\ShippingCarrier::Other->value;
                 </div>
                 <div class="flex justify-between">
                     <span class="text-gray-500">สถานะ</span>
-                    <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium {{ $paymentClasses[$order->payment_status] ?? $paymentClasses['pending'] }}">
-                        {{ $order->payment_status_label }}
-                    </span>
+                    <x-common.status-badge :status="\App\Enums\PaymentStatus::tryFrom($order->payment_status)" />
                 </div>
                 <div class="flex justify-between">
                     <span class="text-gray-500">ชำระเมื่อ</span>
@@ -196,9 +166,7 @@ $otherCarrierValue = \App\Enums\ShippingCarrier::Other->value;
                 <div class="flex items-center justify-between gap-3">
                     <span class="text-gray-500">สถานะจัดส่ง</span>
                     <div class="flex items-center gap-2">
-                        <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium {{ $shippingClasses[$order->shipping_status] ?? $shippingClasses['pending'] }}">
-                            {{ $order->shipping_status_label }}
-                        </span>
+                        <x-common.status-badge :status="\App\Enums\ShippingStatus::tryFrom($order->shipping_status)" />
                         <button type="button" data-no-loading @click="$dispatch('open-shipping-status-modal')"
                             class="text-xs font-medium text-warning-600 hover:underline dark:text-warning-400">
                             เปลี่ยน
@@ -251,7 +219,7 @@ $otherCarrierValue = \App\Enums\ShippingCarrier::Other->value;
     data-modal
     style="display: none;"
 >
-    <div @click="open = false" class="fixed inset-0 h-full w-full bg-gray-900/40"></div>
+    <div class="fixed inset-0 h-full w-full bg-gray-900/40"></div>
     <div @click.stop class="relative w-full max-w-md rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
         <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">อัปเดตสถานะจัดส่ง</h3>
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">ออเดอร์ {{ $order->order_no }}</p>
@@ -302,7 +270,7 @@ $otherCarrierValue = \App\Enums\ShippingCarrier::Other->value;
     data-modal
     style="display: none;"
 >
-    <div @click="open = false" class="fixed inset-0 h-full w-full bg-gray-900/40"></div>
+    <div class="fixed inset-0 h-full w-full bg-gray-900/40"></div>
     <div @click.stop class="relative w-full max-w-md rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
         <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">ติดตามพัสดุ</h3>
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">ระบุบริษัทขนส่งและหมายเลขพัสดุของออเดอร์ {{ $order->order_no }}</p>

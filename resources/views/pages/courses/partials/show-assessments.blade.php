@@ -18,9 +18,7 @@ $choiceLabels = ['ก', 'ข', 'ค', 'ง'];
     <div x-show="{{ $formFlag }}" x-cloak class="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
         <form method="POST" action="{{ route('courses.assessments.store', $course) }}" class="grid grid-cols-1 gap-3 md:grid-cols-2">
             @csrf
-            @if ($panel === 'exams')
-            <input type="hidden" name="type" value="exam">
-            @endif
+            <input type="hidden" name="type" value="{{ $panel === 'exams' ? 'exam' : 'quiz' }}">
             <input type="text" name="title" required placeholder="ชื่อ{{ $title }}" class="dark:bg-dark-900 h-11 rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 md:col-span-2" />
             <textarea name="description" rows="2" placeholder="รายละเอียด" class="dark:bg-dark-900 rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 md:col-span-2"></textarea>
             <select name="chapter_id" class="dark:bg-dark-900 h-11 rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
@@ -30,17 +28,11 @@ $choiceLabels = ['ก', 'ข', 'ค', 'ง'];
                 @endforeach
             </select>
             <select name="status" class="dark:bg-dark-900 h-11 rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                <option value="draft">ร่าง</option>
-                <option value="published">เปิดใช้งาน</option>
-                <option value="inactive">ปิดใช้งาน</option>
+                <option value="draft">{{ \App\Enums\ContentStatus::Draft->label() }}</option>
+                <option value="published">{{ \App\Enums\ContentStatus::Published->label() }}</option>
+                <option value="inactive">{{ \App\Enums\ContentStatus::Inactive->label() }}</option>
             </select>
             <input type="number" name="duration_minutes" min="1" placeholder="ระยะเวลา (นาที)" class="dark:bg-dark-900 h-11 rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
-            @if ($panel === 'quizzes')
-            <select name="type" class="dark:bg-dark-900 h-11 rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                <option value="quiz">แบบทดสอบ (Quiz)</option>
-                <option value="exercise">แบบฝึกหัด (Exercise)</option>
-            </select>
-            @endif
             <div class="flex gap-2 md:col-span-2">
                 <button type="submit" class="{{ $btn['primary'] }}">บันทึก</button>
                 <button type="button" @click="{{ $formFlag }} = false" class="{{ $btn['secondary'] }}">ยกเลิก</button>
@@ -55,16 +47,13 @@ $choiceLabels = ['ก', 'ข', 'ค', 'ง'];
                 <div class="min-w-0">
                     <div class="flex flex-wrap items-center gap-2">
                         <h4 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ $assessment->title }}</h4>
-                        <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium {{ $statusClasses[$assessment->status] ?? $statusClasses['draft'] }}">
-                            {{ $statusLabels[$assessment->status] ?? $assessment->status }}
-                        </span>
+                        <x-common.status-badge :status="$assessment->status" />
                         <span class="text-xs text-gray-500 dark:text-gray-400">
                             {{ $assessment->questions->count() }} คำถาม
                         </span>
                     </div>
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                        {{ ['exercise' => 'แบบฝึกหัด', 'quiz' => 'แบบทดสอบ', 'exam' => 'ข้อสอบ'][$assessment->type] ?? $assessment->type }}
-                        · {{ $assessment->duration_minutes ? $assessment->duration_minutes.' นาที' : 'ไม่จำกัดเวลา' }}
+                        {{ $assessment->duration_minutes ? $assessment->duration_minutes.' นาที' : 'ไม่จำกัดเวลา' }}
                         ·
                         @php
                         $linkedChapter = $assessment->pivot?->chapter_id
@@ -91,7 +80,7 @@ $choiceLabels = ['ก', 'ข', 'ค', 'ง'];
 
             {{-- Edit Assessment Modal --}}
             <div x-show="editingAssessmentId === {{ $assessment->id }}" x-cloak @keydown.escape.window="if (editingAssessmentId === {{ $assessment->id }}) editingAssessmentId = null" class="modal fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-5" data-modal>
-                <div @click="editingAssessmentId = null" class="fixed inset-0 h-full w-full bg-gray-900/40"></div>
+                <div class="fixed inset-0 h-full w-full bg-gray-900/40"></div>
                 <div @click.stop class="relative w-full max-w-[700px] rounded-3xl bg-white p-5 dark:bg-gray-900 sm:p-8">
                     <button type="button" @click="editingAssessmentId = null" class="{{ $btn['icon'] }} absolute right-3 top-3 z-10 sm:right-6 sm:top-6">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -107,9 +96,7 @@ $choiceLabels = ['ก', 'ข', 'ค', 'ง'];
                     <form method="POST" action="{{ route('courses.assessments.update', [$course, $assessment]) }}" class="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2">
                         @csrf
                         @method('PUT')
-                        @if ($panel === 'exams')
-                        <input type="hidden" name="type" value="exam">
-                        @endif
+                        <input type="hidden" name="type" value="{{ $panel === 'exams' ? 'exam' : 'quiz' }}">
                         <div class="md:col-span-2">
                             <label class="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">ชื่อ{{ $title }}</label>
                             <input type="text" name="title" value="{{ $assessment->title }}" required class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
@@ -130,24 +117,15 @@ $choiceLabels = ['ก', 'ข', 'ค', 'ง'];
                         <div>
                             <label class="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">สถานะ</label>
                             <select name="status" class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                                <option value="draft" @selected($assessment->status === 'draft')>ร่าง</option>
-                                <option value="published" @selected($assessment->status === 'published')>เปิดใช้งาน</option>
-                                <option value="inactive" @selected($assessment->status === 'inactive')>ปิดใช้งาน</option>
+                                <option value="draft" @selected($assessment->status === 'draft')>{{ \App\Enums\ContentStatus::Draft->label() }}</option>
+                                <option value="published" @selected($assessment->status === 'published')>{{ \App\Enums\ContentStatus::Published->label() }}</option>
+                                <option value="inactive" @selected($assessment->status === 'inactive')>{{ \App\Enums\ContentStatus::Inactive->label() }}</option>
                             </select>
                         </div>
                         <div>
                             <label class="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">ระยะเวลา (นาที)</label>
                             <input type="number" name="duration_minutes" min="1" value="{{ $assessment->duration_minutes }}" class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                         </div>
-                        @if ($panel === 'quizzes')
-                        <div>
-                            <label class="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">ประเภท</label>
-                            <select name="type" class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                                <option value="quiz" @selected($assessment->type === 'quiz')>แบบทดสอบ (Quiz)</option>
-                                <option value="exercise" @selected($assessment->type === 'exercise')>แบบฝึกหัด (Exercise)</option>
-                            </select>
-                        </div>
-                        @endif
                         <div class="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end md:col-span-2">
                             <button type="button" @click="editingAssessmentId = null" class="{{ $btn['secondary'] }}">ยกเลิก</button>
                             <button type="submit" class="{{ $btn['primary'] }}">บันทึก</button>
@@ -205,7 +183,7 @@ $choiceLabels = ['ก', 'ข', 'ค', 'ง'];
 
                     {{-- Edit Question Modal --}}
                     <div x-show="editingQuestionId === {{ $question->id }}" x-cloak @keydown.escape.window="if (editingQuestionId === {{ $question->id }}) editingQuestionId = null" class="modal fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-5" data-modal>
-                        <div @click="editingQuestionId = null" class="fixed inset-0 h-full w-full bg-gray-900/40"></div>
+                        <div class="fixed inset-0 h-full w-full bg-gray-900/40"></div>
                         <div @click.stop class="relative w-full max-w-[700px] rounded-3xl bg-white p-5 dark:bg-gray-900 sm:p-8">
                             <button type="button" @click="editingQuestionId = null" class="{{ $btn['icon'] }} absolute right-3 top-3 z-10 sm:right-6 sm:top-6">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -266,7 +244,7 @@ $choiceLabels = ['ก', 'ข', 'ค', 'ง'];
 
                 {{-- Create Question Modal --}}
                 <div x-show="showQuestionForm && selectedAssessment === {{ $assessment->id }}" x-cloak @keydown.escape.window="if (showQuestionForm && selectedAssessment === {{ $assessment->id }}) showQuestionForm = false" class="modal fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-5" data-modal>
-                    <div @click="showQuestionForm = false" class="fixed inset-0 h-full w-full bg-gray-900/40"></div>
+                    <div class="fixed inset-0 h-full w-full bg-gray-900/40"></div>
                     <div @click.stop class="relative w-full max-w-[700px] rounded-3xl bg-white p-5 dark:bg-gray-900 sm:p-8">
                         <button type="button" @click="showQuestionForm = false" class="{{ $btn['icon'] }} absolute right-3 top-3 z-10 sm:right-6 sm:top-6">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">

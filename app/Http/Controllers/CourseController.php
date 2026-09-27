@@ -115,7 +115,7 @@ class CourseController extends Controller
 
         $videoCount = $course->chapters->sum(fn($chapter) => $chapter->videos->count());
         $documentCount = $course->chapters->sum(fn($chapter) => $chapter->documents->count());
-        $quizCount = $course->assessments->whereIn('type', ['quiz', 'exercise'])->count();
+        $quizCount = $course->assessments->where('type', 'quiz')->count();
         $examCount = $course->assessments->where('type', 'exam')->count();
 
         return view('pages.courses.show', [

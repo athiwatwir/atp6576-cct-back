@@ -17,7 +17,7 @@ class CourseAssessmentController extends Controller
         $data = $request->validate([
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'type' => ['required', Rule::in(['exercise', 'quiz', 'exam'])],
+            'type' => ['required', Rule::in(['quiz', 'exam'])],
             'status' => ['required', Rule::in(['draft', 'published', 'inactive'])],
             'duration_minutes' => ['nullable', 'integer', 'min:1'],
             'chapter_id' => ['nullable', 'integer', Rule::exists('chapters', 'id')->where('course_id', $course->id)],
@@ -52,7 +52,7 @@ class CourseAssessmentController extends Controller
         $data = $request->validate([
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'type' => ['required', Rule::in(['exercise', 'quiz', 'exam'])],
+            'type' => ['required', Rule::in(['quiz', 'exam'])],
             'status' => ['required', Rule::in(['draft', 'published', 'inactive'])],
             'duration_minutes' => ['nullable', 'integer', 'min:1'],
             'chapter_id' => ['nullable', 'integer', Rule::exists('chapters', 'id')->where('course_id', $course->id)],

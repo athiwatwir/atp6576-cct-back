@@ -44,6 +44,11 @@ class MediaStorage
         return "books/{$bookId}/{$bookId}.webp";
     }
 
+    public static function curriculumThumbnailPath(int $curriculumId): string
+    {
+        return "curriculums/{$curriculumId}/{$curriculumId}.webp";
+    }
+
     public static function courseVideoDirectory(int $courseId, int $chapterId): string
     {
         return "courses/{$courseId}/chapters/{$chapterId}/videos";
@@ -137,6 +142,11 @@ class MediaStorage
     public static function storeBookThumbnail(UploadedFile $file, int $bookId): string
     {
         return self::storeWebp($file, self::bookThumbnailPath($bookId));
+    }
+
+    public static function storeCurriculumThumbnail(UploadedFile $file, int $curriculumId): string
+    {
+        return self::storeWebp($file, self::curriculumThumbnailPath($curriculumId));
     }
 
     public static function convertImageToWebp(UploadedFile $file, int $quality = 82): string

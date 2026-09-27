@@ -42,7 +42,7 @@
                 </div>
                 <div class="text-sm text-gray-500 dark:text-gray-400">
                     <div>สถานะ:
-                        <span class="font-medium text-gray-800 dark:text-white/90">{{ ucfirst($user->status) }}</span>
+                        <span class="font-medium text-gray-800 dark:text-white/90">{{ \App\Enums\AccountStatus::labelFor($user->status) }}</span>
                     </div>
                     <div class="mt-1">เข้าสู่ระบบล่าสุด:
                         <span class="font-medium text-gray-800 dark:text-white/90">

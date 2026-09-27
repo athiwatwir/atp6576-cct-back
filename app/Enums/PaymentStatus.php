@@ -2,6 +2,8 @@
 
 namespace App\Enums;
 
+use App\Support\StatusPalette;
+
 enum PaymentStatus: string
 {
     case Pending = 'pending';
@@ -18,6 +20,16 @@ enum PaymentStatus: string
             self::Paid => 'ชำระแล้ว',
             self::Failed => 'ชำระไม่สำเร็จ',
             self::Refunded => 'คืนเงินแล้ว',
+        };
+    }
+
+    public function badgeClass(): string
+    {
+        return match ($this) {
+            self::Pending, self::Refunded => StatusPalette::NEUTRAL,
+            self::AwaitingVerification => StatusPalette::WARNING,
+            self::Paid => StatusPalette::SUCCESS,
+            self::Failed => StatusPalette::DANGER,
         };
     }
 

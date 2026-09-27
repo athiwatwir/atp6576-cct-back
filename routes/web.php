@@ -9,6 +9,7 @@ use App\Http\Controllers\CourseChapterController;
 use App\Http\Controllers\CourseChapterDocumentController;
 use App\Http\Controllers\CourseChapterVideoController;
 use App\Http\Controllers\CourseController;
+use App\Http\Controllers\CurriculumController;
 use App\Http\Controllers\ExamController;
 use App\Http\Controllers\ExamQuestionController;
 use App\Http\Controllers\FinanceController;
@@ -44,6 +45,11 @@ Route::middleware(['auth', 'backend'])->group(function () {
     Route::delete('exams/{assessment}/questions/{question}', [ExamQuestionController::class, 'destroy'])->name('exams.questions.destroy');
 
     Route::resource('books', BookController::class)->parameters(['books' => 'product']);
+    Route::resource('curriculums', CurriculumController::class);
+    Route::get('curriculums/{curriculum}/catalog', [CurriculumController::class, 'catalog'])->name('curriculums.catalog');
+    Route::get('curriculums/{curriculum}/attached', [CurriculumController::class, 'attached'])->name('curriculums.attached');
+    Route::post('curriculums/{curriculum}/items', [CurriculumController::class, 'attachItems'])->name('curriculums.items.store');
+    Route::delete('curriculums/{curriculum}/items', [CurriculumController::class, 'detachItem'])->name('curriculums.items.destroy');
     Route::resource('orders', OrderController::class);
     Route::put('orders/{order}/shipping-status', [OrderController::class, 'updateShippingStatus'])->name('orders.shipping-status');
     Route::put('orders/{order}/tracking', [OrderController::class, 'updateTracking'])->name('orders.tracking');

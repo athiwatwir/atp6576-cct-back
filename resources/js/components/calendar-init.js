@@ -334,17 +334,8 @@ export function calendarInit() {
     // Render Calendar
     calendar.render();
 
-    // Close modal event listeners
     document.querySelectorAll(".modal-close-btn").forEach((btn) => {
       btn.addEventListener("click", closeModal);
-    });
-
-    // Close when clicking outside modal
-    window.addEventListener("click", (event) => {
-      const modal = document.getElementById("eventModal");
-      if (event.target === modal) {
-        closeModal();
-      }
     });
   }
 }

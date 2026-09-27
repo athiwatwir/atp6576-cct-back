@@ -2,13 +2,6 @@
 
 @section('content')
 @php
-$paymentClasses = [
-    'pending' => 'bg-gray-100 text-gray-700 dark:bg-white/5 dark:text-gray-300',
-    'awaiting_verification' => 'bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-warning-400',
-    'paid' => 'bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-400',
-    'failed' => 'bg-error-50 text-error-700 dark:bg-error-500/15 dark:text-error-400',
-    'refunded' => 'bg-gray-100 text-gray-700 dark:bg-white/5 dark:text-gray-300',
-];
 $money = fn ($n) => '฿'.number_format((float) $n, 2);
 $presets = [
     'today' => ['label' => 'วันนี้', 'from' => now()->toDateString(), 'to' => now()->toDateString()],
@@ -146,9 +139,7 @@ $presets = [
             @forelse ($byPaymentStatus as $row)
                 <div class="flex items-center justify-between px-5 py-3 text-sm">
                     <div class="flex items-center gap-2">
-                        <span class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium {{ $paymentClasses[$row['status']] ?? $paymentClasses['pending'] }}">
-                            {{ $row['label'] }}
-                        </span>
+                        <x-common.status-badge class="px-2 py-0.5 text-[11px]" :status="\App\Enums\PaymentStatus::tryFrom($row['status']) ?? $row['status']" />
                         <span class="text-xs text-gray-400">{{ number_format($row['orders']) }}</span>
                     </div>
                     <div class="font-semibold text-gray-800 dark:text-white/90">{{ $money($row['amount']) }}</div>

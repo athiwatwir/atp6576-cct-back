@@ -20,7 +20,7 @@
     {{ $attributes->except('class') }}>
 
     <!-- Backdrop -->
-    <div @click="open = false" class="fixed inset-0 h-full w-full bg-gray-900/40"
+    <div class="fixed inset-0 h-full w-full bg-gray-900/40"
         x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0"
         x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-100"
         x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">

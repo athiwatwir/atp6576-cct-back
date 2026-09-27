@@ -190,7 +190,7 @@ database/migrations/
 | Auth | `users`, `roles`, `permissions`, `social_accounts`, `user_sessions` |
 | Catalog | `categories`, `subjects`, `instructors`, `courses`, `chapters` |
 | Media | `videos`, `documents`, `chapter_videos`, `chapter_documents` |
-| Curriculum | `curriculums`, `curriculum_courses`, `curriculum_subjects`, `curriculum_videos`, `curriculum_documents` |
+| Curriculum | `curriculums`, `curriculum_courses`, `curriculum_chapters`, `curriculum_subjects`, `curriculum_videos`, `curriculum_assessments`, `curriculum_products`, `curriculum_documents` |
 | Learning | `enrollments`, `video_progress`, `learning_progress`, `trial_access` |
 | Assessment | `assessments`, `questions`, `question_choices`, `assessment_attempts`, `assessment_answers`, `rankings` |
 | Commerce | `products`, `carts`, `cart_items`, `orders`, `order_items`, `payments`, `payment_transactions` |

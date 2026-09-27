@@ -2,16 +2,6 @@
 
 @section('content')
 @php
-$statusLabels = [
-    'draft' => 'ร่าง',
-    'published' => 'เปิดขาย',
-    'inactive' => 'ปิดใช้งาน',
-];
-$statusClasses = [
-    'draft' => 'bg-gray-100 text-gray-700 dark:bg-white/5 dark:text-gray-300',
-    'published' => 'bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-400',
-    'inactive' => 'bg-error-50 text-error-700 dark:bg-error-500/15 dark:text-error-400',
-];
 $choiceLabels = ['ก', 'ข', 'ค', 'ง'];
 @endphp
 
@@ -46,9 +36,7 @@ $choiceLabels = ['ก', 'ข', 'ค', 'ง'];
                     <div class="min-w-0">
                         <div class="flex flex-wrap items-center gap-2">
                             <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90">{{ $exam->title }}</h2>
-                            <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium {{ $statusClasses[$exam->status] ?? $statusClasses['draft'] }}">
-                                {{ $statusLabels[$exam->status] ?? $exam->status }}
-                            </span>
+                            <x-common.status-badge :status="$exam->status" />
                             <span class="inline-flex rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-medium text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">
                                 ขายแยก
                             </span>
@@ -165,7 +153,7 @@ $choiceLabels = ['ก', 'ข', 'ค', 'ง'];
                 {{-- Edit Question Modal --}}
                 <div x-show="editingQuestionId === {{ $question->id }}" x-cloak @keydown.escape.window="if (editingQuestionId === {{ $question->id }}) editingQuestionId = null"
                     class="modal fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-5" data-modal>
-                    <div @click="editingQuestionId = null" class="fixed inset-0 h-full w-full bg-gray-900/40"></div>
+                    <div class="fixed inset-0 h-full w-full bg-gray-900/40"></div>
                     <div @click.stop class="relative w-full max-w-[700px] rounded-3xl bg-white p-5 dark:bg-gray-900 sm:p-8">
                         <button type="button" @click="editingQuestionId = null"
                             class="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:hover:text-white sm:right-6 sm:top-6">
@@ -225,7 +213,7 @@ $choiceLabels = ['ก', 'ข', 'ค', 'ง'];
     {{-- Create Question Modal --}}
     <div x-show="showQuestionForm" x-cloak @keydown.escape.window="if (showQuestionForm) showQuestionForm = false"
         class="modal fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-5" data-modal>
-        <div @click="showQuestionForm = false" class="fixed inset-0 h-full w-full bg-gray-900/40"></div>
+        <div class="fixed inset-0 h-full w-full bg-gray-900/40"></div>
         <div @click.stop class="relative w-full max-w-[700px] rounded-3xl bg-white p-5 dark:bg-gray-900 sm:p-8">
             <button type="button" @click="showQuestionForm = false"
                 class="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:hover:text-white sm:right-6 sm:top-6">

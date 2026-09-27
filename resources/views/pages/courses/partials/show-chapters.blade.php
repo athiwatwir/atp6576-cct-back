@@ -108,7 +108,7 @@
                         @keydown.escape.window="if (showVideoForm && selectedChapter === {{ $chapter->id }}) closeVideoModal()"
                         class="modal fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-5" data-modal
                     >
-                        <div @click="closeVideoModal()" class="fixed inset-0 h-full w-full bg-gray-900/40"></div>
+                        <div class="fixed inset-0 h-full w-full bg-gray-900/40"></div>
                         <div @click.stop class="relative w-full max-w-[700px] rounded-3xl bg-white p-5 shadow-theme-lg dark:bg-gray-900 sm:p-8">
                             <button type="button" @click="closeVideoModal()" :disabled="uploadingVideo" class="{{ $btn['icon'] }} absolute right-3 top-3 z-10 sm:right-6 sm:top-6">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -338,7 +338,7 @@
         @keydown.escape.window="if (playingVideo) closeVideoPlayer()"
         class="modal fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-5" data-modal
     >
-        <div @click="closeVideoPlayer()" class="fixed inset-0 h-full w-full bg-gray-900/60"></div>
+        <div class="fixed inset-0 h-full w-full bg-gray-900/60"></div>
         <div @click.stop class="relative w-full max-w-4xl overflow-hidden rounded-3xl bg-white shadow-theme-lg dark:bg-gray-900">
             <div class="flex items-center justify-between gap-3 border-b border-gray-100 px-5 py-4 dark:border-gray-800 sm:px-6">
                 <div class="min-w-0">

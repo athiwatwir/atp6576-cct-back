@@ -2,6 +2,8 @@
 
 namespace App\Enums;
 
+use App\Support\StatusPalette;
+
 enum ShippingStatus: string
 {
     case Pending = 'pending';
@@ -20,6 +22,17 @@ enum ShippingStatus: string
             self::Delivered => 'ส่งถึงแล้ว',
             self::Failed => 'จัดส่งไม่สำเร็จ',
             self::NotRequired => 'ไม่ต้องจัดส่ง',
+        };
+    }
+
+    public function badgeClass(): string
+    {
+        return match ($this) {
+            self::Pending, self::NotRequired => StatusPalette::NEUTRAL,
+            self::Ready => StatusPalette::INFO,
+            self::Shipped => StatusPalette::WARNING,
+            self::Delivered => StatusPalette::SUCCESS,
+            self::Failed => StatusPalette::DANGER,
         };
     }
 

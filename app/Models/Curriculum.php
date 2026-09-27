@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsActivity;
+use App\Support\MediaStorage;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -10,7 +12,20 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Curriculum extends Model
 {
+    use LogsActivity;
     use SoftDeletes;
+
+    public array $auditExclude = [
+        'updated_at',
+        'created_at',
+        'description',
+        'short_description',
+    ];
+
+    public function getAuditLabel(): string
+    {
+        return 'หลักสูตร '.$this->name;
+    }
 
     protected $table = 'curriculums';
 
@@ -65,6 +80,27 @@ class Curriculum extends Model
             ->orderByPivot('sort_order');
     }
 
+    public function chapters(): BelongsToMany
+    {
+        return $this->belongsToMany(Chapter::class, 'curriculum_chapters')
+            ->withPivot('sort_order')
+            ->orderByPivot('sort_order');
+    }
+
+    public function assessments(): BelongsToMany
+    {
+        return $this->belongsToMany(Assessment::class, 'curriculum_assessments')
+            ->withPivot('sort_order')
+            ->orderByPivot('sort_order');
+    }
+
+    public function products(): BelongsToMany
+    {
+        return $this->belongsToMany(Product::class, 'curriculum_products')
+            ->withPivot('sort_order')
+            ->orderByPivot('sort_order');
+    }
+
     public function documents(): BelongsToMany
     {
         return $this->belongsToMany(Document::class, 'curriculum_documents')
@@ -110,5 +146,19 @@ class Curriculum extends Model
     public function trialAccess(): HasMany
     {
         return $this->hasMany(TrialAccess::class);
+    }
+
+    public function getThumbnailUrlAttribute(): ?string
+    {
+        return MediaStorage::url($this->thumbnail);
+    }
+
+    public function getEffectivePriceAttribute(): float
+    {
+        if ($this->sale_price !== null && (float) $this->sale_price > 0) {
+            return (float) $this->sale_price;
+        }
+
+        return (float) $this->price;
     }
 }

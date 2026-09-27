@@ -22,6 +22,7 @@ class ExamController extends Controller
 
         $exams = Assessment::query()
             ->independent()
+            ->where('type', 'primary_exam')
             ->withCount('questions')
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($inner) use ($search) {
@@ -64,7 +65,7 @@ class ExamController extends Controller
             'title' => $data['title'],
             'slug' => $this->uniqueSlug($data['title']),
             'description' => $data['description'] ?? null,
-            'type' => 'exam',
+            'type' => 'primary_exam',
             'status' => $data['status'],
             'duration_minutes' => $data['duration_minutes'] ?? null,
             'passing_score' => $data['passing_score'] ?? null,
@@ -119,7 +120,7 @@ class ExamController extends Controller
         $payload = [
             'title' => $data['title'],
             'description' => $data['description'] ?? null,
-            'type' => 'exam',
+            'type' => 'primary_exam',
             'status' => $data['status'],
             'duration_minutes' => $data['duration_minutes'] ?? null,
             'passing_score' => $data['passing_score'] ?? null,
@@ -182,7 +183,7 @@ class ExamController extends Controller
 
     private function ensureIndependentExam(Assessment $assessment): void
     {
-        abort_unless($assessment->is_independent && $assessment->type === 'exam', 404);
+        abort_unless($assessment->is_independent && $assessment->type === 'primary_exam', 404);
     }
 
     private function uniqueSlug(string $value, ?int $ignoreId = null): string

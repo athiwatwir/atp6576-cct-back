@@ -85,22 +85,6 @@
                 </thead>
                 <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                     @forelse ($orders as $order)
-                        @php
-                            $statusClasses = [
-                                'pending' => 'bg-gray-100 text-gray-700 dark:bg-white/5 dark:text-gray-300',
-                                'processing' => 'bg-blue-light-50 text-blue-light-700 dark:bg-blue-light-500/15 dark:text-blue-light-400',
-                                'shipped' => 'bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-warning-400',
-                                'completed' => 'bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-400',
-                                'cancelled' => 'bg-error-50 text-error-700 dark:bg-error-500/15 dark:text-error-400',
-                            ];
-                            $paymentClasses = [
-                                'pending' => 'bg-gray-100 text-gray-700 dark:bg-white/5 dark:text-gray-300',
-                                'awaiting_verification' => 'bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-warning-400',
-                                'paid' => 'bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-400',
-                                'failed' => 'bg-error-50 text-error-700 dark:bg-error-500/15 dark:text-error-400',
-                                'refunded' => 'bg-gray-100 text-gray-700 dark:bg-white/5 dark:text-gray-300',
-                            ];
-                        @endphp
                         <tr>
                             <td class="px-5 py-4">
                                 <div class="font-medium text-gray-800 dark:text-white/90">{{ $order->order_no }}</div>
@@ -119,9 +103,7 @@
                                 <div class="text-sm text-gray-700 dark:text-gray-300">
                                     {{ \App\Enums\PaymentMethod::tryFrom($order->latestPayment?->payment_method ?? '')?->label() ?? '-' }}
                                 </div>
-                                <span class="mt-1 inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium {{ $paymentClasses[$order->payment_status] ?? $paymentClasses['pending'] }}">
-                                    {{ $order->payment_status_label }}
-                                </span>
+                                <x-common.status-badge class="mt-1" :status="\App\Enums\PaymentStatus::tryFrom($order->payment_status) ?? $order->payment_status" />
                             </td>
                             <td class="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">
                                 <div>{{ $order->shipping_status_label }}</div>
@@ -135,9 +117,7 @@
                                 @endif
                             </td>
                             <td class="px-5 py-4">
-                                <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium {{ $statusClasses[$order->status] ?? $statusClasses['pending'] }}">
-                                    {{ $order->status_label }}
-                                </span>
+                                <x-common.status-badge :status="\App\Enums\OrderStatus::tryFrom($order->status) ?? $order->status" />
                             </td>
                             <td class="px-5 py-4">
                                 <div class="flex items-center justify-end gap-2">

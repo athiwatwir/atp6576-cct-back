@@ -140,7 +140,7 @@ class ExamQuestionController extends Controller
 
     private function ensureIndependentExam(Assessment $assessment): void
     {
-        abort_unless($assessment->is_independent && $assessment->type === 'exam', 404);
+        abort_unless($assessment->is_independent && $assessment->type === 'primary_exam', 404);
     }
 
     private function ensureQuestionBelongsToAssessment(Assessment $assessment, Question $question): void

@@ -10,7 +10,6 @@
     style="display: none;"
 >
     <div
-        @click="if (!running) open = false"
         class="fixed inset-0 h-full w-full bg-gray-900/40"
         x-transition:enter="transition ease-out duration-150"
         x-transition:enter-start="opacity-0"

@@ -48,9 +48,9 @@
                     <select name="status"
                         class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                         <option value="">ทุกสถานะ</option>
-                        <option value="active" @selected($filters['status'] === 'active')>Active</option>
-                        <option value="inactive" @selected($filters['status'] === 'inactive')>Inactive</option>
-                        <option value="suspended" @selected($filters['status'] === 'suspended')>Suspended</option>
+                        @foreach (\App\Enums\AccountStatus::options() as $value => $label)
+                            <option value="{{ $value }}" @selected($filters['status'] === $value)>{{ $label }}</option>
+                        @endforeach
                     </select>
                     <button type="submit"
                         class="bg-brand-500 hover:bg-brand-600 inline-flex items-center justify-center rounded-lg px-4 text-sm font-medium text-white whitespace-nowrap">
@@ -92,16 +92,7 @@
                                 {{ $user->phone ?: '-' }}
                             </td>
                             <td class="px-5 py-4">
-                                @php
-                                    $statusClasses = [
-                                        'active' => 'bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-400',
-                                        'inactive' => 'bg-gray-100 text-gray-700 dark:bg-white/5 dark:text-gray-300',
-                                        'suspended' => 'bg-error-50 text-error-700 dark:bg-error-500/15 dark:text-error-400',
-                                    ];
-                                @endphp
-                                <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium {{ $statusClasses[$user->status] ?? $statusClasses['inactive'] }}">
-                                    {{ ucfirst($user->status) }}
-                                </span>
+                                <x-common.status-badge set="account" :status="$user->status" />
                             </td>
                             <td class="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">
                                 {{ $user->last_login_at?->format('d/m/Y H:i') ?? '-' }}

@@ -26,9 +26,7 @@
                     </td>
                     <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ $chapter->title }}</td>
                     <td class="px-4 py-3">
-                        <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium {{ $statusClasses[$document->status] ?? $statusClasses['active'] }}">
-                            {{ $statusLabels[$document->status] ?? $document->status }}
-                        </span>
+                        <x-common.status-badge :status="$document->status" fallback="active" />
                     </td>
                     <td class="px-4 py-3 text-right">
                         <a href="{{ Storage::url($document->file_path) }}" target="_blank" class="{{ $btn['view'] }}">เปิดไฟล์</a>
