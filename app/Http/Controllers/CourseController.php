@@ -8,12 +8,17 @@ use App\Models\Category;
 use App\Models\Course;
 use App\Models\Instructor;
 use App\Models\Subject;
+use App\Support\CourseDeletion;
+use App\Support\DocumentSequence;
+use App\Support\MediaStorage;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
+use InvalidArgumentException;
+use Throwable;
 
 class CourseController extends Controller
 {
@@ -30,13 +35,14 @@ class CourseController extends Controller
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($inner) use ($search) {
                     $inner->where('name', 'like', "%{$search}%")
+                        ->orWhere('code', 'like', "%{$search}%")
                         ->orWhere('short_description', 'like', "%{$search}%")
                         ->orWhere('description', 'like', "%{$search}%");
                 });
             })
-            ->when($status !== '', fn ($query) => $query->where('status', $status))
-            ->when($subjectId, fn ($query) => $query->where('subject_id', $subjectId))
-            ->when($categoryId, fn ($query) => $query->where('category_id', $categoryId))
+            ->when($status !== '', fn($query) => $query->where('status', $status))
+            ->when($subjectId, fn($query) => $query->where('subject_id', $subjectId))
+            ->when($categoryId, fn($query) => $query->where('category_id', $categoryId))
             ->latest()
             ->paginate(15)
             ->withQueryString();
@@ -69,12 +75,18 @@ class CourseController extends Controller
     {
         $data = $this->preparePayload($request->validated());
         $data['slug'] = $this->uniqueSlug($data['name']);
-
-        if ($request->hasFile('thumbnail')) {
-            $data['thumbnail'] = $request->file('thumbnail')->store('courses', 'public');
-        }
+        $data['code'] = DocumentSequence::nextCourse();
 
         $course = Course::query()->create($data);
+
+        if ($request->hasFile('thumbnail')) {
+            $course->update([
+                'thumbnail' => MediaStorage::storeCourseThumbnail(
+                    $request->file('thumbnail'),
+                    $course->id
+                ),
+            ]);
+        }
 
         return redirect()
             ->route('courses.show', $course)
@@ -87,19 +99,22 @@ class CourseController extends Controller
             'category',
             'subject',
             'instructor',
-            'chapters' => fn ($query) => $query->orderBy('sort_order')->orderBy('id'),
+            'chapters' => fn($query) => $query->orderBy('seq')->orderBy('id'),
             'chapters.videos',
             'chapters.documents',
-            'assessments' => fn ($query) => $query->orderBy('title'),
+            'assessments' => fn($query) => $query->orderBy('title'),
+            'assessments.questions.choices',
         ]);
 
         $course->loadCount(['chapters', 'enrollments', 'reviews']);
 
         $selectedChapterId = $request->integer('chapter') ?: $course->chapters->first()?->id;
         $selectedChapter = $course->chapters->firstWhere('id', $selectedChapterId);
+        $selectedAssessmentId = $request->integer('assessment') ?: null;
+        $selectedAssessment = $course->assessments->firstWhere('id', $selectedAssessmentId);
 
-        $videoCount = $course->chapters->sum(fn ($chapter) => $chapter->videos->count());
-        $documentCount = $course->chapters->sum(fn ($chapter) => $chapter->documents->count());
+        $videoCount = $course->chapters->sum(fn($chapter) => $chapter->videos->count());
+        $documentCount = $course->chapters->sum(fn($chapter) => $chapter->documents->count());
         $quizCount = $course->assessments->whereIn('type', ['quiz', 'exercise'])->count();
         $examCount = $course->assessments->where('type', 'exam')->count();
 
@@ -107,6 +122,7 @@ class CourseController extends Controller
             'title' => $course->name,
             'course' => $course,
             'selectedChapter' => $selectedChapter,
+            'selectedAssessment' => $selectedAssessment,
             'activeTab' => $request->string('tab')->toString() ?: 'chapters',
             'stats' => [
                 'videos' => $videoCount,
@@ -139,15 +155,22 @@ class CourseController extends Controller
         }
 
         if ($request->boolean('remove_thumbnail') && $course->thumbnail) {
-            Storage::disk('public')->delete($course->thumbnail);
+            MediaStorage::delete($course->thumbnail);
             $data['thumbnail'] = null;
         }
 
         if ($request->hasFile('thumbnail')) {
-            if ($course->thumbnail) {
-                Storage::disk('public')->delete($course->thumbnail);
+            $newPath = MediaStorage::courseThumbnailPath($course->id);
+
+            // Remove legacy / previous path if different from the fixed WebP path.
+            if ($course->thumbnail && $course->thumbnail !== $newPath) {
+                MediaStorage::delete($course->thumbnail);
             }
-            $data['thumbnail'] = $request->file('thumbnail')->store('courses', 'public');
+
+            $data['thumbnail'] = MediaStorage::storeCourseThumbnail(
+                $request->file('thumbnail'),
+                $course->id
+            );
         }
 
         unset($data['remove_thumbnail']);
@@ -176,6 +199,38 @@ class CourseController extends Controller
         return redirect()
             ->route('courses.show', $course)
             ->with('success', 'อัปเดตสถานะคอร์สเรียบร้อยแล้ว');
+    }
+
+    public function deletionSummary(Course $course): JsonResponse
+    {
+        return response()->json(CourseDeletion::summary($course));
+    }
+
+    public function deleteStep(Request $request, Course $course): JsonResponse
+    {
+        $data = $request->validate([
+            'step' => ['required', 'string', 'in:'.implode(',', CourseDeletion::stepKeys())],
+        ]);
+
+        try {
+            $result = CourseDeletion::runStep($course, $data['step']);
+
+            return response()->json($result);
+        } catch (InvalidArgumentException $exception) {
+            return response()->json([
+                'ok' => false,
+                'step' => $data['step'],
+                'message' => $exception->getMessage(),
+            ], 422);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return response()->json([
+                'ok' => false,
+                'step' => $data['step'],
+                'message' => 'เกิดข้อผิดพลาดระหว่างลบ: '.$exception->getMessage(),
+            ], 500);
+        }
     }
 
     public function destroy(Course $course): RedirectResponse
@@ -265,11 +320,11 @@ class CourseController extends Controller
 
         while (
             Course::withTrashed()
-                ->where('slug', $slug)
-                ->when($ignoreId, fn ($query) => $query->where('id', '!=', $ignoreId))
-                ->exists()
+            ->where('slug', $slug)
+            ->when($ignoreId, fn($query) => $query->where('id', '!=', $ignoreId))
+            ->exists()
         ) {
-            $slug = $base.'-'.$counter;
+            $slug = $base . '-' . $counter;
             $counter++;
         }
 

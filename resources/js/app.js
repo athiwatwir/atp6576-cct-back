@@ -1,6 +1,7 @@
 import './bootstrap';
 import Alpine from 'alpinejs';
 import ApexCharts from 'apexcharts';
+import Sortable from 'sortablejs';
 
 // flatpickr
 import flatpickr from 'flatpickr';
@@ -8,12 +9,17 @@ import 'flatpickr/dist/flatpickr.min.css';
 // FullCalendar
 import { Calendar } from '@fullcalendar/core';
 
-
+import { registerPageLoading } from './loading';
 
 window.Alpine = Alpine;
 window.ApexCharts = ApexCharts;
 window.flatpickr = flatpickr;
 window.FullCalendar = Calendar;
+window.Sortable = Sortable;
+
+document.addEventListener('alpine:init', () => {
+    registerPageLoading(Alpine);
+});
 
 Alpine.start();
 

@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
+use App\Models\Concerns\LogsActivity;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -15,7 +16,24 @@ use Illuminate\Notifications\Notifiable;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, SoftDeletes;
+    use HasFactory, LogsActivity, Notifiable, SoftDeletes;
+
+    /**
+     * @var list<string>
+     */
+    public array $auditExclude = [
+        'password',
+        'remember_token',
+        'updated_at',
+        'created_at',
+        'last_login_at',
+        'email_verified_at',
+    ];
+
+    public function getAuditLabel(): string
+    {
+        return 'ผู้ใช้ '.$this->name.' ('.$this->email.')';
+    }
 
     /**
      * The attributes that are mass assignable.

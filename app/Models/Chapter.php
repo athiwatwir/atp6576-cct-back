@@ -16,7 +16,7 @@ class Chapter extends Model
         'title',
         'description',
         'sort_order',
-        'status',
+        'seq',
     ];
 
     public function course(): BelongsTo

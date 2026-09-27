@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Courses;
 
+use App\Enums\MediaType;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -38,7 +39,8 @@ class StoreCourseRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'short_description' => ['nullable', 'string'],
             'description' => ['nullable', 'string'],
-            'thumbnail' => ['nullable', 'image', 'max:2048'],
+            'thumbnail' => MediaType::CourseThumbnail->rules(),
+            'banner' => MediaType::CourseBanner->rules(),
             'price' => ['required', 'numeric', 'min:0'],
             'sale_price' => ['nullable', 'numeric', 'min:0', 'lte:price'],
             'status' => ['required', Rule::in(['draft', 'published', 'inactive'])],

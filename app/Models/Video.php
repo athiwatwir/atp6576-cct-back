@@ -57,4 +57,9 @@ class Video extends Model
     {
         return $this->hasMany(Course::class, 'preview_video_id');
     }
+
+    public function getUrlAttribute(): ?string
+    {
+        return \App\Support\MediaStorage::url($this->storage_key);
+    }
 }

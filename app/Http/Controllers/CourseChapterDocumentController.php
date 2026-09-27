@@ -8,7 +8,6 @@ use App\Models\Document;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rule;
 
 class CourseChapterDocumentController extends Controller
 {
@@ -21,11 +20,10 @@ class CourseChapterDocumentController extends Controller
             'description' => ['nullable', 'string'],
             'file' => ['required', 'file', 'max:10240'],
             'is_free' => ['nullable', 'boolean'],
-            'status' => ['required', Rule::in(['active', 'inactive'])],
         ]);
 
         $file = $request->file('file');
-        $path = $file->store('documents', 'public');
+        $path = $file->store("documents/{$course->id}/{$chapter->id}", 'public');
 
         $document = Document::query()->create([
             'title' => $data['title'],
@@ -35,7 +33,6 @@ class CourseChapterDocumentController extends Controller
             'mime_type' => $file->getClientMimeType(),
             'file_size' => $file->getSize(),
             'is_free' => (bool) ($data['is_free'] ?? false),
-            'status' => $data['status'],
         ]);
 
         $sortOrder = ((int) $chapter->documents()->max('chapter_documents.sort_order')) + 1;

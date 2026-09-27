@@ -1,11 +1,19 @@
 <?php
 
+use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\BookController;
 use App\Http\Controllers\CourseAssessmentController;
+use App\Http\Controllers\CourseAssessmentQuestionController;
 use App\Http\Controllers\CourseChapterController;
 use App\Http\Controllers\CourseChapterDocumentController;
 use App\Http\Controllers\CourseChapterVideoController;
 use App\Http\Controllers\CourseController;
+use App\Http\Controllers\ExamController;
+use App\Http\Controllers\ExamQuestionController;
+use App\Http\Controllers\FinanceController;
+use App\Http\Controllers\InstructorController;
+use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\UserController;
@@ -19,12 +27,30 @@ Route::middleware('guest')->group(function () {
 Route::middleware(['auth', 'backend'])->group(function () {
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 
+    Route::get('audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
+    Route::get('audit-logs/{auditLog}', [AuditLogController::class, 'show'])->name('audit-logs.show');
+
     Route::resource('users', UserController::class)->except(['show']);
+    Route::resource('instructors', InstructorController::class)->except(['show']);
     Route::resource('subjects', SubjectController::class)->except(['show']);
     Route::resource('courses', CourseController::class);
     Route::put('courses/{course}/status', [CourseController::class, 'updateStatus'])->name('courses.status');
+    Route::get('courses/{course}/deletion-summary', [CourseController::class, 'deletionSummary'])->name('courses.deletion-summary');
+    Route::post('courses/{course}/delete-step', [CourseController::class, 'deleteStep'])->name('courses.delete-step');
+
+    Route::resource('exams', ExamController::class)->parameters(['exams' => 'assessment']);
+    Route::post('exams/{assessment}/questions', [ExamQuestionController::class, 'store'])->name('exams.questions.store');
+    Route::put('exams/{assessment}/questions/{question}', [ExamQuestionController::class, 'update'])->name('exams.questions.update');
+    Route::delete('exams/{assessment}/questions/{question}', [ExamQuestionController::class, 'destroy'])->name('exams.questions.destroy');
+
+    Route::resource('books', BookController::class)->parameters(['books' => 'product']);
+    Route::resource('orders', OrderController::class);
+    Route::put('orders/{order}/shipping-status', [OrderController::class, 'updateShippingStatus'])->name('orders.shipping-status');
+    Route::put('orders/{order}/tracking', [OrderController::class, 'updateTracking'])->name('orders.tracking');
+    Route::get('finance', [FinanceController::class, 'index'])->name('finance.index');
 
     Route::post('courses/{course}/chapters', [CourseChapterController::class, 'store'])->name('courses.chapters.store');
+    Route::put('courses/{course}/chapters/reorder', [CourseChapterController::class, 'reorder'])->name('courses.chapters.reorder');
     Route::put('courses/{course}/chapters/{chapter}', [CourseChapterController::class, 'update'])->name('courses.chapters.update');
     Route::delete('courses/{course}/chapters/{chapter}', [CourseChapterController::class, 'destroy'])->name('courses.chapters.destroy');
 
@@ -36,7 +62,12 @@ Route::middleware(['auth', 'backend'])->group(function () {
     Route::delete('courses/{course}/chapters/{chapter}/documents/{document}', [CourseChapterDocumentController::class, 'destroy'])->name('courses.chapters.documents.destroy');
 
     Route::post('courses/{course}/assessments', [CourseAssessmentController::class, 'store'])->name('courses.assessments.store');
+    Route::put('courses/{course}/assessments/{assessment}', [CourseAssessmentController::class, 'update'])->name('courses.assessments.update');
     Route::delete('courses/{course}/assessments/{assessment}', [CourseAssessmentController::class, 'destroy'])->name('courses.assessments.destroy');
+
+    Route::post('courses/{course}/assessments/{assessment}/questions', [CourseAssessmentQuestionController::class, 'store'])->name('courses.assessments.questions.store');
+    Route::put('courses/{course}/assessments/{assessment}/questions/{question}', [CourseAssessmentQuestionController::class, 'update'])->name('courses.assessments.questions.update');
+    Route::delete('courses/{course}/assessments/{assessment}/questions/{question}', [CourseAssessmentQuestionController::class, 'destroy'])->name('courses.assessments.questions.destroy');
 
     // dashboard pages
     Route::get('/', function () {

@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap') layer(base);
+@import url('https://fonts.googleapis.com/css2?family=Google+Sans:ital,opsz,wght@0,17..18,400..700;1,17..18,400..700&display=swap') layer(base);
 @import 'prismjs/themes/prism.min.css';
 @import 'tailwindcss';
 
@@ -8,12 +9,16 @@
 @source '../**/*.blade.php';
 @source '../**/*.js';
 
+[x-cloak] {
+  display: none !important;
+}
 
 @custom-variant dark (&:is(.dark *));
 
 @theme {
   --font-*: initial;
   --font-outfit: Outfit, sans-serif;
+  --font-google-sans: "Google Sans", sans-serif;
 
   --breakpoint-*: initial;
   --breakpoint-2xsm: 375px;
@@ -190,6 +195,15 @@
   }
   body {
     @apply relative font-normal font-outfit z-1 bg-gray-50;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-google-sans;
   }
 }
 

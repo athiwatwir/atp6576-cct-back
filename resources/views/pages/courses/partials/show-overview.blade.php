@@ -5,21 +5,21 @@
     </div>
 
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div class="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
+        <div class="rounded-2xl border border-gray-200 bg-gray-50/50 p-4 shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03]">
             <div class="text-2xl font-semibold text-gray-800 dark:text-white/90">{{ $course->chapters_count }}</div>
             <div class="mt-1 text-sm text-gray-500">บทเรียน (Chapters)</div>
         </div>
-        <div class="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
-            <div class="text-2xl font-semibold text-gray-800 dark:text-white/90">{{ $stats['videos'] }}</div>
-            <div class="mt-1 text-sm text-gray-500">วิดีโอ</div>
+        <div class="rounded-2xl border border-blue-light-100 bg-blue-light-50/50 p-4 shadow-theme-xs dark:border-blue-light-500/20 dark:bg-blue-light-500/10">
+            <div class="text-2xl font-semibold text-blue-light-700 dark:text-blue-light-400">{{ $stats['videos'] }}</div>
+            <div class="mt-1 text-sm text-blue-light-600/80 dark:text-blue-light-400/80">วิดีโอ</div>
         </div>
-        <div class="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
-            <div class="text-2xl font-semibold text-gray-800 dark:text-white/90">{{ $stats['documents'] }}</div>
-            <div class="mt-1 text-sm text-gray-500">เอกสาร</div>
+        <div class="rounded-2xl border border-success-100 bg-success-50/50 p-4 shadow-theme-xs dark:border-success-500/20 dark:bg-success-500/10">
+            <div class="text-2xl font-semibold text-success-700 dark:text-success-400">{{ $stats['documents'] }}</div>
+            <div class="mt-1 text-sm text-success-600/80 dark:text-success-400/80">เอกสาร</div>
         </div>
-        <div class="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
-            <div class="text-2xl font-semibold text-gray-800 dark:text-white/90">{{ $stats['quizzes'] + $stats['exams'] }}</div>
-            <div class="mt-1 text-sm text-gray-500">แบบทดสอบทั้งหมด</div>
+        <div class="rounded-2xl border border-warning-100 bg-warning-50/50 p-4 shadow-theme-xs dark:border-warning-500/20 dark:bg-warning-500/10">
+            <div class="text-2xl font-semibold text-warning-700 dark:text-warning-400">{{ $stats['quizzes'] + $stats['exams'] }}</div>
+            <div class="mt-1 text-sm text-warning-600/80 dark:text-warning-400/80">แบบทดสอบทั้งหมด</div>
         </div>
     </div>
 
@@ -42,7 +42,7 @@
                         </div>
                     </div>
                     <button type="button" @click="tab = 'chapters'; selectedChapter = {{ $chapter->id }}"
-                        class="text-brand-500 text-sm font-medium hover:underline">
+                        class="{{ $btn['view'] }}">
                         จัดการ
                     </button>
                 </div>

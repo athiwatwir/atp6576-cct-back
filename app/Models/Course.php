@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -10,9 +11,23 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Course extends Model
 {
+    use LogsActivity;
     use SoftDeletes;
 
+    public array $auditExclude = [
+        'updated_at',
+        'created_at',
+        'description',
+        'short_description',
+    ];
+
+    public function getAuditLabel(): string
+    {
+        return 'คอร์ส '.($this->code ?: '#'.$this->id).' '.$this->name;
+    }
+
     protected $fillable = [
+        'code',
         'category_id',
         'subject_id',
         'instructor_id',
@@ -64,7 +79,7 @@ class Course extends Model
 
     public function chapters(): HasMany
     {
-        return $this->hasMany(Chapter::class)->orderBy('sort_order');
+        return $this->hasMany(Chapter::class)->orderBy('seq');
     }
 
     public function curriculums(): BelongsToMany
@@ -123,5 +138,10 @@ class Course extends Model
     public function trialAccess(): HasMany
     {
         return $this->hasMany(TrialAccess::class);
+    }
+
+    public function getThumbnailUrlAttribute(): ?string
+    {
+        return \App\Support\MediaStorage::url($this->thumbnail);
     }
 }

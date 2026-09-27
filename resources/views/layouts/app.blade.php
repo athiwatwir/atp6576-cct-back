@@ -10,6 +10,7 @@
 
     <!-- Scripts -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @stack('styles')
 
     <!-- Alpine.js -->
     {{-- <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script> --}}
@@ -36,10 +37,10 @@
                     const body = document.body;
                     if (this.theme === 'dark') {
                         html.classList.add('dark');
-                        body.classList.add('dark', 'bg-gray-900');
+                        body?.classList.add('dark', 'bg-gray-900');
                     } else {
                         html.classList.remove('dark');
-                        body.classList.remove('dark', 'bg-gray-900');
+                        body?.classList.remove('dark', 'bg-gray-900');
                     }
                 }
             });
@@ -82,12 +83,11 @@
             const savedTheme = localStorage.getItem('theme');
             const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
             const theme = savedTheme || systemTheme;
+            const html = document.documentElement;
             if (theme === 'dark') {
-                document.documentElement.classList.add('dark');
-                document.body.classList.add('dark', 'bg-gray-900');
+                html.classList.add('dark');
             } else {
-                document.documentElement.classList.remove('dark');
-                document.body.classList.remove('dark', 'bg-gray-900');
+                html.classList.remove('dark');
             }
         })();
 
@@ -110,6 +110,7 @@
     {{-- preloader --}}
     <x-common.preloader />
     {{-- preloader end --}}
+    <x-common.page-loading />
 
     <div class="min-h-screen xl:flex">
         @include('layouts.backdrop')
@@ -130,8 +131,7 @@
 
     </div>
 
+    @stack('scripts')
 </body>
-
-@stack('scripts')
 
 </html>

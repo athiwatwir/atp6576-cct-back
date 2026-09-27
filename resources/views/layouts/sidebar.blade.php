@@ -9,7 +9,6 @@ $currentPath = request()->path();
 <aside id="sidebar" class="fixed flex flex-col mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen transition-all duration-300 ease-in-out z-99999 border-r border-gray-200" x-data="{
         openSubmenus: {},
         init() {
-            // Auto-open Dashboard menu on page load
             this.initializeActiveMenus();
         },
         initializeActiveMenus() {
@@ -194,11 +193,6 @@ $currentPath = request()->path();
                 @endforeach
             </div>
         </nav>
-
-        <!-- Sidebar Widget -->
-        <div x-data x-show="$store.sidebar.isExpanded || $store.sidebar.isHovered || $store.sidebar.isMobileOpen" x-transition class="mt-auto">
-            @include('layouts.sidebar-widget')
-        </div>
 
     </div>
 </aside>

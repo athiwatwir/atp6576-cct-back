@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -9,12 +10,20 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Assessment extends Model
 {
+    use LogsActivity;
     use SoftDeletes;
 
+    public function getAuditLabel(): string
+    {
+        return 'ข้อสอบ '.($this->code ?: '#'.$this->id).' '.$this->title;
+    }
+
     protected $fillable = [
+        'code',
         'title',
         'slug',
         'description',
+        'thumbnail',
         'type',
         'status',
         'duration_minutes',
@@ -71,5 +80,22 @@ class Assessment extends Model
     public function orderItems(): HasMany
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    public function scopeIndependent($query)
+    {
+        return $query->where('is_independent', true);
+    }
+
+    public function scopeForSale($query)
+    {
+        return $query->independent()
+            ->where('type', 'exam')
+            ->where('status', 'published');
+    }
+
+    public function getThumbnailUrlAttribute(): ?string
+    {
+        return \App\Support\MediaStorage::url($this->thumbnail);
     }
 }
