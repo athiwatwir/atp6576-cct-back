@@ -42,4 +42,13 @@ class Payment extends Model
     {
         return $this->hasMany(PaymentSlip::class);
     }
+
+    public function sourceLabel(): string
+    {
+        return match ($this->metadata['channel'] ?? null) {
+            'student-admin' => 'สมัครเรียน',
+            'storefront' => 'เว็บไซต์',
+            default => 'ออเดอร์',
+        };
+    }
 }

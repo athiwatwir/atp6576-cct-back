@@ -4,14 +4,21 @@
 @php
 $money = fn ($n) => '฿'.number_format((float) $n, 2);
 $presets = [
-    'today' => ['label' => 'วันนี้', 'from' => now()->toDateString(), 'to' => now()->toDateString()],
-    'week' => ['label' => '7 วัน', 'from' => now()->subDays(6)->toDateString(), 'to' => now()->toDateString()],
-    'month' => ['label' => 'เดือนนี้', 'from' => now()->startOfMonth()->toDateString(), 'to' => now()->toDateString()],
-    'year' => ['label' => 'ปีนี้', 'from' => now()->startOfYear()->toDateString(), 'to' => now()->toDateString()],
+'today' => ['label' => 'วันนี้', 'from' => now()->toDateString(), 'to' => now()->toDateString()],
+'week' => ['label' => '7 วัน', 'from' => now()->subDays(6)->toDateString(), 'to' => now()->toDateString()],
+'month' => ['label' => 'เดือนนี้', 'from' => now()->startOfMonth()->toDateString(), 'to' => now()->toDateString()],
+'year' => ['label' => 'ปีนี้', 'from' => now()->startOfYear()->toDateString(), 'to' => now()->toDateString()],
 ];
 @endphp
 
 <x-common.page-breadcrumb pageTitle="การเงิน" />
+
+@if (session('success'))
+<div class="mb-6 rounded-xl border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-700 dark:border-success-500/30 dark:bg-success-500/10 dark:text-success-400">{{ session('success') }}</div>
+@endif
+@if (session('error'))
+<div class="mb-6 rounded-xl border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-600 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-400">{{ session('error') }}</div>
+@endif
 
 <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
     <div>
@@ -26,23 +33,14 @@ $presets = [
     <form method="GET" action="{{ route('finance.index') }}" class="flex flex-col gap-3 lg:flex-row lg:items-end">
         <div class="flex flex-wrap gap-2 lg:mr-auto">
             @foreach ($presets as $key => $item)
-                <a href="{{ route('finance.index', ['preset' => $key, 'from' => $item['from'], 'to' => $item['to']]) }}"
-                    class="inline-flex items-center rounded-lg px-3 py-2 text-xs font-medium {{ $preset === $key || ($from->toDateString() === $item['from'] && $to->toDateString() === $item['to']) ? 'bg-brand-500 text-white' : 'border border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/5' }}">
-                    {{ $item['label'] }}
-                </a>
+            <a href="{{ route('finance.index', ['preset' => $key, 'from' => $item['from'], 'to' => $item['to']]) }}" class="inline-flex items-center rounded-lg px-3 py-2 text-xs font-medium {{ $preset === $key || ($from->toDateString() === $item['from'] && $to->toDateString() === $item['to']) ? 'bg-brand-500 text-white' : 'border border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/5' }}">
+                {{ $item['label'] }}
+            </a>
             @endforeach
         </div>
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:w-auto">
-            <div>
-                <label class="mb-1 block text-xs font-medium text-gray-500">จากวันที่</label>
-                <input type="date" name="from" value="{{ $from->toDateString() }}"
-                    class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
-            </div>
-            <div>
-                <label class="mb-1 block text-xs font-medium text-gray-500">ถึงวันที่</label>
-                <input type="date" name="to" value="{{ $to->toDateString() }}"
-                    class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
-            </div>
+            <x-form.date-picker name="from" label="จากวันที่" :value="$from" />
+            <x-form.date-picker name="to" label="ถึงวันที่" :value="$to" />
             <div class="flex items-end gap-2">
                 <button type="submit" class="bg-brand-500 hover:bg-brand-600 inline-flex h-11 flex-1 items-center justify-center rounded-lg px-4 text-sm font-medium text-white">ดูรายงาน</button>
             </div>
@@ -74,195 +72,80 @@ $presets = [
     </div>
 </div>
 
-<div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-    <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-        <div class="text-sm text-gray-500">ยอดสินค้า (ชำระแล้ว)</div>
-        <div class="mt-2 text-lg font-semibold text-gray-800 dark:text-white/90">{{ $money($summary['subtotal']) }}</div>
-    </div>
-    <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-        <div class="text-sm text-gray-500">ค่าจัดส่งที่เก็บได้</div>
-        <div class="mt-2 text-lg font-semibold text-gray-800 dark:text-white/90">{{ $money($summary['shipping']) }}</div>
-    </div>
-    <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-        <div class="text-sm text-gray-500">ส่วนลดที่ให้ไป</div>
-        <div class="mt-2 text-lg font-semibold text-error-600 dark:text-error-400">-{{ $money($summary['discount']) }}</div>
-    </div>
-</div>
-
-<div class="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-12">
-    {{-- By payment method --}}
-    <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] xl:col-span-4">
-        <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
-            <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">รายได้ตามวิธีชำระ</h3>
-        </div>
-        <div class="divide-y divide-gray-100 dark:divide-gray-800">
-            @forelse ($byPaymentMethod as $row)
-                <div class="flex items-center justify-between px-5 py-3 text-sm">
-                    <div>
-                        <div class="font-medium text-gray-800 dark:text-white/90">{{ $row['label'] }}</div>
-                        <div class="text-xs text-gray-400">{{ number_format($row['payments']) }} รายการ</div>
-                    </div>
-                    <div class="font-semibold text-gray-800 dark:text-white/90">{{ $money($row['amount']) }}</div>
-                </div>
-            @empty
-                <div class="px-5 py-8 text-center text-sm text-gray-500">ยังไม่มีข้อมูล</div>
-            @endforelse
-        </div>
-    </div>
-
-    {{-- By item type --}}
-    <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] xl:col-span-4">
-        <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
-            <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">รายได้ตามประเภทสินค้า</h3>
-        </div>
-        <div class="divide-y divide-gray-100 dark:divide-gray-800">
-            @forelse ($byItemType as $row)
-                <div class="flex items-center justify-between px-5 py-3 text-sm">
-                    <div>
-                        <div class="font-medium text-gray-800 dark:text-white/90">{{ $row['label'] }}</div>
-                        <div class="text-xs text-gray-400">{{ number_format($row['quantity']) }} ชิ้น · {{ number_format($row['lines']) }} รายการ</div>
-                    </div>
-                    <div class="font-semibold text-gray-800 dark:text-white/90">{{ $money($row['amount']) }}</div>
-                </div>
-            @empty
-                <div class="px-5 py-8 text-center text-sm text-gray-500">ยังไม่มีข้อมูล</div>
-            @endforelse
-        </div>
-    </div>
-
-    {{-- By payment status --}}
-    <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] xl:col-span-4">
-        <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
-            <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">ออเดอร์ตามสถานะชำระ</h3>
-        </div>
-        <div class="divide-y divide-gray-100 dark:divide-gray-800">
-            @forelse ($byPaymentStatus as $row)
-                <div class="flex items-center justify-between px-5 py-3 text-sm">
-                    <div class="flex items-center gap-2">
-                        <x-common.status-badge class="px-2 py-0.5 text-[11px]" :status="\App\Enums\PaymentStatus::tryFrom($row['status']) ?? $row['status']" />
-                        <span class="text-xs text-gray-400">{{ number_format($row['orders']) }}</span>
-                    </div>
-                    <div class="font-semibold text-gray-800 dark:text-white/90">{{ $money($row['amount']) }}</div>
-                </div>
-            @empty
-                <div class="px-5 py-8 text-center text-sm text-gray-500">ยังไม่มีข้อมูล</div>
-            @endforelse
-        </div>
-    </div>
-</div>
-
-<div class="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-12">
-    {{-- Daily revenue --}}
-    <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] xl:col-span-5">
-        <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
-            <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">รายได้รายวัน (ชำระแล้ว)</h3>
-        </div>
-        <div class="max-h-80 overflow-y-auto">
-            <table class="min-w-full">
-                <thead class="sticky top-0 bg-white dark:bg-gray-900">
-                    <tr class="border-b border-gray-100 dark:border-gray-800">
-                        <th class="px-5 py-3 text-left text-xs font-medium text-gray-500">วันที่</th>
-                        <th class="px-5 py-3 text-left text-xs font-medium text-gray-500">ออเดอร์</th>
-                        <th class="px-5 py-3 text-right text-xs font-medium text-gray-500">ยอด</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                    @forelse ($dailyRevenue as $row)
-                        <tr>
-                            <td class="px-5 py-3 text-sm text-gray-700 dark:text-gray-300">{{ $row['day'] }}</td>
-                            <td class="px-5 py-3 text-sm text-gray-500">{{ number_format($row['orders']) }}</td>
-                            <td class="px-5 py-3 text-right text-sm font-medium text-gray-800 dark:text-white/90">{{ $money($row['amount']) }}</td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="3" class="px-5 py-8 text-center text-sm text-gray-500">ยังไม่มีรายได้ในช่วงนี้</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    {{-- Awaiting verification --}}
-    <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] xl:col-span-7">
-        <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
-            <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">รอตรวจสอบการชำระ</h3>
-            <a href="{{ route('orders.index', ['payment_status' => 'awaiting_verification']) }}" class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">ดูทั้งหมด</a>
-        </div>
-        <div class="overflow-x-auto">
-            <table class="min-w-full">
-                <thead>
-                    <tr class="border-b border-gray-100 dark:border-gray-800">
-                        <th class="px-5 py-3 text-left text-xs font-medium text-gray-500">ออเดอร์</th>
-                        <th class="px-5 py-3 text-left text-xs font-medium text-gray-500">ลูกค้า</th>
-                        <th class="px-5 py-3 text-left text-xs font-medium text-gray-500">วิธีชำระ</th>
-                        <th class="px-5 py-3 text-right text-xs font-medium text-gray-500">ยอด</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                    @forelse ($awaitingOrders as $order)
-                        <tr>
-                            <td class="px-5 py-3">
-                                <a href="{{ route('orders.show', $order) }}" class="font-medium text-brand-600 hover:underline dark:text-brand-400">{{ $order->order_no }}</a>
-                                <div class="text-[11px] text-gray-400">{{ $order->created_at?->format('d/m/Y H:i') }}</div>
-                            </td>
-                            <td class="px-5 py-3 text-sm text-gray-700 dark:text-gray-300">{{ $order->user?->name ?? '-' }}</td>
-                            <td class="px-5 py-3 text-sm text-gray-500">
-                                {{ \App\Enums\PaymentMethod::tryFrom($order->latestPayment?->payment_method ?? '')?->label() ?? '-' }}
-                            </td>
-                            <td class="px-5 py-3 text-right text-sm font-medium text-gray-800 dark:text-white/90">{{ $money($order->total_amount) }}</td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="4" class="px-5 py-8 text-center text-sm text-gray-500">ไม่มีรายการรอตรวจสอบ</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-{{-- Recent paid --}}
 <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-    <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
-        <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">ออเดอร์ที่ชำระแล้วล่าสุด</h3>
-        <a href="{{ route('orders.index', ['payment_status' => 'paid']) }}" class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">ดูออเดอร์ทั้งหมด</a>
+    <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
+        <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">รายการชำระเงินทั้งหมด</h3>
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">ทุกสถานะในช่วงวันที่ที่เลือก แยกตามที่มาเป็นออเดอร์หรือสมัครเรียน</p>
     </div>
     <div class="overflow-x-auto">
         <table class="min-w-full">
             <thead>
                 <tr class="border-b border-gray-100 dark:border-gray-800">
-                    <th class="px-5 py-3 text-left text-xs font-medium text-gray-500">ออเดอร์</th>
+                    <th class="px-5 py-3 text-left text-xs font-medium text-gray-500">วันที่</th>
+                    <th class="px-5 py-3 text-left text-xs font-medium text-gray-500">ที่มา</th>
                     <th class="px-5 py-3 text-left text-xs font-medium text-gray-500">ลูกค้า</th>
                     <th class="px-5 py-3 text-left text-xs font-medium text-gray-500">วิธีชำระ</th>
-                    <th class="px-5 py-3 text-left text-xs font-medium text-gray-500">ชำระเมื่อ</th>
-                    <th class="px-5 py-3 text-right text-xs font-medium text-gray-500">ยอดรวม</th>
+                    <th class="px-5 py-3 text-right text-xs font-medium text-gray-500">ยอด</th>
+                    <th class="px-5 py-3 text-left text-xs font-medium text-gray-500">สถานะ</th>
+                    <th class="px-5 py-3 text-right text-xs font-medium text-gray-500">ตรวจสอบ</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                @forelse ($recentPaid as $order)
-                    <tr>
-                        <td class="px-5 py-3">
-                            <a href="{{ route('orders.show', $order) }}" class="font-medium text-brand-600 hover:underline dark:text-brand-400">{{ $order->order_no }}</a>
-                        </td>
-                        <td class="px-5 py-3 text-sm text-gray-700 dark:text-gray-300">
-                            <div>{{ $order->user?->name ?? '-' }}</div>
-                            <div class="text-xs text-gray-400">{{ $order->user?->email }}</div>
-                        </td>
-                        <td class="px-5 py-3 text-sm text-gray-500">
-                            {{ \App\Enums\PaymentMethod::tryFrom($order->latestPayment?->payment_method ?? '')?->label() ?? '-' }}
-                        </td>
-                        <td class="px-5 py-3 text-sm text-gray-500">{{ $order->paid_at?->format('d/m/Y H:i') ?? '-' }}</td>
-                        <td class="px-5 py-3 text-right text-sm font-semibold text-gray-800 dark:text-white/90">{{ $money($order->total_amount) }}</td>
-                    </tr>
+                @forelse ($payments as $payment)
+                @php
+                    $order = $payment->order;
+                    $items = $order?->items->pluck('item_name')->filter()->join(', ');
+                @endphp
+                <tr>
+                    <td class="px-5 py-3 text-sm text-gray-500 whitespace-nowrap">{{ $payment->created_at?->format('d/m/Y H:i') }}</td>
+                    <td class="px-5 py-3">
+                        <span class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium {{ $payment->sourceLabel() === 'สมัครเรียน' ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400' : 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300' }}">{{ $payment->sourceLabel() }}</span>
+                        @if ($order)
+                        <div class="mt-1">
+                            <a href="{{ route('orders.show', $order) }}" class="text-sm font-medium text-brand-600 hover:underline dark:text-brand-400">{{ $order->order_no }}</a>
+                        </div>
+                        @endif
+                        @if ($items)
+                        <div class="mt-0.5 max-w-xs text-xs text-gray-500 dark:text-gray-400">{{ $items }}</div>
+                        @endif
+                    </td>
+                    <td class="px-5 py-3 text-sm text-gray-700 dark:text-gray-300">
+                        <div>{{ $order?->user?->name ?? '-' }}</div>
+                        <div class="text-xs text-gray-400">{{ $order?->user?->email }}</div>
+                    </td>
+                    <td class="px-5 py-3 text-sm text-gray-500 whitespace-nowrap">{{ \App\Enums\PaymentMethod::tryFrom((string) $payment->payment_method)?->label() ?? $payment->payment_method }}</td>
+                    <td class="px-5 py-3 text-right text-sm font-semibold text-gray-800 dark:text-white/90 whitespace-nowrap">{{ $money($payment->amount) }}</td>
+                    <td class="px-5 py-3">
+                        <x-common.status-badge :status="\App\Enums\PaymentStatus::tryFrom((string) $payment->status) ?? $payment->status" />
+                    </td>
+                    <td class="px-5 py-3">
+                        <form method="POST" action="{{ route('finance.payments.update', $payment) }}" class="flex items-center justify-end gap-2" onsubmit="return confirm('เปลี่ยนสถานะการชำระเงินนี้หรือไม่?')">
+                            @csrf
+                            @method('PUT')
+                            <input type="hidden" name="from" value="{{ $from->toDateString() }}">
+                            <input type="hidden" name="to" value="{{ $to->toDateString() }}">
+                            @if ($preset)
+                            <input type="hidden" name="preset" value="{{ $preset }}">
+                            @endif
+                            <select name="status" class="dark:bg-dark-900 h-9 rounded-lg border border-gray-300 bg-transparent px-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                                @foreach ($paymentStatuses as $value => $label)
+                                <option value="{{ $value }}" @selected($payment->status === $value)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                            <button type="submit" class="inline-flex shrink-0 items-center rounded-lg border border-warning-300 bg-warning-50 px-3 py-2 text-xs font-medium text-warning-700 hover:bg-warning-100 dark:border-warning-500/40 dark:bg-warning-500/10 dark:text-warning-400">ตรวจสอบ</button>
+                        </form>
+                    </td>
+                </tr>
                 @empty
-                    <tr>
-                        <td colspan="5" class="px-5 py-10 text-center text-sm text-gray-500">ยังไม่มีออเดอร์ที่ชำระแล้วในช่วงนี้</td>
-                    </tr>
+                <tr>
+                    <td colspan="7" class="px-5 py-10 text-center text-sm text-gray-500">ยังไม่มีรายการชำระเงินในช่วงนี้</td>
+                </tr>
                 @endforelse
             </tbody>
         </table>
     </div>
+    @if ($payments->hasPages())
+    <div class="border-t border-gray-100 px-5 py-4 dark:border-gray-800">{{ $payments->links() }}</div>
+    @endif
 </div>
 @endsection

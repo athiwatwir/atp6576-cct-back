@@ -145,6 +145,30 @@ class MailService
         );
     }
 
+    public function sendCustomerPurchase(
+        User|string $to,
+        \App\Models\Order $order,
+        ?string $password = null,
+        bool $queue = true,
+    ): void {
+        $items = $order->items->pluck('item_name')->filter()->values()->all();
+
+        $this->sendCustomer(
+            to: $to,
+            subject: 'ผลการสั่งซื้อ #'.$order->order_no,
+            view: 'emails.customer.purchase',
+            data: [
+                'orderNo' => $order->order_no,
+                'amount' => '฿'.number_format((float) $order->total_amount, 2),
+                'items' => $items,
+                'password' => $password,
+                'actionUrl' => config('app.url'),
+                'actionText' => 'เริ่มเรียนเลย',
+            ],
+            queue: $queue,
+        );
+    }
+
     public function sendCustomerForgotPassword(
         User|string $to,
         string $resetUrl,

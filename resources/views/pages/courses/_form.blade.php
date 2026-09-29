@@ -48,18 +48,51 @@ $course = $course ?? null;
         @enderror
     </div>
 
-    <div>
-        <label for="instructor_id" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+    <div x-data="{
+        open: false,
+        instructorId: @js((string) old('instructor_id', $course?->instructor_id ?? '')),
+        instructors: @js($instructors->map(fn ($instructor) => [
+            'id' => (string) $instructor->id,
+            'name' => $instructor->name,
+            'image' => $instructor->image_url,
+        ])->values()),
+        get selected() {
+            return this.instructors.find((item) => item.id === this.instructorId) || null;
+        },
+        choose(id) {
+            this.instructorId = id;
+            this.open = false;
+        },
+    }" @click.outside="open = false">
+        <label id="instructor_id_label" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
             ผู้สอน
         </label>
-        <select id="instructor_id" name="instructor_id" class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-            <option value="">ไม่ระบุ</option>
-            @foreach ($instructors as $instructor)
-            <option value="{{ $instructor->id }}" @selected((int) old('instructor_id', $course?->instructor_id) === $instructor->id)>
-                {{ $instructor->name }}
-            </option>
-            @endforeach
-        </select>
+        <input type="hidden" name="instructor_id" :value="instructorId" />
+        <button type="button" @click="open = !open" aria-labelledby="instructor_id_label"
+            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 flex h-11 w-full items-center gap-2 rounded-lg border border-gray-300 bg-transparent px-3 text-left text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+            <span class="h-7 w-7 shrink-0 overflow-hidden rounded-full border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
+                <img x-show="selected?.image" x-cloak :src="selected?.image || ''" :alt="selected?.name || ''" class="h-full w-full object-cover" />
+                <span x-show="!selected?.image" x-cloak class="flex h-full w-full items-center justify-center text-[9px] text-gray-400">N/A</span>
+            </span>
+            <span class="min-w-0 flex-1 truncate" x-text="selected?.name || 'ไม่ระบุ'"></span>
+        </button>
+        <div x-show="open" x-cloak class="relative z-20">
+            <div class="absolute mt-1 max-h-60 w-full overflow-auto rounded-lg border border-gray-200 bg-white py-1 shadow-theme-sm dark:border-gray-700 dark:bg-gray-900">
+                <button type="button" @click="choose('')" class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/5">
+                    <span class="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-[9px] text-gray-400 dark:border-gray-700">N/A</span>
+                    ไม่ระบุ
+                </button>
+                <template x-for="item in instructors" :key="item.id">
+                    <button type="button" @click="choose(item.id)" class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-800 hover:bg-gray-50 dark:text-white/90 dark:hover:bg-white/5">
+                        <span class="h-7 w-7 shrink-0 overflow-hidden rounded-full border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
+                            <img x-show="item.image" :src="item.image || ''" :alt="item.name" class="h-full w-full object-cover" />
+                            <span x-show="!item.image" class="flex h-full w-full items-center justify-center text-[9px] text-gray-400">N/A</span>
+                        </span>
+                        <span class="truncate" x-text="item.name"></span>
+                    </button>
+                </template>
+            </div>
+        </div>
         @error('instructor_id')
         <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p>
         @enderror

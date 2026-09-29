@@ -9,6 +9,14 @@ $tabs = [
 'exercise' => 'แบบฝึกหัด',
 'book' => 'หนังสือ',
 ];
+$tabCounts = [
+'course' => $curriculum->courses_count,
+'chapter' => $curriculum->chapters_count,
+'video' => $curriculum->videos_count,
+'exam' => $curriculum->exams_count,
+'exercise' => $curriculum->exercises_count,
+'book' => $curriculum->products_count,
+];
 $activeTab = request('tab', 'course');
 if (! array_key_exists($activeTab, $tabs)) {
 $activeTab = 'course';
@@ -105,11 +113,19 @@ $activeTab = 'course';
                 status: '',
                 searchTimer: null,
                 request: null,
+                uploadingVideo: false,
+                uploadProgress: 0,
+                uploadStage: 'idle',
+                uploadVideoError: null,
+                videoUploadOpen: false,
+                playingVideo: false,
+                playingVideoUrl: null,
+                playingVideoTitle: null,
                 isRich() {
                     return this.richTabs.includes(this.tab);
                 },
                 needsCourse() {
-                    return this.tab === 'chapter' || this.tab === 'video' || this.tab === 'exam' || this.tab === 'exercise';
+                    return this.tab === 'chapter' || this.tab === 'exam' || this.tab === 'exercise';
                 },
                 init() {
                     this.loadAttached();
@@ -167,6 +183,52 @@ $activeTab = 'course';
                 },
                 closePicker() {
                     this.pickerOpen = false;
+                },
+                openVideoUpload() {
+                    if (this.uploadingVideo) {
+                        return;
+                    }
+                    this.uploadProgress = 0;
+                    this.uploadStage = 'idle';
+                    this.uploadVideoError = null;
+                    this.videoUploadOpen = true;
+                },
+                closeVideoUpload() {
+                    if (this.uploadingVideo) {
+                        return;
+                    }
+                    this.videoUploadOpen = false;
+                    this.uploadProgress = 0;
+                    this.uploadStage = 'idle';
+                    this.uploadVideoError = null;
+                },
+                uploadVideo(event) {
+                    window.uploadVideoForm(this, event);
+                },
+                openVideoPlayer(url, title) {
+                    if (!url) {
+                        return;
+                    }
+                    this.playingVideoUrl = url;
+                    this.playingVideoTitle = title || 'วิดีโอ';
+                    this.playingVideo = true;
+                    this.$nextTick(() => {
+                        const player = this.$refs.videoPlayer;
+                        if (player) {
+                            player.load();
+                            player.play().catch(() => {});
+                        }
+                    });
+                },
+                closeVideoPlayer() {
+                    const player = this.$refs.videoPlayer;
+                    if (player) {
+                        player.pause();
+                        player.currentTime = 0;
+                    }
+                    this.playingVideo = false;
+                    this.playingVideoUrl = null;
+                    this.playingVideoTitle = null;
                 },
                 toggle(id) {
                     this.selected = this.selected.includes(id)
@@ -249,14 +311,20 @@ $activeTab = 'course';
             <div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
                 <div class="flex flex-wrap gap-2">
                     @foreach ($tabs as $key => $label)
-                    <button type="button" @click="selectTab('{{ $key }}')" :class="tab === '{{ $key }}' ? 'bg-brand-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10'" class="rounded-lg px-3 py-1.5 text-sm font-medium">
+                    <button type="button" @click="selectTab('{{ $key }}')" :class="tab === '{{ $key }}' ? 'bg-brand-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10'" class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium">
                         {{ $label }}
+                        <span class="inline-flex min-h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold leading-none" :class="tab === '{{ $key }}' ? 'bg-white/20 text-white' : 'bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-200'">{{ $tabCounts[$key] }}</span>
                     </button>
                     @endforeach
                 </div>
-                <button type="button" @click="openPicker()" class="bg-brand-500 shadow-theme-xs hover:bg-brand-600 inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium text-white">
-                    + เพิ่ม<span class="ml-1" x-text="tabs[tab]"></span>
-                </button>
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" x-show="tab === 'video'" x-cloak @click="openVideoUpload()" class="inline-flex items-center justify-center rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/5">
+                        อัปโหลดวิดีโอ
+                    </button>
+                    <button type="button" @click="openPicker()" class="bg-brand-500 shadow-theme-xs hover:bg-brand-600 inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium text-white">
+                        + เพิ่ม<span class="ml-1" x-text="tabs[tab]"></span>
+                    </button>
+                </div>
             </div>
 
             <p x-show="attachedLoading" class="px-5 py-10 text-center text-sm text-gray-500 dark:text-gray-400">กำลังโหลด...</p>
@@ -266,7 +334,7 @@ $activeTab = 'course';
                 <template x-for="item in attachedItems" :key="tab + '-' + item.id">
                     <li class="flex items-center justify-between gap-3 px-5 py-4">
                         <div class="flex min-w-0 gap-3">
-                            <div class="h-16 w-24 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
+                            <div x-show="tab !== 'video'" class="h-16 w-24 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
                                 <img x-show="item.thumbnail" :src="item.thumbnail" :alt="item.title" class="h-full w-full object-cover" />
                                 <div x-show="!item.thumbnail" class="flex h-full w-full items-center justify-center px-2 text-center text-[10px] text-gray-400">ไม่มีปก</div>
                             </div>
@@ -281,21 +349,36 @@ $activeTab = 'course';
                                 </div>
                             </div>
                         </div>
-                        <form method="POST" action="{{ route('curriculums.items.destroy', $curriculum) }}">
-                            @csrf
-                            @method('DELETE')
-                            <input type="hidden" name="type" :value="tab" />
-                            <input type="hidden" name="id" :value="item.id" />
-                            <button type="submit" class="inline-flex items-center rounded-lg border border-error-300 bg-error-50 px-3 py-2 text-xs font-medium text-error-600 hover:bg-error-100 dark:border-error-500/40 dark:bg-error-500/10 dark:text-error-400">
-                                นำออก
+                        <div class="flex shrink-0 items-center gap-2">
+                            <button type="button" x-show="item.url" x-cloak @click="openVideoPlayer(item.url, item.title)" class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-white/5">
+                                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                    <path d="M8 5.14v13.72a1 1 0 0 0 1.54.84l10.23-6.86a1 1 0 0 0 0-1.68L9.54 4.3A1 1 0 0 0 8 5.14Z" />
+                                </svg>
+                                เล่น
                             </button>
-                        </form>
+                            <form method="POST" action="{{ route('curriculums.items.destroy', $curriculum) }}">
+                                @csrf
+                                @method('DELETE')
+                                <input type="hidden" name="type" :value="tab" />
+                                <input type="hidden" name="id" :value="item.id" />
+                                <button type="submit" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-white/5">
+                                    นำออก
+                                </button>
+                            </form>
+                            <form x-show="tab === 'video' && item.standalone" x-cloak method="POST" :action="'/curriculums/{{ $curriculum->id }}/videos/' + item.id" onsubmit="return confirm('ลบวิดีโอเดี่ยวนี้ออกจากระบบหรือไม่? ไฟล์จะถูกลบและหายจากทุกหลักสูตร')">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="inline-flex items-center rounded-lg border border-error-300 bg-error-50 px-3 py-2 text-xs font-medium text-error-600 hover:bg-error-100 dark:border-error-500/40 dark:bg-error-500/10 dark:text-error-400">
+                                    ลบ
+                                </button>
+                            </form>
+                        </div>
                     </li>
                 </template>
             </ul>
         </div>
 
-        <div x-show="pickerOpen" x-cloak @keydown.escape.window="if (pickerOpen) closePicker()" class="modal fixed inset-0 z-99999 flex items-center justify-center p-4" data-modal>
+        <div x-show="pickerOpen" x-cloak @keydown.escape.window="if (playingVideo) return; if (pickerOpen) closePicker()" class="modal fixed inset-0 z-99999 flex items-center justify-center p-4" data-modal>
             <div class="absolute inset-0 bg-gray-900/40"></div>
             <div class="relative flex w-full flex-col rounded-2xl border border-gray-200 bg-white shadow-theme-lg dark:border-gray-800 dark:bg-gray-900" :class="isRich() ? 'h-[min(92vh,52rem)] max-w-6xl' : 'max-h-[80vh] max-w-lg'">
                 <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
@@ -305,7 +388,13 @@ $activeTab = 'course';
                     <div class="mt-3 grid grid-cols-1 gap-3" :class="tab === 'exam' ? 'md:grid-cols-2 xl:grid-cols-4' : ((tab === 'exercise' || tab === 'course') ? 'md:grid-cols-3' : (isRich() ? 'md:grid-cols-2' : ''))">
                         <select x-show="needsCourse()" x-cloak x-model="courseId" @change="query = ''; load(1)" class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                             <option value="">เลือกคอร์ส</option>
-                            <template x-for="course in filterOptions.courses" :key="course.id">
+                            <template x-for="course in filterOptions.courses" :key="'need-' + course.id">
+                                <option :value="course.id" x-text="course.name"></option>
+                            </template>
+                        </select>
+                        <select x-show="tab === 'video'" x-cloak x-model="courseId" @change="load(1)" class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                            <option value="">ทุกคอร์ส</option>
+                            <template x-for="course in filterOptions.courses" :key="'video-' + course.id">
                                 <option :value="course.id" x-text="course.name"></option>
                             </template>
                         </select>
@@ -346,7 +435,7 @@ $activeTab = 'course';
                                 <template x-for="item in items" :key="item.id">
                                     <label class="flex cursor-pointer gap-3 rounded-xl border p-3 transition" :class="selected.includes(item.id) ? 'border-brand-400 bg-brand-50 dark:border-brand-500/50 dark:bg-brand-500/10' : 'border-gray-200 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-white/5'">
                                         <input type="checkbox" class="text-brand-500 focus:ring-brand-500/20 mt-1 h-4 w-4 shrink-0 rounded border-gray-300 dark:border-gray-700" :checked="selected.includes(item.id)" @change="toggle(item.id)" />
-                                        <div class="h-20 w-28 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
+                                        <div x-show="tab !== 'video'" class="h-20 w-28 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
                                             <img x-show="item.thumbnail" :src="item.thumbnail" :alt="item.title" class="h-full w-full object-cover" />
                                             <div x-show="!item.thumbnail" class="flex h-full w-full items-center justify-center px-2 text-center text-[10px] text-gray-400">ไม่มีปก</div>
                                         </div>
@@ -354,10 +443,16 @@ $activeTab = 'course';
                                             <span class="block text-sm font-medium text-gray-800 dark:text-white/90" x-text="item.title"></span>
                                             <span class="mt-0.5 block text-xs text-gray-500 dark:text-gray-400" x-show="item.code" x-text="item.code"></span>
                                             <span class="mt-1 line-clamp-2 block text-xs text-gray-500 dark:text-gray-400" x-show="item.description" x-text="item.description"></span>
-                                            <span class="mt-2 flex flex-wrap gap-1">
+                                            <span class="mt-2 flex flex-wrap items-center gap-1">
                                                 <template x-for="badge in item.badges" :key="badge">
                                                     <span class="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600 dark:bg-white/10 dark:text-gray-300" x-text="badge"></span>
                                                 </template>
+                                                <button type="button" x-show="item.url" x-cloak @click.prevent.stop="openVideoPlayer(item.url, item.title)" class="inline-flex items-center gap-1 rounded-full border border-gray-300 bg-white px-2 py-0.5 text-[11px] font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                                                    <svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                                        <path d="M8 5.14v13.72a1 1 0 0 0 1.54.84l10.23-6.86a1 1 0 0 0 0-1.68L9.54 4.3A1 1 0 0 0 8 5.14Z" />
+                                                    </svg>
+                                                    เล่น
+                                                </button>
                                             </span>
                                         </span>
                                     </label>
@@ -398,6 +493,42 @@ $activeTab = 'course';
                         </div>
                     </div>
                 </form>
+            </div>
+        </div>
+
+        <div x-show="videoUploadOpen" x-cloak @keydown.escape.window="if (playingVideo) return; if (videoUploadOpen) closeVideoUpload()" class="modal fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-5" data-modal>
+            <div class="fixed inset-0 h-full w-full bg-gray-900/40"></div>
+            <div @click.stop class="relative w-full max-w-[700px] rounded-3xl bg-white p-5 shadow-theme-lg dark:bg-gray-900 sm:p-8">
+                <button type="button" @click="closeVideoUpload()" :disabled="uploadingVideo" class="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-800 dark:hover:bg-gray-700 dark:hover:text-white sm:right-6 sm:top-6">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path fill-rule="evenodd" clip-rule="evenodd" d="M6.043 16.541a1 1 0 0 0 1.414 1.415L12 13.413l4.543 4.543a1 1 0 0 0 1.414-1.415L13.414 12l4.543-4.543a1 1 0 0 0-1.414-1.414L12 10.586 7.457 6.043A1 1 0 0 0 6.043 7.457L10.586 12l-4.543 4.541Z" fill="currentColor"/>
+                    </svg>
+                </button>
+                <div class="pr-10">
+                    <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90">อัปโหลดวิดีโอ</h4>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">วิดีโอนี้เป็นไฟล์เดี่ยวของหลักสูตร ไม่ผูกกับคอร์สหรือบทเรียน</p>
+                </div>
+                <form data-no-loading @submit="uploadVideo($event)" action="{{ route('curriculums.videos.store', $curriculum) }}" enctype="multipart/form-data" class="mt-6 space-y-4">
+                    @csrf
+                    <x-videos.upload-fields cancel="closeVideoUpload()" />
+                </form>
+            </div>
+        </div>
+
+        <div x-show="playingVideo" x-cloak @keydown.escape.window="if (playingVideo) closeVideoPlayer()" class="modal fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-5" data-modal>
+            <div class="fixed inset-0 h-full w-full bg-gray-900/60" @click="closeVideoPlayer()"></div>
+            <div @click.stop class="relative w-full max-w-4xl overflow-hidden rounded-3xl bg-white shadow-theme-lg dark:bg-gray-900">
+                <div class="flex items-center justify-between gap-3 border-b border-gray-100 px-5 py-4 dark:border-gray-800 sm:px-6">
+                    <h4 class="min-w-0 truncate text-base font-semibold text-gray-800 dark:text-white/90" x-text="playingVideoTitle"></h4>
+                    <button type="button" @click="closeVideoPlayer()" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:hover:text-white">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path fill-rule="evenodd" clip-rule="evenodd" d="M6.043 16.541a1 1 0 0 0 1.414 1.415L12 13.413l4.543 4.543a1 1 0 0 0 1.414-1.415L13.414 12l4.543-4.543a1 1 0 0 0-1.414-1.414L12 10.586 7.457 6.043A1 1 0 0 0 6.043 7.457L10.586 12l-4.543 4.541Z" fill="currentColor"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="bg-black">
+                    <video x-ref="videoPlayer" :src="playingVideoUrl" controls playsinline preload="metadata" class="aspect-video max-h-[75vh] w-full bg-black"></video>
+                </div>
             </div>
         </div>
     </div>

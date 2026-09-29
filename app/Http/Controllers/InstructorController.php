@@ -150,7 +150,7 @@ class InstructorController extends Controller
     {
         return User::query()
             ->where(function ($query) use ($currentUserId) {
-                $query->whereHas('roles', fn ($roleQuery) => $roleQuery->where('name', 'instructor'));
+                $query->whereHas('roles', fn ($roleQuery) => $roleQuery->whereIn('name', User::BACKEND_ROLES));
 
                 if ($currentUserId) {
                     $query->orWhere('id', $currentUserId);

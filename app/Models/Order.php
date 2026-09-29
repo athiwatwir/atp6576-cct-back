@@ -22,6 +22,7 @@ class Order extends Model
     protected $fillable = [
         'order_no',
         'user_id',
+        'coupon_id',
         'subtotal',
         'discount_amount',
         'shipping_amount',
@@ -90,6 +91,11 @@ class Order extends Model
     public function enrollments(): HasMany
     {
         return $this->hasMany(Enrollment::class);
+    }
+
+    public function coupon(): BelongsTo
+    {
+        return $this->belongsTo(Coupon::class)->withTrashed();
     }
 
     public function couponUsages(): HasMany

@@ -49,6 +49,18 @@ class MediaStorage
         return "curriculums/{$curriculumId}/{$curriculumId}.webp";
     }
 
+    public static function standaloneVideoDirectory(): string
+    {
+        return 'videos';
+    }
+
+    public static function standaloneVideoPath(int $videoId, string $extension): string
+    {
+        $ext = strtolower(ltrim($extension, '.')) ?: 'mp4';
+
+        return self::standaloneVideoDirectory()."/{$videoId}.{$ext}";
+    }
+
     public static function courseVideoDirectory(int $courseId, int $chapterId): string
     {
         return "courses/{$courseId}/chapters/{$chapterId}/videos";
@@ -87,6 +99,27 @@ class MediaStorage
 
         $file->storeAs(
             self::courseVideoDirectory($courseId, $chapterId),
+            basename($path),
+            [
+                'disk' => self::disk(),
+                'visibility' => 'public',
+            ]
+        );
+
+        return $path;
+    }
+
+    /**
+     * Upload a video that is not attached to a course or chapter:
+     * videos/{video_id}.{ext}
+     */
+    public static function storeStandaloneVideo(UploadedFile $file, int $videoId): string
+    {
+        $extension = $file->getClientOriginalExtension() ?: $file->extension() ?: 'mp4';
+        $path = self::standaloneVideoPath($videoId, $extension);
+
+        $file->storeAs(
+            self::standaloneVideoDirectory(),
             basename($path),
             [
                 'disk' => self::disk(),

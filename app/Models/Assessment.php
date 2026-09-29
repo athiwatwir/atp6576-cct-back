@@ -46,6 +46,11 @@ class Assessment extends Model
         ];
     }
 
+    public function getEffectivePriceAttribute(): float
+    {
+        return (float) $this->price;
+    }
+
     public function courses(): BelongsToMany
     {
         return $this->belongsToMany(Course::class, 'assessment_courses')

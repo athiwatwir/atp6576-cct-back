@@ -53,42 +53,42 @@
         @enderror
     </div>
 
-    <div>
-        <label for="password" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-            รหัสผ่าน@if (! $user)<span class="text-error-500">*</span>@endif
-        </label>
-        <input type="password" id="password" name="password" @if (! $user) required @endif
-            autocomplete="new-password"
-            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
-        @if ($user)
-            <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">เว้นว่างไว้หากไม่ต้องการเปลี่ยนรหัสผ่าน</p>
-        @endif
-        @error('password')
-            <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p>
-        @enderror
-    </div>
-
-    <div>
-        <label for="password_confirmation" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-            ยืนยันรหัสผ่าน@if (! $user)<span class="text-error-500">*</span>@endif
-        </label>
-        <input type="password" id="password_confirmation" name="password_confirmation"
-            @if (! $user) required @endif autocomplete="new-password"
-            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
-    </div>
+    @unless ($user)
+        <p class="text-sm text-gray-500 md:col-span-2 dark:text-gray-400">ระบบจะสร้างรหัสผ่านให้อัตโนมัติ แล้วส่งอีเมลพร้อมอีเมลและรหัสผ่านไปให้ผู้ใช้</p>
+    @endunless
 </div>
 
+@php
+    $roleHelp = [
+        'admin' => [
+            'title' => 'ผู้ดูแลระบบ',
+            'text' => 'ดูแลหลังบ้านได้ทั้งหมด ใช้กับคนที่ต้องจัดการผู้ใช้งาน เนื้อหาคอร์ส การขาย และการตั้งค่าระบบ เป็นบทบาทที่มีสิทธิ์กว้างที่สุด',
+        ],
+        'staff' => [
+            'title' => 'เจ้าหน้าที่',
+            'text' => 'ทีมปฏิบัติการประจำวัน ใช้เมื่อคนนี้ต้องสร้างออเดอร์ ตรวจการชำระเงิน เปิดสิทธิ์เรียน และดูแลข้อมูลนักเรียน',
+        ],
+    ];
+@endphp
+
 <div>
-    <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-400">
+    <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
         บทบาท<span class="text-error-500">*</span>
     </label>
-    <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+    <p class="mb-3 text-xs text-gray-500 dark:text-gray-400">เลือกได้มากกว่า 1 บทบาท ถ้าคนนี้ทำหลายหน้าที่</p>
+    <div class="grid grid-cols-1 gap-3">
         @foreach ($roles as $roleItem)
-            <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 px-4 py-3 dark:border-gray-800">
+            @php
+                $help = $roleHelp[$roleItem->name] ?? null;
+            @endphp
+            <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 px-4 py-3 dark:border-gray-800">
                 <input type="checkbox" name="roles[]" value="{{ $roleItem->id }}"
                     @checked($selectedRoles->contains($roleItem->id))
-                    class="text-brand-500 focus:ring-brand-500/20 h-4 w-4 rounded border-gray-300 dark:border-gray-700 dark:bg-gray-900" />
-                <span class="text-sm text-gray-700 dark:text-gray-300">{{ $roleItem->display_name }}</span>
+                    class="text-brand-500 focus:ring-brand-500/20 mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-700 dark:bg-gray-900" />
+                <span>
+                    <span class="block text-sm font-medium text-gray-800 dark:text-white/90">{{ $help['title'] ?? $roleItem->display_name }}</span>
+                    <span class="mt-1 block text-xs leading-5 text-gray-500 dark:text-gray-400">{{ $help['text'] ?? $roleItem->description }}</span>
+                </span>
             </label>
         @endforeach
     </div>

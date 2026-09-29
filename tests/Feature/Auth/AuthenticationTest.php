@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Hash;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    foreach (['admin', 'staff', 'instructor', 'student'] as $name) {
+    foreach (['admin', 'staff', 'student'] as $name) {
         Role::query()->create([
             'name' => $name,
             'display_name' => ucfirst($name),

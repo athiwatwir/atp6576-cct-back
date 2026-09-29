@@ -123,60 +123,7 @@
 
                             <form data-no-loading @submit="uploadVideo($event)" action="{{ route('courses.chapters.videos.store', [$course, $chapter]) }}" enctype="multipart/form-data" class="mt-6 space-y-4">
                                 @csrf
-                                <div>
-                                    <label class="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">ชื่อวิดีโอ</label>
-                                    <input type="text" name="title" required placeholder="ชื่อวิดีโอ / บทเรียนย่อย" :disabled="uploadingVideo"
-                                        class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm shadow-theme-xs disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
-                                </div>
-                                <div>
-                                    <label class="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">รายละเอียด</label>
-                                    <textarea name="description" rows="2" placeholder="รายละเอียด" :disabled="uploadingVideo"
-                                        class="dark:bg-dark-900 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm shadow-theme-xs disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"></textarea>
-                                </div>
-                                <div>
-                                    <label class="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">ไฟล์วิดีโอ</label>
-                                    <input type="file" name="video_file" required accept="video/mp4,video/webm,video/quicktime" :disabled="uploadingVideo"
-                                        class="dark:bg-dark-900 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm shadow-theme-xs disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
-                                    <p class="mt-1.5 text-[11px] text-gray-500 dark:text-gray-400">
-                                        รองรับ mp4, webm, mov · สูงสุด 500MB ·
-                                        <code class="rounded bg-gray-100 px-1 dark:bg-white/10">courses/{{ $course->id }}/chapters/{{ $chapter->id }}/videos/{video_id}.ext</code>
-                                    </p>
-                                </div>
-                                <div>
-                                    <label class="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">ความยาว (วินาที)</label>
-                                    <input type="number" name="duration_seconds" min="0" placeholder="เช่น 600" :disabled="uploadingVideo"
-                                        class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm shadow-theme-xs disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
-                                </div>
-                                <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                                    <input type="checkbox" name="is_free" value="1" class="rounded border-gray-300" :disabled="uploadingVideo" />
-                                    เปิดให้เรียนฟรี
-                                </label>
-
-                                <div x-show="uploadingVideo || uploadStage === 'done'" x-cloak class="space-y-2 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-white/[0.03]">
-                                    <div class="flex items-center justify-between text-xs text-gray-600 dark:text-gray-300">
-                                        <span x-text="uploadStage === 'uploading'
-                                            ? 'กำลังอัปโหลดไฟล์...'
-                                            : (uploadStage === 'saving'
-                                                ? 'กำลังบันทึกไปยัง R2...'
-                                                : 'อัปโหลดสำเร็จ')"></span>
-                                        <span x-text="uploadProgress + '%'"></span>
-                                    </div>
-                                    <div class="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
-                                        <div class="bg-brand-500 h-full rounded-full transition-all duration-200" :style="'width: ' + uploadProgress + '%'"></div>
-                                    </div>
-                                </div>
-
-                                <template x-if="uploadVideoError">
-                                    <p class="text-sm text-error-600" x-text="uploadVideoError"></p>
-                                </template>
-
-                                <div class="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
-                                    <button type="button" @click="closeVideoModal()" :disabled="uploadingVideo" class="{{ $btn['secondary'] }}">ยกเลิก</button>
-                                    <button type="submit" :disabled="uploadingVideo" class="{{ $btn['primary'] }}">
-                                        <span x-show="!uploadingVideo">บันทึกวิดีโอ</span>
-                                        <span x-show="uploadingVideo" x-cloak x-text="uploadStage === 'saving' ? 'กำลังบันทึก...' : 'กำลังอัปโหลด...'"></span>
-                                    </button>
-                                </div>
+                                <x-videos.upload-fields />
                             </form>
                         </div>
                     </div>
@@ -217,7 +164,13 @@
                                         <div class="text-sm font-medium text-gray-800 dark:text-white/90">{{ $video->title }}</div>
                                         <div class="line-clamp-1 text-xs text-gray-500">{{ $video->description }}</div>
                                         @if ($video->is_free)
-                                        <span class="bg-brand-50 text-brand-600 mt-1 inline-flex rounded-full px-2 py-0.5 text-[11px]">เรียนฟรี</span>
+                                        <span class="bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400 mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium">
+                                            <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M10 8.5v7l6-3.5-6-3.5z" />
+                                            </svg>
+                                            เปิดทดลองเรียน
+                                        </span>
                                         @endif
                                         @if ($video->storage_key)
                                         <div class="mt-1 text-[11px] text-gray-400">
@@ -237,47 +190,13 @@
                                                 class="{{ $btn['view'] }}"
                                             >ดูวิดีโอ</button>
                                             @endif
-                                            <button type="button" @click="editingVideoId = editingVideoId === {{ $video->id }} ? null : {{ $video->id }}" :class="editingVideoId === {{ $video->id }} ? @js($btn['editActive']) : @js($btn['edit'])">แก้ไข</button>
+                                            <button type="button" @click="editingVideoId = {{ $video->id }}; closeVideoModal(); showDocumentForm = false; editingChapter = false" :class="editingVideoId === {{ $video->id }} ? @js($btn['editActive']) : @js($btn['edit'])">แก้ไข</button>
                                             <form method="POST" action="{{ route('courses.chapters.videos.destroy', [$course, $chapter, $video]) }}" onsubmit="return confirm('ลบวิดีโอนี้หรือไม่?')">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" class="{{ $btn['danger'] }}">ลบ</button>
                                             </form>
                                         </div>
-                                    </td>
-                                </tr>
-                                <tr x-show="editingVideoId === {{ $video->id }}" x-cloak>
-                                    <td colspan="4" class="bg-warning-50/50 px-4 py-4 dark:bg-warning-500/5">
-                                        <form method="POST" action="{{ route('courses.chapters.videos.update', [$course, $chapter, $video]) }}" enctype="multipart/form-data" class="grid grid-cols-1 gap-3 md:grid-cols-2">
-                                            @csrf
-                                            @method('PUT')
-                                            <input type="text" name="title" value="{{ $video->title }}" required class="dark:bg-dark-900 h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm shadow-theme-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 md:col-span-2" />
-                                            <textarea name="description" rows="2" class="dark:bg-dark-900 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-theme-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 md:col-span-2">{{ $video->description }}</textarea>
-                                            <div class="md:col-span-2">
-                                                <label class="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">เปลี่ยนไฟล์วิดีโอ (ถ้าต้องการ)</label>
-                                                <input type="file" name="video_file" accept="video/mp4,video/webm,video/quicktime" class="dark:bg-dark-900 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-theme-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
-                                                <p class="mt-1.5 text-[11px] text-gray-500 dark:text-gray-400">
-                                                    อัปโหลดใหม่จะทับชื่อไฟล์
-                                                    <code class="rounded bg-gray-100 px-1 dark:bg-white/10">courses/{{ $course->id }}/chapters/{{ $chapter->id }}/videos/{{ $video->id }}.ext</code>
-                                                </p>
-                                                @if ($video->url)
-                                                <p class="mt-1 text-[11px] text-gray-500">ไฟล์ปัจจุบัน: <a href="{{ $video->url }}" target="_blank" class="text-brand-500 hover:underline">เปิดดู</a>
-                                                    @if ($video->storage_key)
-                                                        · <code class="rounded bg-gray-100 px-1 dark:bg-white/10">{{ $video->storage_key }}</code>
-                                                    @endif
-                                                </p>
-                                                @endif
-                                            </div>
-                                            <input type="number" name="duration_seconds" min="0" value="{{ $video->duration_seconds }}" class="dark:bg-dark-900 h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm shadow-theme-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 md:col-span-2" />
-                                            <label class="inline-flex items-center gap-2 text-sm md:col-span-2">
-                                                <input type="checkbox" name="is_free" value="1" @checked($video->is_free) class="rounded border-gray-300" />
-                                                เปิดให้เรียนฟรี
-                                            </label>
-                                            <div class="flex gap-2 md:col-span-2">
-                                                <button type="submit" class="{{ $btn['primarySm'] }}">บันทึก</button>
-                                                <button type="button" @click="editingVideoId = null" class="{{ $btn['secondarySm'] }}">ยกเลิก</button>
-                                            </div>
-                                        </form>
                                     </td>
                                 </tr>
                                 @endforeach
@@ -315,6 +234,80 @@
                             </tbody>
                         </table>
                     </div>
+
+                    @foreach ($chapter->videos as $video)
+                    <div
+                        x-show="editingVideoId === {{ $video->id }}"
+                        x-cloak
+                        @keydown.escape.window="if (playingVideo) return; if (editingVideoId === {{ $video->id }}) editingVideoId = null"
+                        class="modal fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-5"
+                        data-modal
+                    >
+                        <div class="fixed inset-0 h-full w-full bg-gray-900/40" @click="editingVideoId = null"></div>
+                        <div @click.stop class="relative w-full max-w-[700px] rounded-3xl bg-white p-5 shadow-theme-lg dark:bg-gray-900 sm:p-8">
+                            <button type="button" @click="editingVideoId = null" class="{{ $btn['icon'] }} absolute right-3 top-3 z-10 sm:right-6 sm:top-6">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path fill-rule="evenodd" clip-rule="evenodd" d="M6.043 16.541a1 1 0 0 0 1.414 1.415L12 13.413l4.543 4.543a1 1 0 0 0 1.414-1.415L13.414 12l4.543-4.543a1 1 0 0 0-1.414-1.414L12 10.586 7.457 6.043A1 1 0 0 0 6.043 7.457L10.586 12l-4.543 4.541Z" fill="currentColor"/>
+                                </svg>
+                            </button>
+
+                            <div class="pr-10">
+                                <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90">แก้ไขวิดีโอ</h4>
+                                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $chapter->title }}</p>
+                            </div>
+
+                            <form method="POST" action="{{ route('courses.chapters.videos.update', [$course, $chapter, $video]) }}" enctype="multipart/form-data" class="mt-6 space-y-4">
+                                @csrf
+                                @method('PUT')
+                                <div>
+                                    <label class="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">ชื่อวิดีโอ</label>
+                                    <input type="text" name="title" value="{{ $video->title }}" required class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm shadow-theme-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                                </div>
+                                <div>
+                                    <label class="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">รายละเอียด</label>
+                                    <textarea name="description" rows="2" class="dark:bg-dark-900 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm shadow-theme-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">{{ $video->description }}</textarea>
+                                </div>
+                                <div>
+                                    <label class="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">เปลี่ยนไฟล์วิดีโอ (ถ้าต้องการ)</label>
+                                    <input type="file" name="video_file" accept="video/mp4,video/webm,video/quicktime" class="dark:bg-dark-900 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm shadow-theme-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                                    <p class="mt-1.5 text-[11px] text-gray-500 dark:text-gray-400">
+                                        อัปโหลดใหม่จะทับชื่อไฟล์
+                                        <code class="rounded bg-gray-100 px-1 dark:bg-white/10">courses/{{ $course->id }}/chapters/{{ $chapter->id }}/videos/{{ $video->id }}.ext</code>
+                                    </p>
+                                    @if ($video->url)
+                                    <p class="mt-1 text-[11px] text-gray-500">ไฟล์ปัจจุบัน: <a href="{{ $video->url }}" target="_blank" class="text-brand-500 hover:underline">เปิดดู</a>
+                                        @if ($video->storage_key)
+                                            · <code class="rounded bg-gray-100 px-1 dark:bg-white/10">{{ $video->storage_key }}</code>
+                                        @endif
+                                    </p>
+                                    @endif
+                                </div>
+                                <div>
+                                    <label class="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">ความยาว (วินาที)</label>
+                                    <input type="number" name="duration_seconds" min="0" value="{{ $video->duration_seconds }}" class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm shadow-theme-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                                </div>
+                                <label x-data="{ trialOpen: {{ $video->is_free ? 'true' : 'false' }} }" class="flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-3" :class="trialOpen ? 'border-brand-200 bg-brand-50 dark:border-brand-500/30 dark:bg-brand-500/10' : 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-white/5'">
+                                    <input type="checkbox" name="is_free" value="1" class="sr-only" x-model="trialOpen" @checked($video->is_free) />
+                                    <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" :class="trialOpen ? 'bg-brand-500 text-white' : 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500'">
+                                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M10 8.5v7l6-3.5-6-3.5z" />
+                                        </svg>
+                                    </span>
+                                    <span class="min-w-0">
+                                        <span class="block text-xs font-medium" :class="trialOpen ? 'text-brand-600 dark:text-brand-400' : 'text-gray-400 dark:text-gray-500'">เปิดทดลองเรียน</span>
+                                        <span class="block text-sm font-semibold" :class="trialOpen ? 'text-brand-700 dark:text-brand-300' : 'text-gray-700 dark:text-gray-300'" x-text="trialOpen ? 'เปิดอยู่' : 'ปิดอยู่'"></span>
+                                        <span class="mt-0.5 block text-xs leading-5" :class="trialOpen ? 'text-brand-700/80 dark:text-brand-300/80' : 'text-gray-500 dark:text-gray-400'" x-text="trialOpen ? 'ผู้เรียนดูวิดีโอนี้ได้ก่อนซื้อคอร์ส' : 'ต้องลงทะเบียนคอร์สก่อนจึงจะดูวิดีโอนี้ได้'"></span>
+                                    </span>
+                                </label>
+                                <div class="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+                                    <button type="button" @click="editingVideoId = null" class="{{ $btn['secondary'] }}">ยกเลิก</button>
+                                    <button type="submit" class="{{ $btn['primary'] }}">บันทึก</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    @endforeach
                 </div>
             </div>
             @empty

@@ -72,6 +72,15 @@ class Course extends Model
         return $this->belongsTo(Instructor::class);
     }
 
+    public function getEffectivePriceAttribute(): float
+    {
+        if ($this->sale_price !== null && (float) $this->sale_price > 0) {
+            return (float) $this->sale_price;
+        }
+
+        return (float) $this->price;
+    }
+
     public function previewVideo(): BelongsTo
     {
         return $this->belongsTo(Video::class, 'preview_video_id');

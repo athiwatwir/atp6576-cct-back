@@ -10,6 +10,7 @@ use App\Services\Mail\MailService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class UserController extends Controller
@@ -65,23 +66,32 @@ class UserController extends Controller
     public function store(StoreUserRequest $request): RedirectResponse
     {
         $data = $request->validated();
+        $password = Str::password(12);
 
         $user = User::query()->create([
             'name' => $data['name'],
             'email' => $data['email'],
             'phone' => $data['phone'] ?? null,
-            'password' => $data['password'],
+            'password' => $password,
             'status' => $data['status'],
             'email_verified_at' => now(),
         ]);
 
         $user->roles()->sync($data['roles']);
 
-        $this->mailService->sendStaffPassword($user, $data['password'], queue: false);
+        try {
+            $this->mailService->sendStaffPassword($user, $password, queue: false);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return redirect()
+                ->route('users.index')
+                ->with('error', 'สร้างผู้ใช้งานแล้ว แต่ส่งอีเมลรหัสผ่านไม่สำเร็จ');
+        }
 
         return redirect()
             ->route('users.index')
-            ->with('success', 'เพิ่มผู้ใช้งานระบบเรียบร้อยแล้ว และส่งอีเมลแจ้งรหัสผ่านแล้ว');
+            ->with('success', 'เพิ่มผู้ใช้งานระบบเรียบร้อยแล้ว และส่งอีเมลพร้อมรหัสผ่านแล้ว');
     }
 
     public function edit(User $user): View|RedirectResponse
@@ -118,20 +128,39 @@ class UserController extends Controller
             'status' => $data['status'],
         ];
 
-        if (! empty($data['password'])) {
-            $payload['password'] = $data['password'];
-        }
-
         $user->update($payload);
         $user->roles()->sync($data['roles']);
-
-        if (! empty($data['password'])) {
-            $this->mailService->sendStaffPassword($user, $data['password'], queue: false);
-        }
 
         return redirect()
             ->route('users.index')
             ->with('success', 'บันทึกข้อมูลผู้ใช้งานเรียบร้อยแล้ว');
+    }
+
+    public function resetPassword(User $user): RedirectResponse
+    {
+        if (! $user->canAccessBackend()) {
+            return redirect()
+                ->route('users.index')
+                ->with('error', 'ไม่พบผู้ใช้งานระบบที่ต้องการรีเซ็ตรหัสผ่าน');
+        }
+
+        $password = Str::password(12);
+
+        try {
+            $this->mailService->sendStaffPassword($user, $password, queue: false);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return redirect()
+                ->route('users.edit', $user)
+                ->with('error', 'ส่งอีเมลรหัสผ่านไม่สำเร็จ รหัสผ่านเดิมยังใช้ได้');
+        }
+
+        $user->update(['password' => $password]);
+
+        return redirect()
+            ->route('users.edit', $user)
+            ->with('success', 'สร้างรหัสผ่านใหม่แล้ว และส่งอีเมลไปที่ '.$user->email);
     }
 
     public function destroy(User $user): RedirectResponse

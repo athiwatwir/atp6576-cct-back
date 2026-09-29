@@ -6,6 +6,7 @@ namespace App\Models;
 use Database\Factories\UserFactory;
 use App\Models\Concerns\LogsActivity;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -16,7 +17,7 @@ use Illuminate\Notifications\Notifiable;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, LogsActivity, Notifiable, SoftDeletes;
+    use HasApiTokens, HasFactory, LogsActivity, Notifiable, SoftDeletes;
 
     /**
      * @var list<string>
@@ -79,11 +80,16 @@ class User extends Authenticatable
      *
      * @var list<string>
      */
-    public const BACKEND_ROLES = ['admin', 'staff', 'instructor'];
+    public const BACKEND_ROLES = ['admin', 'staff'];
 
     public function roles(): BelongsToMany
     {
         return $this->belongsToMany(Role::class);
+    }
+
+    public function scopeStudents($query)
+    {
+        return $query->whereHas('roles', fn ($roles) => $roles->where('name', 'student'));
     }
 
     public function hasRole(string $role): bool

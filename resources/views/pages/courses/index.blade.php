@@ -110,7 +110,20 @@
                         {{ $course->subject?->name ?? '-' }}
                     </td>
                     <td class="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">
-                        {{ $course->instructor?->name ?? '-' }}
+                        @if ($course->instructor)
+                        <div class="flex items-center gap-2">
+                            <div class="h-8 w-8 shrink-0 overflow-hidden rounded-full border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
+                                @if ($course->instructor->image_url)
+                                <img src="{{ $course->instructor->image_url }}" alt="{{ $course->instructor->name }}" class="h-full w-full object-cover" />
+                                @else
+                                <div class="flex h-full w-full items-center justify-center text-[10px] text-gray-400">N/A</div>
+                                @endif
+                            </div>
+                            <span>{{ $course->instructor->name }}</span>
+                        </div>
+                        @else
+                        -
+                        @endif
                     </td>
                     <td class="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">
                         @if ($course->sale_price !== null)

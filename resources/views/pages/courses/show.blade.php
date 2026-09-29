@@ -13,7 +13,7 @@ $tabs = [
 'chapters' => 'บทเรียน',
 'quizzes' => 'แบบฝึกหัด',
 'exams' => 'ข้อสอบ',
-'materials' => 'สื่อการสอน',
+'materials' => 'เอกสารทั้งหมด',
 ];
 
 /*
@@ -127,77 +127,7 @@ $btn = [
             this.playingVideoTitle = null;
         },
         uploadVideo(event) {
-            event.preventDefault();
-            if (this.uploadingVideo) return;
-
-            const form = event.target;
-            const formData = new FormData(form);
-
-            this.uploadingVideo = true;
-            this.uploadProgress = 0;
-            this.uploadStage = 'uploading';
-            this.uploadVideoError = null;
-
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', form.action);
-            xhr.setRequestHeader('Accept', 'application/json');
-            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-
-            const token = document.querySelector('meta[name=csrf-token]')?.content;
-            if (token) {
-                xhr.setRequestHeader('X-CSRF-TOKEN', token);
-            }
-
-            xhr.upload.addEventListener('progress', (e) => {
-                if (!e.lengthComputable) return;
-                this.uploadProgress = Math.min(99, Math.round((e.loaded / e.total) * 100));
-            });
-
-            xhr.upload.addEventListener('load', () => {
-                this.uploadProgress = 100;
-                this.uploadStage = 'saving';
-            });
-
-            xhr.onload = () => {
-                let payload = null;
-                try {
-                    payload = JSON.parse(xhr.responseText || '{}');
-                } catch (error) {
-                    payload = null;
-                }
-
-                if (xhr.status >= 200 && xhr.status < 300) {
-                    this.uploadStage = 'done';
-                    this.showFlash('success', payload?.message || 'เพิ่มวิดีโอบทเรียนเรียบร้อยแล้ว');
-                    setTimeout(() => {
-                        window.location.href = payload?.redirect || window.location.href;
-                    }, 700);
-                    return;
-                }
-
-                let message = 'อัปโหลดวิดีโอไม่สำเร็จ';
-                if (payload?.message) {
-                    message = payload.message;
-                } else if (payload?.errors) {
-                    message = Object.values(payload.errors).flat().join(' ');
-                }
-
-                this.uploadingVideo = false;
-                this.uploadStage = 'idle';
-                this.uploadProgress = 0;
-                this.uploadVideoError = message;
-                this.showFlash('error', message);
-            };
-
-            xhr.onerror = () => {
-                this.uploadingVideo = false;
-                this.uploadStage = 'idle';
-                this.uploadProgress = 0;
-                this.uploadVideoError = 'เครือข่ายขัดข้อง กรุณาลองอีกครั้ง';
-                this.showFlash('error', this.uploadVideoError);
-            };
-
-            xhr.send(formData);
+            window.uploadVideoForm(this, event);
         },
         initChapterSortable(el) {
             if (!window.Sortable || this.chapterSortable) return;
@@ -296,7 +226,20 @@ $btn = [
                                 <div class="mt-4 flex flex-wrap gap-2">
                                     <span class="inline-flex items-center gap-1.5 rounded-lg bg-white/80 px-2.5 py-1.5 text-xs text-gray-600 shadow-theme-xs dark:bg-white/5 dark:text-gray-300">
                                         <span class="text-gray-400">ผู้สอน</span>
-                                        <strong class="font-medium text-gray-800 dark:text-white/90">{{ $course->instructor?->name ?? '-' }}</strong>
+                                        @if ($course->instructor)
+                                        <span class="inline-flex items-center gap-1.5">
+                                            <span class="h-6 w-6 overflow-hidden rounded-full border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
+                                                @if ($course->instructor->image_url)
+                                                <img src="{{ $course->instructor->image_url }}" alt="{{ $course->instructor->name }}" class="h-full w-full object-cover" />
+                                                @else
+                                                <span class="flex h-full w-full items-center justify-center text-[9px] text-gray-400">N/A</span>
+                                                @endif
+                                            </span>
+                                            <strong class="font-medium text-gray-800 dark:text-white/90">{{ $course->instructor->name }}</strong>
+                                        </span>
+                                        @else
+                                        <strong class="font-medium text-gray-800 dark:text-white/90">-</strong>
+                                        @endif
                                     </span>
                                     <span class="inline-flex items-center gap-1.5 rounded-lg bg-white/80 px-2.5 py-1.5 text-xs text-gray-600 shadow-theme-xs dark:bg-white/5 dark:text-gray-300">
                                         <span class="text-gray-400">หมวด</span>
@@ -306,6 +249,41 @@ $btn = [
                                         <span class="text-gray-400">วิชา</span>
                                         <strong class="font-medium text-gray-800 dark:text-white/90">{{ $course->subject?->name ?? '-' }}</strong>
                                     </span>
+                                </div>
+                                <div class="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                    <div class="flex items-start gap-3 rounded-xl border px-3 py-3 {{ $course->is_trial_available ? 'border-brand-200 bg-brand-50 dark:border-brand-500/30 dark:bg-brand-500/10' : 'border-gray-200 bg-white/80 dark:border-gray-700 dark:bg-white/5' }}">
+                                        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg {{ $course->is_trial_available ? 'bg-brand-500 text-white' : 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500' }}">
+                                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M10 8.5v7l6-3.5-6-3.5z" />
+                                            </svg>
+                                        </span>
+                                        <div class="min-w-0">
+                                            <div class="text-xs font-medium {{ $course->is_trial_available ? 'text-brand-600 dark:text-brand-400' : 'text-gray-400 dark:text-gray-500' }}">ทดลองเรียน</div>
+                                            <div class="text-sm font-semibold {{ $course->is_trial_available ? 'text-brand-700 dark:text-brand-300' : 'text-gray-700 dark:text-gray-300' }}">
+                                                {{ $course->is_trial_available ? 'เปิดอยู่' : 'ปิดอยู่' }}
+                                            </div>
+                                            <p class="mt-0.5 text-xs leading-5 {{ $course->is_trial_available ? 'text-brand-700/80 dark:text-brand-300/80' : 'text-gray-500 dark:text-gray-400' }}">
+                                                {{ $course->is_trial_available ? 'ผู้เรียนดูเนื้อหาทดลองได้ก่อนตัดสินใจซื้อ' : 'ต้องลงทะเบียนคอร์สก่อนจึงจะเข้าเรียนได้' }}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-start gap-3 rounded-xl border px-3 py-3 {{ $course->is_featured ? 'border-warning-200 bg-warning-50 dark:border-warning-500/30 dark:bg-warning-500/10' : 'border-gray-200 bg-white/80 dark:border-gray-700 dark:bg-white/5' }}">
+                                        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg {{ $course->is_featured ? 'bg-warning-500 text-white' : 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500' }}">
+                                            <svg class="h-5 w-5" fill="{{ $course->is_featured ? 'currentColor' : 'none' }}" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.5l1.76 4.27a1 1 0 00.84.61l4.6.4-3.5 3.02a1 1 0 00-.32.98l1.07 4.47-3.95-2.4a1 1 0 00-1.04 0l-3.95 2.4 1.07-4.47a1 1 0 00-.32-.98l-3.5-3.02 4.6-.4a1 1 0 00.84-.61L11.48 3.5z" />
+                                            </svg>
+                                        </span>
+                                        <div class="min-w-0">
+                                            <div class="text-xs font-medium {{ $course->is_featured ? 'text-warning-700 dark:text-warning-400' : 'text-gray-400 dark:text-gray-500' }}">คอร์สแนะนำ</div>
+                                            <div class="text-sm font-semibold {{ $course->is_featured ? 'text-warning-700 dark:text-warning-300' : 'text-gray-700 dark:text-gray-300' }}">
+                                                {{ $course->is_featured ? 'แสดงในรายการแนะนำ' : 'ไม่ได้ตั้งเป็นแนะนำ' }}
+                                            </div>
+                                            <p class="mt-0.5 text-xs leading-5 {{ $course->is_featured ? 'text-warning-700/80 dark:text-warning-300/80' : 'text-gray-500 dark:text-gray-400' }}">
+                                                {{ $course->is_featured ? 'คอร์สนี้ถูกไฮไลต์ให้ผู้เรียนเห็นก่อน' : 'ไม่แสดงคอร์สนี้ในส่วนคอร์สแนะนำ' }}
+                                            </p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>

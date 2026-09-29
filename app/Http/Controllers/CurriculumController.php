@@ -14,6 +14,7 @@ use App\Models\Product;
 use App\Models\Subject;
 use App\Models\Video;
 use App\Support\Audit;
+use App\Support\CourseVideoUpload;
 use App\Support\MediaStorage;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Http\JsonResponse;
@@ -94,7 +95,14 @@ class CurriculumController extends Controller
 
     public function show(Curriculum $curriculum): View
     {
-        $curriculum->load('category');
+        $curriculum->load('category')->loadCount([
+            'courses',
+            'chapters',
+            'videos',
+            'products',
+            'assessments as exams_count' => fn ($query) => $query->whereIn('assessments.type', ['exam', 'primary_exam']),
+            'assessments as exercises_count' => fn ($query) => $query->where('assessments.type', 'quiz'),
+        ]);
 
         return view('pages.curriculums.show', [
             'title' => $curriculum->name,
@@ -132,6 +140,61 @@ class CurriculumController extends Controller
         ]);
     }
 
+    public function storeVideo(Request $request, Curriculum $curriculum): JsonResponse|RedirectResponse
+    {
+        if ($response = CourseVideoUpload::guard($request)) {
+            return $response;
+        }
+
+        $data = $request->validate(CourseVideoUpload::rules(), CourseVideoUpload::messages());
+
+        $video = CourseVideoUpload::storeStandalone($data, $request->file('video_file'));
+        $sort = (int) $curriculum->videos()->max('curriculum_videos.sort_order');
+        $curriculum->videos()->syncWithoutDetaching([
+            $video->id => ['sort_order' => $sort + 1],
+        ]);
+
+        Audit::log(
+            action: 'curriculum.items_attached',
+            entity: $curriculum,
+            new: ['type' => 'video', 'ids' => [$video->id]],
+            description: 'อัปโหลดวิดีโอในหลักสูตร '.$curriculum->name,
+        );
+
+        return CourseVideoUpload::successResponse(
+            $request,
+            'อัปโหลดวิดีโอและเพิ่มในหลักสูตรเรียบร้อยแล้ว',
+            route('curriculums.show', ['curriculum' => $curriculum, 'tab' => 'video']),
+        );
+    }
+
+    public function destroyVideo(Curriculum $curriculum, Video $video): RedirectResponse
+    {
+        abort_unless($curriculum->videos()->where('videos.id', $video->id)->exists(), 404);
+
+        if ($video->chapters()->exists()) {
+            return redirect()
+                ->route('curriculums.show', ['curriculum' => $curriculum, 'tab' => 'video'])
+                ->with('error', 'ลบได้เฉพาะวิดีโอเดี่ยว วิดีโอที่อยู่ในคอร์สให้ใช้ปุ่มนำออก');
+        }
+
+        MediaStorage::delete($video->storage_key);
+        MediaStorage::delete($video->thumbnail);
+        $video->curriculums()->detach();
+        $video->delete();
+
+        Audit::log(
+            action: 'curriculum.video_deleted',
+            entity: $curriculum,
+            old: ['id' => $video->id, 'title' => $video->title],
+            description: 'ลบวิดีโอเดี่ยว '.$video->title,
+        );
+
+        return redirect()
+            ->route('curriculums.show', ['curriculum' => $curriculum, 'tab' => 'video'])
+            ->with('success', 'ลบวิดีโอเดี่ยวเรียบร้อยแล้ว');
+    }
+
     public function catalog(Request $request, Curriculum $curriculum): JsonResponse
     {
         $data = $request->validate([
@@ -150,7 +213,7 @@ class CurriculumController extends Controller
         $status = $data['status'] ?? null;
         $examType = $data['exam_type'] ?? null;
 
-        if (in_array($data['type'], ['chapter', 'video', 'exam', 'exercise'], true) && ! $courseId) {
+        if (in_array($data['type'], ['chapter', 'exam', 'exercise'], true) && ! $courseId) {
             return response()->json([
                 'data' => [],
                 'filters' => $this->catalogFilters(),
@@ -460,20 +523,23 @@ class CurriculumController extends Controller
         ];
     }
 
-    private function videoCatalog(Curriculum $curriculum, string $search, int $courseId)
+    private function videoCatalog(Curriculum $curriculum, string $search, ?int $courseId)
     {
         return Video::query()
             ->with('chapters.course:id,name,thumbnail')
             ->whereNotIn('id', function ($query) use ($curriculum) {
                 $query->select('video_id')->from('curriculum_videos')->where('curriculum_id', $curriculum->id);
             })
+            ->when($courseId, fn ($query) => $query->whereHas(
+                'chapters',
+                fn ($chapter) => $chapter->where('course_id', $courseId),
+            ))
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($inner) use ($search) {
                     $inner->where('title', 'like', "%{$search}%")
                         ->orWhere('description', 'like', "%{$search}%");
                 });
             })
-            ->whereHas('chapters', fn ($chapter) => $chapter->where('course_id', $courseId))
             ->orderBy('title')
             ->paginate(12)
             ->through(fn (Video $video) => $this->videoCard($video));
@@ -487,25 +553,17 @@ class CurriculumController extends Controller
         return [
             'id' => $video->id,
             'title' => $video->title,
-            'code' => $this->videoPlace($video),
+            'code' => null,
             'description' => $this->previewText(null, $video->description),
-            'thumbnail' => $video->thumbnail_url ?: $video->chapters->first()?->course?->thumbnail_url,
+            'thumbnail' => null,
+            'url' => $video->url,
+            'standalone' => $video->chapters->isEmpty(),
             'badges' => array_values(array_filter([
+                $video->chapters->isEmpty() ? 'วิดีโอเดี่ยว' : 'มาจากคอร์ส',
                 $this->durationLabel($video->duration_seconds),
                 $video->is_free ? 'ดูฟรี' : null,
             ])),
         ];
-    }
-
-    private function videoPlace(Video $video): ?string
-    {
-        $place = $video->chapters
-            ->map(fn ($chapter) => trim(($chapter->course?->name ? $chapter->course->name.' / ' : '').$chapter->title))
-            ->filter()
-            ->unique()
-            ->implode(', ');
-
-        return $place !== '' ? $place : null;
     }
 
     private function previewText(?string $short, ?string $long): ?string

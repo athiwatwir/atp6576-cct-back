@@ -23,6 +23,9 @@ class StoreOrderRequest extends FormRequest
             $this->merge(['discount_amount' => 0]);
         }
 
+        $couponCode = strtoupper(trim((string) $this->input('coupon_code', '')));
+        $this->merge(['coupon_code' => $couponCode === '' ? null : $couponCode]);
+
         $mode = $this->input('customer_mode', 'existing');
 
         if ($mode === 'manual') {
@@ -89,6 +92,7 @@ class StoreOrderRequest extends FormRequest
             'payment_method' => ['required', Rule::in(array_column(PaymentMethod::cases(), 'value'))],
             'shipping_amount' => ['nullable', 'numeric', 'min:0', 'max:999999'],
             'discount_amount' => ['nullable', 'numeric', 'min:0', 'max:999999'],
+            'coupon_code' => ['nullable', 'string', 'max:100'],
             'notes' => ['nullable', 'string', 'max:2000'],
             'shipping_name' => ['required', 'string', 'max:150'],
             'shipping_phone' => ['required', 'string', 'max:30'],
@@ -117,6 +121,7 @@ class StoreOrderRequest extends FormRequest
             'payment_method' => 'วิธีชำระเงิน',
             'shipping_amount' => 'ค่าจัดส่ง',
             'discount_amount' => 'ส่วนลด',
+            'coupon_code' => 'รหัสคูปอง',
             'notes' => 'หมายเหตุ',
             'shipping_name' => 'ชื่อผู้รับ',
             'shipping_phone' => 'เบอร์โทร',

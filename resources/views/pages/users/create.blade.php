@@ -6,7 +6,7 @@
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
         <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
             <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">เพิ่มผู้ใช้งานระบบ</h3>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">สร้างบัญชีสำหรับ Admin, Staff หรือ Instructor</p>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">สร้างบัญชีสำหรับ Admin, Staff หรือ Instructor ระบบจะส่งรหัสผ่านไปทางอีเมล</p>
         </div>
 
         <form method="POST" action="{{ route('users.store') }}" class="space-y-6 p-5 sm:p-6">

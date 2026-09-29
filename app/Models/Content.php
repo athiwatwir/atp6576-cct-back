@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Enums\BannerPlacement;
+use App\Support\MediaStorage;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -14,6 +17,7 @@ class Content extends Model
 
     protected $fillable = [
         'type',
+        'placement',
         'title',
         'slug',
         'excerpt',
@@ -21,6 +25,7 @@ class Content extends Model
         'image',
         'link_url',
         'status',
+        'sort_order',
         'published_at',
         'expired_at',
         'created_by',
@@ -32,7 +37,59 @@ class Content extends Model
         return [
             'published_at' => 'datetime',
             'expired_at' => 'datetime',
+            'sort_order' => 'integer',
         ];
+    }
+
+    public function scopeBanners(Builder $query): Builder
+    {
+        return $query->where('type', 'banner');
+    }
+
+    public function scopeArticles(Builder $query): Builder
+    {
+        return $query->where('type', 'article');
+    }
+
+    public function scopeVisible(Builder $query): Builder
+    {
+        $now = now();
+
+        return $query
+            ->where('status', 'published')
+            ->where(function (Builder $inner) use ($now) {
+                $inner->whereNull('published_at')->orWhere('published_at', '<=', $now);
+            })
+            ->where(function (Builder $inner) use ($now) {
+                $inner->whereNull('expired_at')->orWhere('expired_at', '>=', $now);
+            });
+    }
+
+    public function isLive(): bool
+    {
+        if ($this->status !== 'published') {
+            return false;
+        }
+
+        if ($this->published_at && $this->published_at->isFuture()) {
+            return false;
+        }
+
+        if ($this->expired_at && $this->expired_at->isPast()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    public function getImageUrlAttribute(): ?string
+    {
+        return MediaStorage::url($this->image);
+    }
+
+    public function getPlacementLabelAttribute(): string
+    {
+        return BannerPlacement::labelFor($this->placement);
     }
 
     public function creator(): BelongsTo

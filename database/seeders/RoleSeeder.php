@@ -21,11 +21,6 @@ class RoleSeeder extends Seeder
                 'description' => 'Staff access to backend operations',
             ],
             [
-                'name' => 'instructor',
-                'display_name' => 'Instructor',
-                'description' => 'Instructor access to course content',
-            ],
-            [
                 'name' => 'student',
                 'display_name' => 'Student',
                 'description' => 'Student account — cannot access admin panel',

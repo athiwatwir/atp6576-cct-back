@@ -7,9 +7,12 @@ use App\Enums\PaymentStatus;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Payment;
+use App\Support\StudentPurchase;
 use Carbon\Carbon;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class FinanceController extends Controller
@@ -130,20 +133,12 @@ class FinanceController extends Controller
                 'amount' => (float) $row->amount,
             ]);
 
-        $recentPaid = Order::query()
-            ->with(['user:id,name,email', 'latestPayment'])
-            ->where('payment_status', PaymentStatus::Paid->value)
-            ->whereBetween('paid_at', [$from, $to])
-            ->latest('paid_at')
-            ->limit(15)
-            ->get();
-
-        $awaitingOrders = Order::query()
-            ->with(['user:id,name,email', 'latestPayment'])
-            ->where('payment_status', PaymentStatus::AwaitingVerification->value)
+        $payments = Payment::query()
+            ->with(['order.user:id,name,email', 'order.items:id,order_id,item_name'])
+            ->whereBetween('created_at', [$from, $to])
             ->latest('id')
-            ->limit(10)
-            ->get();
+            ->paginate(20)
+            ->withQueryString();
 
         return view('pages.finance.index', [
             'title' => 'การเงิน',
@@ -155,11 +150,27 @@ class FinanceController extends Controller
             'byPaymentMethod' => $byPaymentMethod,
             'byItemType' => $byItemType,
             'dailyRevenue' => $dailyRevenue,
-            'recentPaid' => $recentPaid,
-            'awaitingOrders' => $awaitingOrders,
+            'payments' => $payments,
             'paymentStatuses' => PaymentStatus::options(),
             'paymentMethods' => PaymentMethod::options(),
         ]);
+    }
+
+    public function updatePayment(Request $request, Payment $payment, StudentPurchase $purchases): RedirectResponse
+    {
+        $data = $request->validate([
+            'status' => ['required', Rule::in(array_column(PaymentStatus::cases(), 'value'))],
+        ]);
+
+        $purchases->review($payment, PaymentStatus::from($data['status']));
+
+        return redirect()
+            ->route('finance.index', array_filter([
+                'from' => $request->input('from'),
+                'to' => $request->input('to'),
+                'preset' => $request->input('preset'),
+            ], fn ($value) => filled($value)))
+            ->with('success', 'บันทึกสถานะการชำระเงินแล้ว');
     }
 
     private function parseDate(mixed $value, Carbon $fallback, bool $endOfDay = false): Carbon

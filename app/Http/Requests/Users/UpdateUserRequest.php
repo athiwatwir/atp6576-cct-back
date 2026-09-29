@@ -5,7 +5,6 @@ namespace App\Http\Requests\Users;
 use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
 
 class UpdateUserRequest extends FormRequest
 {
@@ -32,7 +31,6 @@ class UpdateUserRequest extends FormRequest
                 Rule::unique('users', 'email')->ignore($user->id),
             ],
             'phone' => ['nullable', 'string', 'max:30'],
-            'password' => ['nullable', 'confirmed', Password::defaults()],
             'status' => ['required', Rule::in(['active', 'inactive', 'suspended'])],
             'roles' => ['required', 'array', 'min:1'],
             'roles.*' => ['integer', Rule::exists('roles', 'id')->whereIn('name', User::BACKEND_ROLES)],

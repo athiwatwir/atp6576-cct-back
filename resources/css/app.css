@@ -894,3 +894,190 @@ pre[class*='language-'] {
     margin-right: -60px !important;
   }
 }
+
+.article-editor {
+  overflow: hidden;
+  border: 1px solid #d0d5dd;
+  border-radius: 0.75rem;
+  background: #fff;
+}
+
+.dark .article-editor {
+  border-color: #344054;
+  background: #101828;
+}
+
+.article-editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  border-bottom: 1px solid #eaecf0;
+  background: #f9fafb;
+}
+
+.dark .article-editor-toolbar {
+  border-bottom-color: #1d2939;
+  background: #1d2939;
+}
+
+.article-editor-toolbar button {
+  min-height: 2rem;
+  border-radius: 0.5rem;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.75rem;
+  line-height: 1.2;
+  color: #344054;
+}
+
+.article-editor-toolbar button:hover,
+.article-editor-toolbar button.is-active {
+  background: #ecf3ff;
+  color: #3641f5;
+}
+
+.dark .article-editor-toolbar button {
+  color: #d0d5dd;
+}
+
+.dark .article-editor-toolbar button:hover,
+.dark .article-editor-toolbar button.is-active {
+  background: rgba(70, 95, 255, 0.18);
+  color: #9cb9ff;
+}
+
+.article-editor-divider {
+  width: 1px;
+  margin: 0.2rem 0.15rem;
+  background: #e4e7ec;
+}
+
+.dark .article-editor-divider {
+  background: #344054;
+}
+
+.article-editor-surface {
+  min-height: 320px;
+  padding: 1rem 1.1rem 1.5rem;
+  outline: none;
+  color: #101828;
+  font-size: 0.95rem;
+  line-height: 1.75;
+}
+
+.dark .article-editor-surface {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.article-editor-surface p.is-editor-empty:first-child::before {
+  float: left;
+  height: 0;
+  color: #98a2b3;
+  content: attr(data-placeholder);
+  pointer-events: none;
+}
+
+.article-editor-status:not(:empty) {
+  padding: 0 1rem 0.75rem;
+  font-size: 0.75rem;
+  color: #d92d20;
+}
+
+.article-editor-surface h2,
+.article-content h2,
+.article-editor-surface h3,
+.article-content h3 {
+  margin: 1.1rem 0 0.45rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.article-editor-surface h2,
+.article-content h2 {
+  font-size: 1.35rem;
+}
+
+.article-editor-surface h3,
+.article-content h3 {
+  font-size: 1.12rem;
+}
+
+.article-editor-surface p,
+.article-content p,
+.article-editor-surface ul,
+.article-content ul,
+.article-editor-surface ol,
+.article-content ol,
+.article-editor-surface blockquote,
+.article-content blockquote,
+.article-editor-surface pre,
+.article-content pre {
+  margin: 0.7rem 0;
+}
+
+.article-editor-surface ul,
+.article-content ul,
+.article-editor-surface ol,
+.article-content ol {
+  padding-left: 1.4rem;
+}
+
+.article-editor-surface ul,
+.article-content ul {
+  list-style: disc;
+}
+
+.article-editor-surface ol,
+.article-content ol {
+  list-style: decimal;
+}
+
+.article-editor-surface blockquote,
+.article-content blockquote {
+  border-left: 3px solid #465fff;
+  padding-left: 0.9rem;
+  color: #475467;
+}
+
+.dark .article-editor-surface blockquote,
+.dark .article-content blockquote {
+  color: #d0d5dd;
+}
+
+.article-editor-surface a,
+.article-content a {
+  color: #3641f5;
+  text-decoration: underline;
+}
+
+.article-editor-surface pre,
+.article-content pre {
+  overflow-x: auto;
+  border-radius: 0.6rem;
+  background: #f2f4f7;
+  padding: 0.8rem 1rem;
+  font-size: 0.85rem;
+}
+
+.dark .article-editor-surface pre,
+.dark .article-content pre {
+  background: #1d2939;
+}
+
+.article-editor-surface img,
+.article-content img {
+  max-width: 100%;
+  height: auto;
+  margin: 0.8rem 0;
+  border-radius: 0.75rem;
+}
+
+.article-content {
+  font-size: 0.95rem;
+  line-height: 1.8;
+  color: #101828;
+}
+
+.dark .article-content {
+  color: rgba(255, 255, 255, 0.9);
+}

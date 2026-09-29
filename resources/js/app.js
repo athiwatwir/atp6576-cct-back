@@ -10,12 +10,14 @@ import 'flatpickr/dist/flatpickr.min.css';
 import { Calendar } from '@fullcalendar/core';
 
 import { registerPageLoading } from './loading';
+import { uploadVideoForm } from './video-upload';
 
 window.Alpine = Alpine;
 window.ApexCharts = ApexCharts;
 window.flatpickr = flatpickr;
 window.FullCalendar = Calendar;
 window.Sortable = Sortable;
+window.uploadVideoForm = uploadVideoForm;
 
 document.addEventListener('alpine:init', () => {
     registerPageLoading(Alpine);
@@ -53,5 +55,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Calendar init
     if (document.querySelector('#calendar')) {
         import('./components/calendar-init').then(module => module.calendarInit());
+    }
+
+    if (document.querySelector('[data-article-editor]')) {
+        import('./article-editor').then(module => module.initArticleEditors());
     }
 });

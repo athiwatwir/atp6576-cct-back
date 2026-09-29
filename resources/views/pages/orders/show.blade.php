@@ -101,7 +101,7 @@ $otherCarrierValue = \App\Enums\ShippingCarrier::Other->value;
             <div class="space-y-2 border-t border-gray-100 px-5 py-4 text-sm dark:border-gray-800">
                 <div class="flex justify-between"><span class="text-gray-500">ยอดสินค้า</span><span>฿{{ number_format((float) $order->subtotal, 2) }}</span></div>
                 <div class="flex justify-between"><span class="text-gray-500">ค่าจัดส่ง</span><span>฿{{ number_format((float) $order->shipping_amount, 2) }}</span></div>
-                <div class="flex justify-between"><span class="text-gray-500">ส่วนลด</span><span>-฿{{ number_format((float) $order->discount_amount, 2) }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-500">ส่วนลด{{ $order->coupon ? ' ('.$order->coupon->code.')' : '' }}</span><span>-฿{{ number_format((float) $order->discount_amount, 2) }}</span></div>
                 <div class="flex justify-between border-t border-gray-100 pt-2 font-semibold dark:border-gray-800">
                     <span>ยอดรวม</span>
                     <span class="text-brand-600 dark:text-brand-400">฿{{ number_format((float) $order->total_amount, 2) }}</span>

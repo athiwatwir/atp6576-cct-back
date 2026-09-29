@@ -174,6 +174,16 @@
                 </div>
 
                 <div>
+                    <label for="coupon_code" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">รหัสคูปอง</label>
+                    <input type="text" id="coupon_code" name="coupon_code" value="{{ old('coupon_code') }}" maxlength="100"
+                        class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm uppercase text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">ถ้าใส่รหัส ระบบจะใช้ส่วนลดจากคูปองแทนช่องส่วนลด และนับการใช้ทันที</p>
+                    @error('coupon_code')
+                        <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <div>
                     <label for="discount_amount" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">ส่วนลด (บาท)</label>
                     <input type="number" id="discount_amount" name="discount_amount" min="0" step="0.01"
                         x-model.number="discountAmount"

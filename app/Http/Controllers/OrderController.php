@@ -15,6 +15,7 @@ use App\Models\Product;
 use App\Models\Role;
 use App\Models\User;
 use App\Support\Audit;
+use App\Support\CouponService;
 use App\Support\DocumentSequence;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,6 +26,10 @@ use Illuminate\View\View;
 
 class OrderController extends Controller
 {
+    public function __construct(
+        private readonly CouponService $coupons,
+    ) {}
+
     public function index(Request $request): View
     {
         $search = $request->string('search')->trim()->toString();
@@ -135,6 +140,17 @@ class OrderController extends Controller
 
             $shippingAmount = (float) ($data['shipping_amount'] ?? 0);
             $discountAmount = (float) ($data['discount_amount'] ?? 0);
+            $couponId = null;
+
+            if (! empty($data['coupon_code'])) {
+                $applied = $this->coupons->quote($user, $data['coupon_code'], array_map(fn (array $line) => [
+                    'product_id' => $line['product_id'],
+                    'total_price' => $line['total_price'],
+                ], $lineItems));
+                $discountAmount = $applied['discount'];
+                $couponId = $applied['coupon']->id;
+            }
+
             $totalAmount = max(0, round($subtotal + $shippingAmount - $discountAmount, 2));
 
             $paymentMethod = PaymentMethod::from($data['payment_method']);
@@ -145,6 +161,7 @@ class OrderController extends Controller
             $order = Order::query()->create([
                 'order_no' => $this->generateOrderNo(),
                 'user_id' => $user->id,
+                'coupon_id' => $couponId,
                 'subtotal' => $subtotal,
                 'discount_amount' => $discountAmount,
                 'shipping_amount' => $shippingAmount,
@@ -166,6 +183,10 @@ class OrderController extends Controller
 
             foreach ($lineItems as $lineItem) {
                 $order->items()->create($lineItem);
+            }
+
+            if ($couponId) {
+                $this->coupons->commit($user, $order);
             }
 
             Payment::query()->create([
@@ -190,7 +211,7 @@ class OrderController extends Controller
 
     public function show(Order $order): View
     {
-        $order->load(['user', 'items.product', 'payments']);
+        $order->load(['user', 'items.product', 'payments', 'coupon']);
 
         return view('pages.orders.show', [
             'title' => $order->order_no,
@@ -263,6 +284,10 @@ class OrderController extends Controller
             }
 
             $this->applyShippingSideEffects($payload, $shippingStatus, $order);
+
+            if ($orderStatus === OrderStatus::Cancelled && $paymentStatus !== PaymentStatus::Paid) {
+                $this->coupons->release($order);
+            }
 
             $order->update($payload);
 

@@ -11,6 +11,7 @@ class Enrollment extends Model
         'user_id',
         'course_id',
         'curriculum_id',
+        'assessment_id',
         'order_id',
         'source',
         'status',
@@ -39,6 +40,11 @@ class Enrollment extends Model
     public function curriculum(): BelongsTo
     {
         return $this->belongsTo(Curriculum::class);
+    }
+
+    public function assessment(): BelongsTo
+    {
+        return $this->belongsTo(Assessment::class);
     }
 
     public function order(): BelongsTo

@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\ArticleController;
 use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\BannerController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\BookController;
 use App\Http\Controllers\CourseAssessmentController;
@@ -8,14 +10,18 @@ use App\Http\Controllers\CourseAssessmentQuestionController;
 use App\Http\Controllers\CourseChapterController;
 use App\Http\Controllers\CourseChapterDocumentController;
 use App\Http\Controllers\CourseChapterVideoController;
+use App\Http\Controllers\CouponController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\CurriculumController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExamController;
 use App\Http\Controllers\ExamQuestionController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\InstructorController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PromotionController;
+use App\Http\Controllers\StudentController;
 use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
@@ -32,6 +38,12 @@ Route::middleware(['auth', 'backend'])->group(function () {
     Route::get('audit-logs/{auditLog}', [AuditLogController::class, 'show'])->name('audit-logs.show');
 
     Route::resource('users', UserController::class)->except(['show']);
+    Route::post('users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('users.reset-password');
+    Route::resource('students', StudentController::class);
+    Route::get('students/{student}/orders/create', [StudentController::class, 'createOrder'])->name('students.orders.create');
+    Route::post('students/{student}/orders', [StudentController::class, 'storeOrder'])->name('students.orders.store');
+    Route::get('students/{student}/orders/{order}/payment', [StudentController::class, 'payment'])->name('students.orders.payment');
+    Route::post('students/{student}/orders/{order}/payment', [StudentController::class, 'pay'])->name('students.orders.pay');
     Route::resource('instructors', InstructorController::class)->except(['show']);
     Route::resource('subjects', SubjectController::class)->except(['show']);
     Route::resource('courses', CourseController::class);
@@ -48,12 +60,21 @@ Route::middleware(['auth', 'backend'])->group(function () {
     Route::resource('curriculums', CurriculumController::class);
     Route::get('curriculums/{curriculum}/catalog', [CurriculumController::class, 'catalog'])->name('curriculums.catalog');
     Route::get('curriculums/{curriculum}/attached', [CurriculumController::class, 'attached'])->name('curriculums.attached');
+    Route::post('curriculums/{curriculum}/videos', [CurriculumController::class, 'storeVideo'])->name('curriculums.videos.store');
+    Route::delete('curriculums/{curriculum}/videos/{video}', [CurriculumController::class, 'destroyVideo'])->name('curriculums.videos.destroy');
     Route::post('curriculums/{curriculum}/items', [CurriculumController::class, 'attachItems'])->name('curriculums.items.store');
     Route::delete('curriculums/{curriculum}/items', [CurriculumController::class, 'detachItem'])->name('curriculums.items.destroy');
     Route::resource('orders', OrderController::class);
     Route::put('orders/{order}/shipping-status', [OrderController::class, 'updateShippingStatus'])->name('orders.shipping-status');
     Route::put('orders/{order}/tracking', [OrderController::class, 'updateTracking'])->name('orders.tracking');
     Route::get('finance', [FinanceController::class, 'index'])->name('finance.index');
+    Route::put('finance/payments/{payment}', [FinanceController::class, 'updatePayment'])->name('finance.payments.update');
+    Route::resource('promotions', PromotionController::class);
+    Route::resource('coupons', CouponController::class);
+    Route::post('banners/{banner}/move', [BannerController::class, 'move'])->name('banners.move');
+    Route::resource('banners', BannerController::class);
+    Route::post('articles/images', [ArticleController::class, 'uploadImage'])->name('articles.images.store');
+    Route::resource('articles', ArticleController::class);
 
     Route::post('courses/{course}/chapters', [CourseChapterController::class, 'store'])->name('courses.chapters.store');
     Route::put('courses/{course}/chapters/reorder', [CourseChapterController::class, 'reorder'])->name('courses.chapters.reorder');
@@ -75,10 +96,8 @@ Route::middleware(['auth', 'backend'])->group(function () {
     Route::put('courses/{course}/assessments/{assessment}/questions/{question}', [CourseAssessmentQuestionController::class, 'update'])->name('courses.assessments.questions.update');
     Route::delete('courses/{course}/assessments/{assessment}/questions/{question}', [CourseAssessmentQuestionController::class, 'destroy'])->name('courses.assessments.questions.destroy');
 
-    // dashboard pages
-    Route::get('/', function () {
-        return view('pages.dashboard.ecommerce', ['title' => 'E-commerce Dashboard']);
-    })->name('dashboard');
+    Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('dashboard/summary', [DashboardController::class, 'summary'])->name('dashboard.summary');
 
     // calender pages
     Route::get('/calendar', function () {
