@@ -22,7 +22,17 @@ class ProfileController extends Controller
     public function update(UpdateStudentProfileRequest $request): JsonResponse
     {
         $user = $request->user();
-        $data = $request->safe()->only(['name', 'email', 'phone']);
+        $data = $request->safe()->only([
+            'name',
+            'email',
+            'phone',
+            'school_name',
+            'address_line1',
+            'subdistrict',
+            'district',
+            'province',
+            'postal_code',
+        ]);
 
         if ($request->hasFile('avatar')) {
             $data['avatar'] = MediaStorage::store($request->file('avatar'), 'avatars/'.$user->id);

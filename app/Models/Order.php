@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\OrderKind;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\ShippingStatus;
@@ -21,6 +22,7 @@ class Order extends Model
     }
     protected $fillable = [
         'order_no',
+        'kind',
         'user_id',
         'coupon_id',
         'subtotal',
@@ -61,6 +63,11 @@ class Order extends Model
             'shipped_at' => 'datetime',
             'delivered_at' => 'datetime',
         ];
+    }
+
+    public function isBook(): bool
+    {
+        return $this->kind === OrderKind::Book->value;
     }
 
     public function user(): BelongsTo

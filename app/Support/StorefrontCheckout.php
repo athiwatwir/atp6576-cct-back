@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enums\OrderKind;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
@@ -60,6 +61,9 @@ class StorefrontCheckout
 
             $order = Order::query()->create([
                 'order_no' => DocumentSequence::nextOrder(),
+                'kind' => $lines->contains(fn (array $line) => $line['product_id'] !== null)
+                    ? OrderKind::Book->value
+                    : OrderKind::Enrollment->value,
                 'user_id' => $student->id,
                 'coupon_id' => $priced['coupon_id'],
                 'subtotal' => $priced['subtotal'],
@@ -198,13 +202,22 @@ class StorefrontCheckout
             })
             ->values();
 
+        $hasBook = $normalized->contains(fn (array $item) => $item['type'] === 'book');
+        $hasLearning = $normalized->contains(fn (array $item) => in_array($item['type'], ['course', 'curriculum', 'exam'], true));
+
+        if ($hasBook && $hasLearning) {
+            throw ValidationException::withMessages([
+                'items' => 'แยกคำสั่งซื้อหนังสือกับสมัครเรียนคนละออเดอร์',
+            ]);
+        }
+
         if ($normalized->isEmpty()) {
             throw ValidationException::withMessages([
                 'items' => 'กรุณาเลือกอย่างน้อย 1 รายการ',
             ]);
         }
 
-        $lines = $normalized->map(function (array $item) {
+        $lines = $normalized->map(function (array $item) use ($lockBooks) {
             if ($item['type'] === 'course') {
                 $course = Course::query()->where('status', 'published')->find($item['id']);
                 if (! $course) {

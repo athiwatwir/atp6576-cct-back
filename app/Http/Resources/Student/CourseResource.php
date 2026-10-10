@@ -16,6 +16,7 @@ class CourseResource extends JsonResource
         $purchased = in_array($this->id, $request->attributes->get('purchased_course_ids', []), true);
 
         return [
+            'item_type' => 'course',
             'id' => $this->id,
             'code' => $this->code,
             'slug' => $this->slug,

@@ -28,21 +28,10 @@
         </div>
 
         <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
-            <form method="GET" action="{{ route('subjects.index') }}" class="grid grid-cols-1 gap-3 md:grid-cols-4">
+            <form method="GET" action="{{ route('subjects.index') }}" class="grid grid-cols-1 gap-3 md:grid-cols-3">
                 <div class="md:col-span-2">
                     <input type="text" name="search" value="{{ $filters['search'] }}" placeholder="ค้นหาชื่อวิชา"
                         class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" />
-                </div>
-                <div>
-                    <select name="category_id"
-                        class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                        <option value="">ทุกหมวดหมู่</option>
-                        @foreach ($categories as $category)
-                            <option value="{{ $category->id }}" @selected((int) $filters['category_id'] === $category->id)>
-                                {{ $category->name }}
-                            </option>
-                        @endforeach
-                    </select>
                 </div>
                 <div class="flex gap-2">
                     <select name="status"
@@ -65,7 +54,6 @@
                 <thead>
                     <tr class="border-b border-gray-100 dark:border-gray-800">
                         <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">วิชา</th>
-                        <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">หมวดหมู่</th>
                         <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">คอร์ส</th>
                         <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">สถานะ</th>
                         <th class="px-5 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400">จัดการ</th>
@@ -81,9 +69,6 @@
                                         {{ $subject->description }}
                                     </div>
                                 @endif
-                            </td>
-                            <td class="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">
-                                {{ $subject->category?->name ?? '-' }}
                             </td>
                             <td class="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">
                                 {{ $subject->courses_count }}
@@ -111,7 +96,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="px-5 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+                            <td colspan="4" class="px-5 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
                                 ไม่พบวิชา
                             </td>
                         </tr>

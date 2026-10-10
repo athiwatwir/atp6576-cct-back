@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\MediaStorage;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -11,6 +12,7 @@ class Question extends Model
     protected $fillable = [
         'assessment_id',
         'question_text',
+        'image',
         'question_type',
         'explanation',
         'points',
@@ -23,6 +25,11 @@ class Question extends Model
         return [
             'points' => 'decimal:2',
         ];
+    }
+
+    public function getImageUrlAttribute(): ?string
+    {
+        return MediaStorage::url($this->image);
     }
 
     public function assessment(): BelongsTo

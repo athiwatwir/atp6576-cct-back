@@ -44,6 +44,11 @@
             {{ $student->phone ?: 'ไม่มีเบอร์โทร' }}
             · เข้าสู่ระบบล่าสุด {{ $student->last_login_at?->format('d/m/Y H:i') ?? 'ยังไม่เคยเข้า' }}
         </p>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">โรงเรียน: {{ $student->school_name ?: '-' }}</p>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            ที่อยู่:
+            {{ collect([$student->address_line1, $student->subdistrict, $student->district, $student->province, $student->postal_code])->filter()->implode(' ') ?: '-' }}
+        </p>
     </div>
     <div class="flex flex-wrap gap-2">
         <a href="{{ route('students.index') }}"
@@ -124,9 +129,9 @@
 
     <div class="space-y-6 xl:col-span-4">
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-            <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">ออเดอร์ล่าสุด</h3>
+            <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">สมัครเรียนล่าสุด</h3>
             <div class="mt-4 divide-y divide-gray-100 dark:divide-gray-800">
-                @forelse ($student->orders as $order)
+                @forelse ($enrollmentOrders as $order)
                     <div class="flex items-start justify-between gap-3 py-3 first:pt-0 last:pb-0">
                         <span>
                             <a href="{{ route('orders.show', $order) }}" class="block text-sm font-medium text-gray-800 hover:text-brand-500 dark:text-white/90">{{ $order->order_no }}</a>
@@ -141,7 +146,24 @@
                         </span>
                     </div>
                 @empty
-                    <p class="text-sm text-gray-500 dark:text-gray-400">ยังไม่มีออเดอร์</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">ยังไม่มีรายการสมัครเรียน</p>
+                @endforelse
+            </div>
+            <h3 class="mt-6 text-sm font-semibold text-gray-800 dark:text-white/90">ออเดอร์หนังสือล่าสุด</h3>
+            <div class="mt-4 divide-y divide-gray-100 dark:divide-gray-800">
+                @forelse ($bookOrders as $order)
+                    <div class="flex items-start justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                        <span>
+                            <a href="{{ route('orders.show', $order) }}" class="block text-sm font-medium text-gray-800 hover:text-brand-500 dark:text-white/90">{{ $order->order_no }}</a>
+                            <span class="text-xs text-gray-500 dark:text-gray-400">{{ $order->created_at?->format('d/m/Y H:i') }}</span>
+                        </span>
+                        <span class="text-right">
+                            <span class="block text-sm font-medium text-gray-800 dark:text-white/90">฿{{ number_format((float) $order->total_amount, 2) }}</span>
+                            <x-common.status-badge :status="\App\Enums\PaymentStatus::tryFrom($order->payment_status) ?? $order->payment_status" />
+                        </span>
+                    </div>
+                @empty
+                    <p class="text-sm text-gray-500 dark:text-gray-400">ยังไม่มีออเดอร์หนังสือ</p>
                 @endforelse
             </div>
         </div>

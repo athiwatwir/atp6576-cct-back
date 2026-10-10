@@ -23,6 +23,10 @@ class BookResource extends JsonResource
             'name' => $this->name,
             'description' => $this->when($request->routeIs('api.books.show'), $this->description),
             'thumbnail_url' => $this->thumbnail_url,
+            'images' => $this->when($request->routeIs('api.books.show'), fn () => $this->images
+                ->map(fn ($image) => $image->url)
+                ->values()),
+            'video_url' => $this->when($request->routeIs('api.books.show'), $this->video?->url),
             'price' => (float) $this->price,
             'sale_price' => $this->sale_price !== null ? (float) $this->sale_price : null,
             'effective_price' => $this->effective_price,

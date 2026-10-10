@@ -10,7 +10,7 @@
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
         <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
             <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">แก้ไขออเดอร์ {{ $order->order_no }}</h3>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">อัปเดตสถานะชำระเงิน ที่อยู่จัดส่ง และหมายเลขพัสดุ</p>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $order->isBook() ? 'อัปเดตสถานะชำระเงิน ที่อยู่จัดส่ง และหมายเลขพัสดุ' : 'อัปเดตสถานะการสมัครเรียนและการชำระเงิน' }}</p>
         </div>
 
         <form method="POST" action="{{ route('orders.update', $order) }}" class="space-y-8 p-5 sm:p-6">
@@ -56,6 +56,7 @@
                             <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p>
                         @enderror
                     </div>
+                    @if ($order->isBook())
                     <div>
                         <label for="shipping_status" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">สถานะจัดส่ง</label>
                         <select id="shipping_status" name="shipping_status" required
@@ -68,9 +69,11 @@
                             <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p>
                         @enderror
                     </div>
+                    @endif
                 </div>
             </section>
 
+            @if ($order->isBook())
             <section>
                 <h4 class="mb-4 text-sm font-semibold text-gray-800 dark:text-white/90">ติดตามพัสดุ</h4>
                 <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -99,23 +102,19 @@
                             value="{{ old('shipping_amount', $order->shipping_amount) }}"
                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                     </div>
-                    <div>
-                        <label for="discount_amount" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">ส่วนลด (บาท)</label>
-                        <input type="number" id="discount_amount" name="discount_amount" min="0" step="0.01"
-                            value="{{ old('discount_amount', $order->discount_amount) }}"
-                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
-                    </div>
                 </div>
             </section>
+            @endif
 
             <section>
-                <h4 class="mb-4 text-sm font-semibold text-gray-800 dark:text-white/90">ข้อมูลลูกค้าและที่อยู่จัดส่ง</h4>
+                <h4 class="mb-4 text-sm font-semibold text-gray-800 dark:text-white/90">{{ $order->isBook() ? 'ข้อมูลลูกค้าและที่อยู่จัดส่ง' : 'ข้อมูลนักเรียน' }}</h4>
                 <div class="mb-4 rounded-xl bg-gray-50 px-4 py-3 text-sm dark:bg-white/[0.03]">
                     <div class="font-medium text-gray-800 dark:text-white/90">{{ $order->user?->name ?? '-' }}</div>
                     <div class="mt-1 text-gray-500">{{ $order->user?->email }}{{ $order->user?->phone ? ' · '.$order->user->phone : '' }}</div>
                 </div>
 
                 <div class="space-y-4">
+                    @if ($order->isBook())
                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div>
                             <label for="shipping_name" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">ชื่อผู้รับ<span class="text-error-500">*</span></label>
@@ -142,7 +141,14 @@
                         :province="old('shipping_province', $order->shipping_province)"
                         :postal-code="old('shipping_postal_code', $order->shipping_postal_code)"
                     />
+                    @endif
 
+                    <div class="max-w-xs">
+                        <label for="discount_amount" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">ส่วนลด (บาท)</label>
+                        <input type="number" id="discount_amount" name="discount_amount" min="0" step="0.01"
+                            value="{{ old('discount_amount', $order->discount_amount) }}"
+                            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                    </div>
                     <div>
                         <label for="notes" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">หมายเหตุ</label>
                         <textarea id="notes" name="notes" rows="2"
@@ -153,7 +159,7 @@
 
             <div class="rounded-xl bg-gray-50 px-4 py-3 text-sm dark:bg-white/[0.03]">
                 <div class="flex justify-between"><span class="text-gray-500">ยอดสินค้า</span><span>฿{{ number_format((float) $order->subtotal, 2) }}</span></div>
-                <p class="mt-2 text-xs text-gray-500">ยอดรวมจะคำนวณใหม่จากยอดสินค้า + ค่าจัดส่ง − ส่วนลด เมื่อบันทึก</p>
+                <p class="mt-2 text-xs text-gray-500">{{ $order->isBook() ? 'ยอดรวมจะคำนวณใหม่จากยอดสินค้า + ค่าจัดส่ง − ส่วนลด เมื่อบันทึก' : 'ยอดรวมจะคำนวณใหม่จากยอดสินค้า − ส่วนลด เมื่อบันทึก' }}</p>
             </div>
 
             <div class="flex flex-col-reverse gap-3 border-t border-gray-100 pt-5 sm:flex-row sm:justify-end dark:border-gray-800">
@@ -170,6 +176,8 @@
     </div>
 @endsection
 
+@if ($order->isBook())
 @push('scripts')
     @include('partials.thai-address-scripts')
 @endpush
+@endif

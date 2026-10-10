@@ -169,12 +169,50 @@ class MediaStorage
         return self::storeWebp($file, self::examThumbnailPath($examId));
     }
 
+    public static function questionImagePath(int $examId, int $questionId): string
+    {
+        return "exams/{$examId}/questions/{$questionId}.webp";
+    }
+
+    public static function storeQuestionImage(UploadedFile $file, int $examId, int $questionId): string
+    {
+        return self::storeWebp($file, self::questionImagePath($examId, $questionId));
+    }
+
     /**
      * Convert image to WebP, then upload as books/{id}/{id}.webp
      */
     public static function storeBookThumbnail(UploadedFile $file, int $bookId): string
     {
         return self::storeWebp($file, self::bookThumbnailPath($bookId));
+    }
+
+    public static function bookGalleryDirectory(int $bookId): string
+    {
+        return "books/{$bookId}/gallery";
+    }
+
+    public static function storeBookImage(UploadedFile $file, int $bookId): string
+    {
+        return self::storeWebp($file, self::bookGalleryDirectory($bookId).'/'.Str::uuid()->toString().'.webp');
+    }
+
+    public static function bookVideoDirectory(int $bookId): string
+    {
+        return "books/{$bookId}/video";
+    }
+
+    public static function storeBookVideo(UploadedFile $file, int $bookId): string
+    {
+        $extension = strtolower($file->getClientOriginalExtension() ?: $file->extension() ?: 'mp4');
+        $filename = $bookId.'.'.$extension;
+
+        $file->storeAs(self::bookVideoDirectory($bookId), $filename, [
+            'disk' => self::disk(),
+            'visibility' => 'public',
+        ]);
+
+        return self::bookVideoDirectory($bookId).'/'.$filename;
     }
 
     public static function storeCurriculumThumbnail(UploadedFile $file, int $curriculumId): string

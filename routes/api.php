@@ -7,14 +7,21 @@ use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\ProfileController;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('v1')->group(function () {
+Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
+    Route::get('auth/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
+        ->whereNumber('id')
+        ->name('api.auth.email.verify');
+});
+
+Route::prefix('v1')->middleware(['storefront', 'throttle:60,1'])->group(function () {
     Route::post('auth/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
     Route::post('auth/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+    Route::post('auth/email/resend', [AuthController::class, 'resendVerification'])->middleware('throttle:10,1');
 
-    Route::get('courses', [CatalogController::class, 'courses'])->name('api.courses.index');
+    Route::get('catalog', [CatalogController::class, 'catalog'])->name('api.catalog.index');
     Route::get('courses/{slug}', [CatalogController::class, 'showCourse'])->name('api.courses.show');
-    Route::get('curriculums', [CatalogController::class, 'curriculums'])->name('api.curriculums.index');
     Route::get('curriculums/{slug}', [CatalogController::class, 'showCurriculum'])->name('api.curriculums.show');
+    Route::get('exams/{slug}', [CatalogController::class, 'showExam'])->name('api.exams.show');
     Route::get('books', [CatalogController::class, 'books'])->name('api.books.index');
     Route::get('books/{slug}', [CatalogController::class, 'showBook'])->name('api.books.show');
     Route::get('banners', [ContentController::class, 'banners'])->name('api.banners.index');

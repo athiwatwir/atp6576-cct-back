@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Orders;
 
+use App\Enums\OrderKind;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
@@ -32,21 +33,24 @@ class UpdateOrderRequest extends FormRequest
      */
     public function rules(): array
     {
+        $book = $this->route('order')?->kind === OrderKind::Book->value;
+        $shipping = $book ? 'required' : 'nullable';
+
         return [
             'status' => ['required', Rule::in(array_column(OrderStatus::cases(), 'value'))],
             'payment_status' => ['required', Rule::in(array_column(PaymentStatus::cases(), 'value'))],
             'payment_method' => ['required', Rule::in(array_column(PaymentMethod::cases(), 'value'))],
-            'shipping_status' => ['required', Rule::in(array_column(ShippingStatus::cases(), 'value'))],
+            'shipping_status' => [$shipping, Rule::in(array_column(ShippingStatus::cases(), 'value'))],
             'shipping_amount' => ['nullable', 'numeric', 'min:0', 'max:999999'],
             'discount_amount' => ['nullable', 'numeric', 'min:0', 'max:999999'],
             'notes' => ['nullable', 'string', 'max:2000'],
-            'shipping_name' => ['required', 'string', 'max:150'],
-            'shipping_phone' => ['required', 'string', 'max:30'],
-            'shipping_address_line1' => ['required', 'string', 'max:255'],
+            'shipping_name' => [$shipping, 'string', 'max:150'],
+            'shipping_phone' => [$shipping, 'string', 'max:30'],
+            'shipping_address_line1' => [$shipping, 'string', 'max:255'],
             'shipping_subdistrict' => ['nullable', 'string', 'max:100'],
-            'shipping_district' => ['required', 'string', 'max:100'],
-            'shipping_province' => ['required', 'string', 'max:100'],
-            'shipping_postal_code' => ['required', 'string', 'max:20'],
+            'shipping_district' => [$shipping, 'string', 'max:100'],
+            'shipping_province' => [$shipping, 'string', 'max:100'],
+            'shipping_postal_code' => [$shipping, 'string', 'max:20'],
             'shipping_carrier' => ['nullable', 'string', 'max:100'],
             'tracking_number' => ['nullable', 'string', 'max:100'],
         ];

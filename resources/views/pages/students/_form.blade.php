@@ -31,6 +31,28 @@
         @enderror
     </div>
 
+    <div class="md:col-span-2">
+        <label for="school_name" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">ชื่อโรงเรียน</label>
+        <input type="text" id="school_name" name="school_name" value="{{ old('school_name', $student?->school_name) }}" class="{{ $inputClass }}" />
+        @error('school_name')
+            <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p>
+        @enderror
+    </div>
+
+    <div class="md:col-span-2">
+        <p class="mb-3 text-sm font-medium text-gray-700 dark:text-gray-400">ที่อยู่</p>
+        <x-common.thai-address
+            prefix=""
+            :required="false"
+            :address-line1="$student?->address_line1"
+            :subdistrict="$student?->subdistrict"
+            :district="$student?->district"
+            :province="$student?->province"
+            :postal-code="$student?->postal_code"
+        />
+        <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">พิมพ์ตำบล อำเภอ หรือรหัสไปรษณีย์เพื่อให้ระบบเติมจังหวัดให้</p>
+    </div>
+
     <div>
         <label for="status" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
             สถานะ<span class="text-error-500">*</span>
@@ -61,3 +83,7 @@
         </div>
     @endif
 </div>
+
+@push('scripts')
+    @include('partials.thai-address-scripts')
+@endpush

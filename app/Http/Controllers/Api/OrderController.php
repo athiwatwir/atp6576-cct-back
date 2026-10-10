@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\OrderKind;
 use App\Http\Controllers\Controller;
+use Illuminate\Validation\Rule;
 use App\Http\Requests\Api\StorefrontOrderRequest;
 use App\Http\Requests\Api\SubmitPaymentSlipRequest;
 use App\Http\Resources\Student\OrderResource;
@@ -31,9 +33,14 @@ class OrderController extends Controller
 
     public function index(Request $request): AnonymousResourceCollection
     {
+        $kind = (string) $request->validate([
+            'kind' => ['nullable', Rule::in([OrderKind::Book->value, OrderKind::Enrollment->value])],
+        ])['kind'] ?? '';
+
         $orders = Order::query()
             ->with(['items', 'latestPayment.slips'])
             ->where('user_id', $request->user()->id)
+            ->when($kind !== '', fn ($query) => $query->where('kind', $kind))
             ->latest('id')
             ->paginate(min(50, max(1, (int) $request->integer('per_page', 12))))
             ->withQueryString();

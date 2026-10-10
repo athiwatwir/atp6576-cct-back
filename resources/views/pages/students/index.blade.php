@@ -30,7 +30,7 @@
         <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
             <form method="GET" action="{{ route('students.index') }}" class="grid grid-cols-1 gap-3 md:grid-cols-4">
                 <div class="md:col-span-2">
-                    <input type="text" name="search" value="{{ $filters['search'] }}" placeholder="ค้นหาชื่อ อีเมล หรือเบอร์โทร"
+                    <input type="text" name="search" value="{{ $filters['search'] }}" placeholder="ค้นหาชื่อ อีเมล เบอร์โทร หรือโรงเรียน"
                         class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" />
                 </div>
                 <div>
@@ -70,6 +70,9 @@
                             <td class="px-5 py-4">
                                 <a href="{{ route('students.show', $student) }}" class="font-medium text-gray-800 hover:text-brand-500 dark:text-white/90">{{ $student->name }}</a>
                                 <div class="text-sm text-gray-500 dark:text-gray-400">{{ $student->email }}</div>
+                                @if ($student->school_name)
+                                    <div class="text-xs text-gray-400">{{ $student->school_name }}</div>
+                                @endif
                             </td>
                             <td class="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{{ $student->phone ?: '-' }}</td>
                             <td class="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">

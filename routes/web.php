@@ -18,6 +18,7 @@ use App\Http\Controllers\ExamController;
 use App\Http\Controllers\ExamQuestionController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\InstructorController;
+use App\Http\Controllers\MenuCountController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PromotionController;
@@ -64,6 +65,7 @@ Route::middleware(['auth', 'backend'])->group(function () {
     Route::delete('curriculums/{curriculum}/videos/{video}', [CurriculumController::class, 'destroyVideo'])->name('curriculums.videos.destroy');
     Route::post('curriculums/{curriculum}/items', [CurriculumController::class, 'attachItems'])->name('curriculums.items.store');
     Route::delete('curriculums/{curriculum}/items', [CurriculumController::class, 'detachItem'])->name('curriculums.items.destroy');
+    Route::get('enrollments', [OrderController::class, 'index'])->name('enrollments.index');
     Route::resource('orders', OrderController::class);
     Route::put('orders/{order}/shipping-status', [OrderController::class, 'updateShippingStatus'])->name('orders.shipping-status');
     Route::put('orders/{order}/tracking', [OrderController::class, 'updateTracking'])->name('orders.tracking');
@@ -98,6 +100,7 @@ Route::middleware(['auth', 'backend'])->group(function () {
 
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('dashboard/summary', [DashboardController::class, 'summary'])->name('dashboard.summary');
+    Route::get('menu/teaching-counts', [MenuCountController::class, 'teaching'])->name('menu.teaching-counts');
 
     // calender pages
     Route::get('/calendar', function () {

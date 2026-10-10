@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Enums\EnrollmentStatus;
+use App\Enums\OrderKind;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
@@ -105,6 +106,7 @@ class StudentPurchase
 
             $order = Order::query()->create([
                 'order_no' => DocumentSequence::nextOrder(),
+                'kind' => OrderKind::Enrollment->value,
                 'user_id' => $student->id,
                 'coupon_id' => $couponId,
                 'subtotal' => $subtotal,

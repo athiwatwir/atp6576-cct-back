@@ -8,6 +8,36 @@ class MenuHelper
     {
         return [
             [
+                'title' => 'การขาย',
+                'items' => [
+                    [
+                        'icon' => 'order',
+                        'name' => 'ออเดอร์หนังสือ',
+                        'path' => '/orders',
+                    ],
+                    [
+                        'icon' => 'course',
+                        'name' => 'สมัครเรียน',
+                        'path' => '/enrollments',
+                    ],
+                    [
+                        'icon' => 'promotion',
+                        'name' => 'โปรโมชัน',
+                        'path' => '/promotions',
+                    ],
+                    [
+                        'icon' => 'coupon',
+                        'name' => 'คูปอง',
+                        'path' => '/coupons',
+                    ],
+                    [
+                        'icon' => 'finance',
+                        'name' => 'การเงิน',
+                        'path' => '/finance',
+                    ],
+                ],
+            ],
+            [
                 'title' => 'ภาพรวม',
                 'items' => [
                     [
@@ -49,51 +79,31 @@ class MenuHelper
                         'icon' => 'subject',
                         'name' => 'วิชาหลัก',
                         'path' => '/subjects',
+                        'count' => 'subjects',
                     ],
                     [
                         'icon' => 'course',
                         'name' => 'คอร์สเรียน',
                         'path' => '/courses',
+                        'count' => 'courses',
                     ],
                     [
                         'icon' => 'curriculum',
                         'name' => 'หลักสูตร / แพ็กเกจ',
                         'path' => '/curriculums',
+                        'count' => 'curriculums',
                     ],
                     [
                         'icon' => 'exam',
                         'name' => 'ข้อสอบ',
                         'path' => '/exams',
+                        'count' => 'exams',
                     ],
                     [
                         'icon' => 'book',
                         'name' => 'หนังสือ',
                         'path' => '/books',
-                    ],
-                ],
-            ],
-            [
-                'title' => 'การขาย',
-                'items' => [
-                    [
-                        'icon' => 'order',
-                        'name' => 'ออเดอร์',
-                        'path' => '/orders',
-                    ],
-                    [
-                        'icon' => 'promotion',
-                        'name' => 'โปรโมชัน',
-                        'path' => '/promotions',
-                    ],
-                    [
-                        'icon' => 'coupon',
-                        'name' => 'คูปอง',
-                        'path' => '/coupons',
-                    ],
-                    [
-                        'icon' => 'finance',
-                        'name' => 'การเงิน',
-                        'path' => '/finance',
+                        'count' => 'books',
                     ],
                 ],
             ],

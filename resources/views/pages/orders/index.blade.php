@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-    <x-common.page-breadcrumb pageTitle="ออเดอร์" />
+    <x-common.page-breadcrumb :pageTitle="$title" />
 
     @if (session('success'))
         <div class="mb-6 rounded-xl border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-700 dark:border-success-500/30 dark:bg-success-500/10 dark:text-success-400">
@@ -18,20 +18,24 @@
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
         <div class="flex flex-col gap-4 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
             <div>
-                <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">รายการออเดอร์</h3>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">สร้างคำสั่งซื้อหนังสือ ติดตามการชำระเงินและการจัดส่ง</p>
+                <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ $isBook ? 'รายการออเดอร์หนังสือ' : 'รายการสมัครเรียน' }}</h3>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    {{ $isBook ? 'คำสั่งซื้อหนังสือ ติดตามการชำระเงินและการจัดส่ง' : 'คำสั่งซื้อคอร์ส หลักสูตร และข้อสอบ' }}
+                </p>
             </div>
+            @if ($isBook)
             <a href="{{ route('orders.create') }}"
                 class="bg-brand-500 shadow-theme-xs hover:bg-brand-600 inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium text-white">
                 + สร้างออเดอร์
             </a>
+            @endif
         </div>
 
         <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
-            <form method="GET" action="{{ route('orders.index') }}" class="grid grid-cols-1 gap-3 lg:grid-cols-6">
+            <form method="GET" action="{{ route($listRoute) }}" class="grid grid-cols-1 gap-3 {{ $isBook ? 'lg:grid-cols-6' : 'lg:grid-cols-4' }}">
                 <div class="lg:col-span-2">
                     <input type="text" name="search" value="{{ $filters['search'] }}"
-                        placeholder="ค้นหาเลขออเดอร์ / พัสดุ / ลูกค้า"
+                        placeholder="{{ $isBook ? 'ค้นหาเลขออเดอร์ / พัสดุ / ลูกค้า' : 'ค้นหาเลขออเดอร์ / นักเรียน' }}"
                         class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" />
                 </div>
                 <div>
@@ -52,6 +56,7 @@
                         @endforeach
                     </select>
                 </div>
+                @if ($isBook)
                 <div>
                     <select name="shipping_status"
                         class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
@@ -61,6 +66,7 @@
                         @endforeach
                     </select>
                 </div>
+                @endif
                 <div>
                     <button type="submit"
                         class="bg-brand-500 hover:bg-brand-600 inline-flex h-11 w-full items-center justify-center rounded-lg px-4 text-sm font-medium text-white whitespace-nowrap">
@@ -75,10 +81,12 @@
                 <thead>
                     <tr class="border-b border-gray-100 dark:border-gray-800">
                         <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">ออเดอร์</th>
-                        <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">ลูกค้า / ที่อยู่</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">{{ $isBook ? 'ลูกค้า / ที่อยู่' : 'นักเรียน / รายการ' }}</th>
                         <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">ยอดรวม</th>
                         <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">ชำระเงิน</th>
+                        @if ($isBook)
                         <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">พัสดุ</th>
+                        @endif
                         <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">สถานะ</th>
                         <th class="px-5 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400">จัดการ</th>
                     </tr>
@@ -93,8 +101,12 @@
                             </td>
                             <td class="px-5 py-4">
                                 <div class="font-medium text-gray-800 dark:text-white/90">{{ $order->user?->name ?? '-' }}</div>
+                                @if ($isBook)
                                 <div class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{{ $order->shipping_name }} · {{ $order->shipping_phone }}</div>
                                 <div class="mt-0.5 line-clamp-1 text-xs text-gray-400">{{ $order->shipping_full_address }}</div>
+                                @else
+                                <div class="mt-0.5 line-clamp-2 text-sm text-gray-500 dark:text-gray-400">{{ $order->items->pluck('item_name')->join(', ') ?: '-' }}</div>
+                                @endif
                             </td>
                             <td class="px-5 py-4 text-sm font-medium text-gray-800 dark:text-white/90">
                                 ฿{{ number_format((float) $order->total_amount, 2) }}
@@ -105,6 +117,7 @@
                                 </div>
                                 <x-common.status-badge class="mt-1" :status="\App\Enums\PaymentStatus::tryFrom($order->payment_status) ?? $order->payment_status" />
                             </td>
+                            @if ($isBook)
                             <td class="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">
                                 <div>{{ $order->shipping_status_label }}</div>
                                 @if ($order->tracking_number)
@@ -116,6 +129,7 @@
                                     <div class="mt-1 text-xs text-gray-400">ยังไม่มีเลขพัสดุ</div>
                                 @endif
                             </td>
+                            @endif
                             <td class="px-5 py-4">
                                 <x-common.status-badge :status="\App\Enums\OrderStatus::tryFrom($order->status) ?? $order->status" />
                             </td>
@@ -134,8 +148,8 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="px-5 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
-                                ยังไม่มีออเดอร์ กด “+ สร้างออเดอร์” เพื่อเริ่มต้น
+                            <td colspan="{{ $isBook ? 7 : 6 }}" class="px-5 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+                                {{ $isBook ? 'ยังไม่มีออเดอร์หนังสือ' : 'ยังไม่มีรายการสมัครเรียน' }}
                             </td>
                         </tr>
                     @endforelse

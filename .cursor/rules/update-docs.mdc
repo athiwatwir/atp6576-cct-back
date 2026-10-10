@@ -1,0 +1,13 @@
+---
+description: Update system docs and the student API doc in the same change
+alwaysApply: true
+---
+
+# อัปเดตเอกสารทุกครั้ง
+
+เมื่อเปลี่ยนพฤติกรรม ข้อมูลที่เก็บ ไฟล์สื่อ หรือ API ต้องแก้เอกสารในงานเดียวกัน ก่อนบอกว่างานเสร็จ
+
+- เอกสารระบบอยู่ใน `docs/` ตามเรื่องที่เปลี่ยน เช่น `docs/database.md`, `docs/media-storage.md`, `docs/orders.md`, `docs/curriculums.md`
+- เอกสาร API คือ `docs/student-api.md` อัปเดต endpoint ฟิลด์ ตัวอย่าง JSON และข้อจำกัดที่เว็บนักเรียนใช้
+- ถ้าข้อมูลใหม่อยู่แค่แอดมินและ API ยังไม่ส่งออก ให้เขียนในเอกสารระบบ และระบุใน `docs/student-api.md` ว่ายังไม่รวมใน API
+- อย่าเขียนเอกสารให้เกินของที่ทำจริง

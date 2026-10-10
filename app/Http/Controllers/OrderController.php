@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\OrderKind;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
@@ -32,6 +33,7 @@ class OrderController extends Controller
 
     public function index(Request $request): View
     {
+        $kind = $request->routeIs('enrollments.index') ? OrderKind::Enrollment : OrderKind::Book;
         $search = $request->string('search')->trim()->toString();
         $status = $request->string('status')->toString();
         $paymentStatus = $request->string('payment_status')->toString();
@@ -39,6 +41,7 @@ class OrderController extends Controller
 
         $orders = Order::query()
             ->with(['user', 'latestPayment', 'items'])
+            ->where('kind', $kind->value)
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($inner) use ($search) {
                     $inner->where('order_no', 'like', "%{$search}%")
@@ -59,7 +62,10 @@ class OrderController extends Controller
             ->withQueryString();
 
         return view('pages.orders.index', [
-            'title' => 'ออเดอร์',
+            'title' => $kind->label(),
+            'kind' => $kind,
+            'isBook' => $kind === OrderKind::Book,
+            'listRoute' => $kind === OrderKind::Book ? 'orders.index' : 'enrollments.index',
             'orders' => $orders,
             'filters' => [
                 'search' => $search,
@@ -160,6 +166,7 @@ class OrderController extends Controller
 
             $order = Order::query()->create([
                 'order_no' => $this->generateOrderNo(),
+                'kind' => OrderKind::Book->value,
                 'user_id' => $user->id,
                 'coupon_id' => $couponId,
                 'subtotal' => $subtotal,
@@ -243,32 +250,41 @@ class OrderController extends Controller
         $data = $request->validated();
 
         DB::transaction(function () use ($data, $order) {
-            $shippingStatus = ShippingStatus::from($data['shipping_status']);
             $paymentStatus = PaymentStatus::from($data['payment_status']);
             $orderStatus = OrderStatus::from($data['status']);
+            $shippingStatus = $order->isBook()
+                ? ShippingStatus::from($data['shipping_status'])
+                : ShippingStatus::from((string) $order->shipping_status);
 
             $payload = [
                 'status' => $orderStatus->value,
                 'payment_status' => $paymentStatus->value,
-                'shipping_status' => $shippingStatus->value,
-                'shipping_amount' => (float) ($data['shipping_amount'] ?? 0),
                 'discount_amount' => (float) ($data['discount_amount'] ?? 0),
                 'notes' => $data['notes'] ?? null,
-                'shipping_name' => $data['shipping_name'],
-                'shipping_phone' => $data['shipping_phone'],
-                'shipping_address_line1' => $data['shipping_address_line1'],
-                'shipping_address_line2' => null,
-                'shipping_subdistrict' => $data['shipping_subdistrict'] ?? null,
-                'shipping_district' => $data['shipping_district'],
-                'shipping_province' => $data['shipping_province'],
-                'shipping_postal_code' => $data['shipping_postal_code'],
-                'shipping_carrier' => $data['shipping_carrier'] ?? null,
-                'tracking_number' => $data['tracking_number'] ?? null,
             ];
 
+            if ($order->isBook()) {
+                $payload = [
+                    ...$payload,
+                    'shipping_status' => $shippingStatus->value,
+                    'shipping_amount' => (float) ($data['shipping_amount'] ?? 0),
+                    'shipping_name' => $data['shipping_name'],
+                    'shipping_phone' => $data['shipping_phone'],
+                    'shipping_address_line1' => $data['shipping_address_line1'],
+                    'shipping_address_line2' => null,
+                    'shipping_subdistrict' => $data['shipping_subdistrict'] ?? null,
+                    'shipping_district' => $data['shipping_district'],
+                    'shipping_province' => $data['shipping_province'],
+                    'shipping_postal_code' => $data['shipping_postal_code'],
+                    'shipping_carrier' => $data['shipping_carrier'] ?? null,
+                    'tracking_number' => $data['tracking_number'] ?? null,
+                ];
+            }
+
+            $shippingAmount = (float) ($payload['shipping_amount'] ?? $order->shipping_amount);
             $payload['total_amount'] = max(
                 0,
-                round((float) $order->subtotal + $payload['shipping_amount'] - $payload['discount_amount'], 2)
+                round((float) $order->subtotal + $shippingAmount - $payload['discount_amount'], 2)
             );
 
             if ($paymentStatus === PaymentStatus::Paid) {
@@ -283,7 +299,9 @@ class OrderController extends Controller
                 $payload['cancelled_at'] = null;
             }
 
-            $this->applyShippingSideEffects($payload, $shippingStatus, $order);
+            if ($order->isBook()) {
+                $this->applyShippingSideEffects($payload, $shippingStatus, $order);
+            }
 
             if ($orderStatus === OrderStatus::Cancelled && $paymentStatus !== PaymentStatus::Paid) {
                 $this->coupons->release($order);
@@ -337,7 +355,7 @@ class OrderController extends Controller
         });
 
         return redirect()
-            ->route('orders.index')
+            ->route($order->isBook() ? 'orders.index' : 'enrollments.index')
             ->with('success', 'ลบออเดอร์เรียบร้อยแล้ว');
     }
 
@@ -407,6 +425,8 @@ class OrderController extends Controller
 
     public function updateShippingStatus(Request $request, Order $order): RedirectResponse
     {
+        abort_unless($order->isBook(), 404);
+
         $data = $request->validate([
             'shipping_status' => ['required', 'string', Rule::in(array_keys(ShippingStatus::options()))],
         ], [], [
@@ -443,6 +463,8 @@ class OrderController extends Controller
 
     public function updateTracking(Request $request, Order $order): RedirectResponse
     {
+        abort_unless($order->isBook(), 404);
+
         $carrierValues = array_keys(ShippingCarrier::options());
 
         $data = $request->validate([

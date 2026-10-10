@@ -170,6 +170,7 @@ class ExamController extends Controller
         MediaStorage::delete($assessment->thumbnail);
 
         $assessment->questions()->each(function (Question $question) {
+            MediaStorage::delete($question->image);
             $question->delete();
         });
 

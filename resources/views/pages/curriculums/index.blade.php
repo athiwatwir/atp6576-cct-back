@@ -85,7 +85,7 @@
                             </td>
                             <td class="px-5 py-4 text-xs text-gray-600 dark:text-gray-400">
                                 <div>คอร์ส {{ $curriculum->courses_count }} · บท {{ $curriculum->chapters_count }} · วิดีโอ {{ $curriculum->videos_count }}</div>
-                                <div class="mt-1">ข้อสอบ {{ $curriculum->exams_count }} · แบบฝึกหัด {{ $curriculum->exercises_count }} · หนังสือ {{ $curriculum->books_count }}</div>
+                                <div class="mt-1">ข้อสอบ {{ $curriculum->exams_count }} · แบบฝึกหัด {{ $curriculum->exercises_count }}</div>
                             </td>
                             <td class="px-5 py-4 text-sm text-gray-800 dark:text-white/90">
                                 @if ($curriculum->sale_price !== null && (float) $curriculum->sale_price > 0)

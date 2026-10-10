@@ -48,17 +48,20 @@ $otherCarrierValue = \App\Enums\ShippingCarrier::Other->value;
             <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90">{{ $order->order_no }}</h2>
             <x-common.status-badge :status="\App\Enums\OrderStatus::tryFrom($order->status)" />
             <x-common.status-badge :status="\App\Enums\PaymentStatus::tryFrom($order->payment_status)" />
+            @if ($order->isBook())
             <x-common.status-badge :status="\App\Enums\ShippingStatus::tryFrom($order->shipping_status)" />
+            @endif
         </div>
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">สร้างเมื่อ {{ $order->created_at?->format('d/m/Y H:i') }}</p>
     </div>
     <div class="flex flex-wrap gap-2">
-        <a href="{{ route('orders.index') }}" class="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+        <a href="{{ route($order->isBook() ? 'orders.index' : 'enrollments.index') }}" class="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
             กลับ
         </a>
         <a href="{{ route('orders.edit', $order) }}" class="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
             แก้ไข
         </a>
+        @if ($order->isBook())
         <button type="button" data-no-loading @click="$dispatch('open-shipping-status-modal')"
             class="inline-flex items-center justify-center rounded-lg border border-warning-300 bg-warning-50 px-4 py-2.5 text-sm font-medium text-warning-700 hover:bg-warning-100 dark:border-warning-500/40 dark:bg-warning-500/10 dark:text-warning-400">
             อัปเดตสถานะจัดส่ง
@@ -67,6 +70,7 @@ $otherCarrierValue = \App\Enums\ShippingCarrier::Other->value;
             class="bg-brand-500 hover:bg-brand-600 inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium text-white shadow-theme-xs">
             ติดตามพัสดุ
         </button>
+        @endif
     </div>
 </div>
 
@@ -100,7 +104,9 @@ $otherCarrierValue = \App\Enums\ShippingCarrier::Other->value;
             </div>
             <div class="space-y-2 border-t border-gray-100 px-5 py-4 text-sm dark:border-gray-800">
                 <div class="flex justify-between"><span class="text-gray-500">ยอดสินค้า</span><span>฿{{ number_format((float) $order->subtotal, 2) }}</span></div>
+                @if ($order->isBook())
                 <div class="flex justify-between"><span class="text-gray-500">ค่าจัดส่ง</span><span>฿{{ number_format((float) $order->shipping_amount, 2) }}</span></div>
+                @endif
                 <div class="flex justify-between"><span class="text-gray-500">ส่วนลด{{ $order->coupon ? ' ('.$order->coupon->code.')' : '' }}</span><span>-฿{{ number_format((float) $order->discount_amount, 2) }}</span></div>
                 <div class="flex justify-between border-t border-gray-100 pt-2 font-semibold dark:border-gray-800">
                     <span>ยอดรวม</span>
@@ -110,7 +116,7 @@ $otherCarrierValue = \App\Enums\ShippingCarrier::Other->value;
         </div>
 
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-            <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">ข้อมูลลูกค้าและที่อยู่จัดส่ง</h3>
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ $order->isBook() ? 'ข้อมูลลูกค้าและที่อยู่จัดส่ง' : 'ข้อมูลนักเรียน' }}</h3>
             <div class="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
                 <div class="space-y-2 text-gray-600 dark:text-gray-400">
                     <div class="text-xs font-medium uppercase tracking-wide text-gray-400">บัญชีลูกค้า</div>
@@ -118,12 +124,14 @@ $otherCarrierValue = \App\Enums\ShippingCarrier::Other->value;
                     <div>{{ $order->user?->email ?: '-' }}</div>
                     <div>{{ $order->user?->phone ?: '-' }}</div>
                 </div>
+                @if ($order->isBook())
                 <div class="space-y-2 text-gray-600 dark:text-gray-400">
                     <div class="text-xs font-medium uppercase tracking-wide text-gray-400">จัดส่งถึง</div>
                     <div><span class="text-gray-500">ผู้รับ:</span> <span class="font-medium text-gray-800 dark:text-white/90">{{ $order->shipping_name }}</span></div>
                     <div><span class="text-gray-500">โทร:</span> {{ $order->shipping_phone }}</div>
                     <div><span class="text-gray-500">ที่อยู่:</span> {{ $order->shipping_full_address }}</div>
                 </div>
+                @endif
             </div>
             @if ($order->notes)
             <div class="mt-4 rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-white/[0.03]">
@@ -154,6 +162,7 @@ $otherCarrierValue = \App\Enums\ShippingCarrier::Other->value;
             </div>
         </div>
 
+        @if ($order->isBook())
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
             <div class="flex items-start justify-between gap-3">
                 <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">ติดตามพัสดุ</h3>
@@ -193,6 +202,7 @@ $otherCarrierValue = \App\Enums\ShippingCarrier::Other->value;
                 </div>
             </div>
         </div>
+        @endif
 
         <x-common.activity-logs :entity="$order" :limit="8" title="ประวัติออเดอร์" />
 
@@ -208,6 +218,7 @@ $otherCarrierValue = \App\Enums\ShippingCarrier::Other->value;
     </div>
 </div>
 
+@if ($order->isBook())
 {{-- Modal: อัปเดตสถานะจัดส่ง --}}
 <div
     x-data="{ open: @js($errors->has('shipping_status')) }"
@@ -332,4 +343,5 @@ $otherCarrierValue = \App\Enums\ShippingCarrier::Other->value;
         </form>
     </div>
 </div>
+@endif
 @endsection

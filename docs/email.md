@@ -62,6 +62,8 @@ $this->mail->sendStaffNotification(
 ```php
 $this->mail->sendCustomerPassword($user, 'Student@123');
 
+$this->mail->sendCustomerEmailVerification($user, $verifyUrl);
+
 $this->mail->sendCustomerForgotPassword($user, $resetUrl);
 
 $this->mail->sendCustomerPaymentStatus(
@@ -112,6 +114,7 @@ php artisan mail:test you@gmail.com --audience=staff --type=notification --sync
 
 # layout ลูกค้า
 php artisan mail:test you@gmail.com --audience=customer --type=password --sync
+php artisan mail:test you@gmail.com --audience=customer --type=verify-email --sync
 php artisan mail:test you@gmail.com --audience=customer --type=forgot-password --sync
 php artisan mail:test you@gmail.com --audience=customer --type=payment --sync
 php artisan mail:test you@gmail.com --audience=customer --type=announcement --sync

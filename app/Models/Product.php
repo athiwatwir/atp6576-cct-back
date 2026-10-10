@@ -7,6 +7,7 @@ use App\Support\MediaStorage;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Product extends Model
@@ -63,6 +64,21 @@ class Product extends Model
         }
 
         return (float) $this->price;
+    }
+
+    public function media(): HasMany
+    {
+        return $this->hasMany(ProductMedia::class);
+    }
+
+    public function images(): HasMany
+    {
+        return $this->hasMany(ProductMedia::class)->where('kind', 'image');
+    }
+
+    public function video(): HasOne
+    {
+        return $this->hasOne(ProductMedia::class)->where('kind', 'video');
     }
 
     public function cartItems(): HasMany

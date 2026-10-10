@@ -5,10 +5,12 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Books\StoreBookRequest;
 use App\Http\Requests\Books\UpdateBookRequest;
 use App\Models\Product;
+use App\Models\ProductMedia;
 use App\Support\DocumentSequence;
 use App\Support\MediaStorage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -30,6 +32,8 @@ class BookController extends Controller
                 });
             })
             ->when($status !== '', fn ($query) => $query->where('status', $status))
+            ->withCount('images')
+            ->withExists('video')
             ->latest()
             ->paginate(15)
             ->withQueryString();
@@ -78,6 +82,12 @@ class BookController extends Controller
             ]);
         }
 
+        $this->storeImages($book, $request->file('images', []) ?? []);
+
+        if ($request->hasFile('video')) {
+            $this->replaceVideo($book, $request->file('video'));
+        }
+
         return redirect()
             ->route('books.show', $book)
             ->with('success', 'เพิ่มหนังสือเรียบร้อยแล้ว');
@@ -86,6 +96,10 @@ class BookController extends Controller
     public function show(Product $product): View
     {
         $this->ensureBook($product);
+        $product->load([
+            'images' => fn ($query) => $query->orderBy('sort_order')->orderBy('id'),
+            'video',
+        ]);
 
         return view('pages.books.show', [
             'title' => $product->name,
@@ -96,6 +110,10 @@ class BookController extends Controller
     public function edit(Product $product): View
     {
         $this->ensureBook($product);
+        $product->load([
+            'images' => fn ($query) => $query->orderBy('sort_order')->orderBy('id'),
+            'video',
+        ]);
 
         return view('pages.books.edit', [
             'title' => 'แก้ไขหนังสือ',
@@ -141,7 +159,16 @@ class BookController extends Controller
             );
         }
 
-        unset($data['thumbnail'], $data['remove_thumbnail']);
+        $this->removeImages($product, $request->input('remove_images', []));
+        $this->storeImages($product, $request->file('images', []) ?? []);
+
+        if ($request->boolean('remove_video') || $request->hasFile('video')) {
+            $this->deleteVideo($product);
+        }
+
+        if ($request->hasFile('video')) {
+            $this->replaceVideo($product, $request->file('video'));
+        }
 
         $product->update($payload);
 
@@ -155,11 +182,76 @@ class BookController extends Controller
         $this->ensureBook($product);
 
         MediaStorage::delete($product->thumbnail);
+        $product->media()->get()->each(function (ProductMedia $media): void {
+            MediaStorage::delete($media->path);
+            $media->delete();
+        });
         $product->delete();
 
         return redirect()
             ->route('books.index')
             ->with('success', 'ลบหนังสือเรียบร้อยแล้ว');
+    }
+
+    /**
+     * @param  array<int, UploadedFile>|UploadedFile|null  $files
+     */
+    private function storeImages(Product $book, array|UploadedFile|null $files): void
+    {
+        $uploads = $files instanceof UploadedFile ? [$files] : array_values($files ?? []);
+        $sort = (int) $book->images()->max('sort_order');
+
+        foreach ($uploads as $file) {
+            if (! $file instanceof UploadedFile) {
+                continue;
+            }
+
+            $sort++;
+            $book->media()->create([
+                'kind' => 'image',
+                'path' => MediaStorage::storeBookImage($file, $book->id),
+                'sort_order' => $sort,
+            ]);
+        }
+    }
+
+    private function replaceVideo(Product $book, UploadedFile $file): void
+    {
+        $book->media()->create([
+            'kind' => 'video',
+            'path' => MediaStorage::storeBookVideo($file, $book->id),
+            'sort_order' => 0,
+        ]);
+    }
+
+    private function deleteVideo(Product $book): void
+    {
+        $video = $book->video()->first();
+
+        if (! $video) {
+            return;
+        }
+
+        MediaStorage::delete($video->path);
+        $video->delete();
+        $book->unsetRelation('video');
+    }
+
+    /**
+     * @param  array<int, mixed>  $ids
+     */
+    private function removeImages(Product $book, array $ids): void
+    {
+        $ids = array_values(array_filter(array_map('intval', $ids)));
+
+        if ($ids === []) {
+            return;
+        }
+
+        $book->images()->whereIn('id', $ids)->get()->each(function (ProductMedia $image): void {
+            MediaStorage::delete($image->path);
+            $image->delete();
+        });
     }
 
     private function ensureBook(Product $product): void

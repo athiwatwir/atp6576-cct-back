@@ -3,8 +3,10 @@
 namespace App\Http\Requests\Books;
 
 use App\Enums\MediaType;
+use App\Models\Product;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class UpdateBookRequest extends FormRequest
 {
@@ -29,6 +31,7 @@ class UpdateBookRequest extends FormRequest
 
         $this->merge([
             'remove_thumbnail' => $this->boolean('remove_thumbnail'),
+            'remove_video' => $this->boolean('remove_video'),
         ]);
     }
 
@@ -46,7 +49,32 @@ class UpdateBookRequest extends FormRequest
             'stock' => ['nullable', 'integer', 'min:0', 'max:999999'],
             'thumbnail' => MediaType::BookThumbnail->rules(),
             'remove_thumbnail' => ['nullable', 'boolean'],
+            'images' => ['nullable', 'array', 'max:20'],
+            'images.*' => MediaType::BookGallery->rules(),
+            'remove_images' => ['nullable', 'array'],
+            'remove_images.*' => ['integer'],
+            'video' => MediaType::BookVideo->rules(),
+            'remove_video' => ['nullable', 'boolean'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $book = $this->route('product');
+
+            if (! $book instanceof Product) {
+                return;
+            }
+
+            $remove = array_map('intval', (array) $this->input('remove_images', []));
+            $kept = $book->images()->when($remove !== [], fn ($query) => $query->whereNotIn('id', $remove))->count();
+            $incoming = count($this->file('images') ?? []);
+
+            if ($kept + $incoming > 20) {
+                $validator->errors()->add('images', 'รูปภาพรวมกันได้ไม่เกิน 20 รูป');
+            }
+        });
     }
 
     /**
@@ -62,6 +90,9 @@ class UpdateBookRequest extends FormRequest
             'sale_price' => 'ราคาลด',
             'stock' => 'จำนวนคงเหลือ',
             'thumbnail' => 'ปกหนังสือ',
+            'images' => 'รูปภาพ',
+            'images.*' => 'รูปภาพ',
+            'video' => 'วิดีโอ',
         ];
     }
 }

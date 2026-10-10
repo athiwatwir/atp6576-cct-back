@@ -6,10 +6,30 @@ $menuGroups = MenuHelper::getMenuGroups();
 $currentPath = request()->path();
 @endphp
 
-<aside id="sidebar" class="fixed flex flex-col mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen transition-all duration-300 ease-in-out z-99999 border-r border-gray-200" x-data="{
+<aside id="sidebar" data-teaching-counts-url="{{ route('menu.teaching-counts') }}" class="fixed flex flex-col mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen transition-all duration-300 ease-in-out z-99999 border-r border-gray-200" x-data="{
         openSubmenus: {},
+        counts: {},
         init() {
             this.initializeActiveMenus();
+            this.loadTeachingCounts();
+        },
+        async loadTeachingCounts() {
+            const storageKey = 'teaching-menu-counts';
+            try {
+                const cached = sessionStorage.getItem(storageKey);
+                if (cached) this.counts = JSON.parse(cached);
+            } catch (error) {}
+            try {
+                const response = await fetch(this.$el.dataset.teachingCountsUrl, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                });
+                if (!response.ok) return;
+                this.counts = await response.json();
+                sessionStorage.setItem(storageKey, JSON.stringify(this.counts));
+            } catch (error) {}
         },
         initializeActiveMenus() {
             const currentPath = '{{ $currentPath }}';
@@ -176,14 +196,33 @@ $currentPath = request()->path();
                                 </span>
 
                                 <!-- Text -->
-                                <span x-show="$store.sidebar.isExpanded || $store.sidebar.isHovered || $store.sidebar.isMobileOpen" class="menu-item-text flex items-center gap-2">
-                                    {{ $item['name'] }}
+                                <span x-show="$store.sidebar.isExpanded || $store.sidebar.isHovered || $store.sidebar.isMobileOpen" class="menu-item-text flex min-w-0 flex-1 items-center gap-2">
+                                    <span class="truncate">{{ $item['name'] }}</span>
                                     @if (!empty($item['new']))
                                     <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-brand-500 text-white">
                                         new
                                     </span>
                                     @endif
+                                    @if (!empty($item['count']))
+                                    <span
+                                        x-cloak
+                                        x-show="counts['{{ $item['count'] }}'] !== undefined"
+                                        x-text="counts['{{ $item['count'] }}']"
+                                        title="กำลังใช้งาน"
+                                        class="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold leading-none"
+                                        :class="isActive('{{ $item['path'] }}') ? 'bg-brand-500 text-white' : 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300'"
+                                    ></span>
+                                    @endif
                                 </span>
+                                @if (!empty($item['count']))
+                                <span
+                                    x-cloak
+                                    x-show="counts['{{ $item['count'] }}'] !== undefined && !$store.sidebar.isExpanded && !$store.sidebar.isHovered && !$store.sidebar.isMobileOpen"
+                                    x-text="counts['{{ $item['count'] }}']"
+                                    title="กำลังใช้งาน"
+                                    class="absolute right-1 top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-500 px-1 text-[10px] font-semibold leading-none text-white"
+                                ></span>
+                                @endif
                             </a>
                             @endif
                         </li>

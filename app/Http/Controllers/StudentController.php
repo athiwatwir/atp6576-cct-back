@@ -40,7 +40,8 @@ class StudentController extends Controller
                 $query->where(function ($inner) use ($search) {
                     $inner->where('name', 'like', "%{$search}%")
                         ->orWhere('email', 'like', "%{$search}%")
-                        ->orWhere('phone', 'like', "%{$search}%");
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('school_name', 'like', "%{$search}%");
                 });
             })
             ->when($status !== '', fn ($query) => $query->where('status', $status))
@@ -73,6 +74,7 @@ class StudentController extends Controller
             'name' => $data['name'],
             'email' => $data['email'],
             'phone' => $data['phone'] ?? null,
+            ...$this->profilePlace($data),
             'password' => Str::password(32),
             'status' => $data['status'],
             'email_verified_at' => now(),
@@ -93,12 +95,13 @@ class StudentController extends Controller
             'enrollments' => fn ($query) => $query
                 ->with(['course:id,name', 'curriculum:id,name', 'assessment:id,title', 'order:id,order_no'])
                 ->latest(),
-            'orders' => fn ($query) => $query->latest()->limit(8),
         ]);
 
         return view('pages.students.show', [
             'title' => $student->name,
             'student' => $student,
+            'enrollmentOrders' => $student->orders()->where('kind', 'enrollment')->latest()->limit(8)->get(),
+            'bookOrders' => $student->orders()->where('kind', 'book')->latest()->limit(8)->get(),
         ]);
     }
 
@@ -121,6 +124,7 @@ class StudentController extends Controller
             'name' => $data['name'],
             'email' => $data['email'],
             'phone' => $data['phone'] ?? null,
+            ...$this->profilePlace($data),
             'status' => $data['status'],
         ];
 
@@ -227,6 +231,22 @@ class StudentController extends Controller
         return redirect()
             ->route('students.show', $student)
             ->with('success', $message);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function profilePlace(array $data): array
+    {
+        return [
+            'school_name' => $data['school_name'] ?? null,
+            'address_line1' => $data['address_line1'] ?? null,
+            'subdistrict' => $data['subdistrict'] ?? null,
+            'district' => $data['district'] ?? null,
+            'province' => $data['province'] ?? null,
+            'postal_code' => $data['postal_code'] ?? null,
+        ];
     }
 
     private function ensureStudent(User $student): void

@@ -7,7 +7,6 @@ $tabs = [
 'video' => 'วิดีโอ',
 'exam' => 'ข้อสอบ',
 'exercise' => 'แบบฝึกหัด',
-'book' => 'หนังสือ',
 ];
 $tabCounts = [
 'course' => $curriculum->courses_count,
@@ -15,7 +14,6 @@ $tabCounts = [
 'video' => $curriculum->videos_count,
 'exam' => $curriculum->exams_count,
 'exercise' => $curriculum->exercises_count,
-'book' => $curriculum->products_count,
 ];
 $activeTab = request('tab', 'course');
 if (! array_key_exists($activeTab, $tabs)) {

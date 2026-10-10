@@ -50,9 +50,18 @@ class StudentResource extends JsonResource
             'name' => $this->name,
             'email' => $this->email,
             'phone' => $this->phone,
+            'school_name' => $this->school_name,
+            'address' => [
+                'address_line1' => $this->address_line1,
+                'subdistrict' => $this->subdistrict,
+                'district' => $this->district,
+                'province' => $this->province,
+                'postal_code' => $this->postal_code,
+            ],
             'avatar_url' => MediaStorage::url($this->avatar),
             'status' => $this->status,
             'status_label' => AccountStatus::labelFor($this->status),
+            'email_verified' => $this->email_verified_at !== null,
             'learning' => [
                 'courses' => $courses,
                 'curriculums' => $curriculums,

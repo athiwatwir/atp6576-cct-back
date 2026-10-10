@@ -40,6 +40,8 @@ A Curriculum can be assembled from:
 - Videos
 - Documents
 
+Books are a separate product and are not attached to a curriculum. The `curriculum_products` pivot has been removed.
+
 This supports the requirement that a curriculum can select individual learning content.
 
 ### Assessment
@@ -53,6 +55,36 @@ This supports the requirement that a curriculum can select individual learning c
 The `type` column distinguishes the assessment type.
 
 An assessment can be attached to a Course, Chapter, or Video and can also be independent.
+
+`questions.image` stores one optional image for an exam question. The admin exam screen uploads it. The student storefront API does not return exam questions.
+
+### Student profile
+
+`users` stores optional student details:
+
+- `school_name`
+- `address_line1`
+- `subdistrict`
+- `district`
+- `province`
+- `postal_code` (5 digits when present)
+
+Admin student create/edit and the student API register/profile endpoints read and write these fields.
+
+`users.email_verified_at` stays empty when a student registers through the API. The account can sign in before the confirmation link is opened. Accounts that already existed were marked verified. Admin-created students are verified immediately.
+
+### Book media
+
+`products.thumbnail` is the book cover. Extra images and the single preview video live in `product_media`:
+
+| Column | Meaning |
+| --- | --- |
+| `product_id` | Book |
+| `kind` | `image` or `video` |
+| `path` | Stored file path |
+| `sort_order` | Gallery order |
+
+A book can have up to 20 gallery images and one video. Detail responses from the student API include `images` and `video_url`.
 
 ### Enrollment
 
@@ -70,6 +102,10 @@ It supports:
 ### Video Progress
 
 `video_progress` stores the last watched position so the student can continue watching from the previous position.
+
+### Order
+
+`orders.kind` is `book` or `enrollment`. A book order is a book sale and keeps shipping. An enrollment order is a course, curriculum, or exam purchase and does not use shipping. One order is one kind. Existing orders that contain only learning items are backfilled to `enrollment`. Orders that also contain a book stay `book`.
 
 ### Payment
 

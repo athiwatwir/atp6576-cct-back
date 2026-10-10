@@ -1,7 +1,11 @@
 # ออเดอร์ (Orders)
 
-ระบบจัดการคำสั่งซื้อหนังสือในแอดมิน  
-เมนู: **การขาย → ออเดอร์** (`/orders`)
+แอดมินแยกรายการขายหนังสือกับรายการสมัครเรียน (ซื้อคอร์ส หลักสูตร หรือข้อสอบ)
+
+- **การขาย → ออเดอร์หนังสือ** (`/orders`) แสดงเฉพาะ `orders.kind = book` และจัดการที่อยู่จัดส่งกับพัสดุ
+- **การขาย → สมัครเรียน** (`/enrollments`) แสดงเฉพาะ `orders.kind = enrollment` ไม่มีจัดส่ง
+
+ออเดอร์หนึ่งใบเป็นชนิดเดียว หน้าร้านรับตะกร้าที่ปนหนังสือกับคอร์สหรือหลักสูตรไม่ได้
 
 ## ไฟล์ที่เกี่ยวข้อง
 
@@ -13,6 +17,7 @@
 | `app/Models/Order.php` | ออเดอร์ + ที่อยู่จัดส่ง + tracking |
 | `app/Models/OrderItem.php` | รายการสินค้า (หนังสือ) |
 | `app/Models/Payment.php` | วิธีชำระเงิน / สถานะชำระ |
+| `app/Enums/OrderKind.php` | `book` ขายหนังสือ / `enrollment` สมัครเรียน |
 | `app/Enums/OrderStatus.php` | สถานะออเดอร์ |
 | `app/Enums/PaymentStatus.php` | สถานะชำระเงิน |
 | `app/Enums/PaymentMethod.php` | วิธีชำระเงิน |
@@ -35,12 +40,24 @@
 | Method | URI | Name |
 |--------|-----|------|
 | GET | `/orders` | `orders.index` |
+| GET | `/enrollments` | `enrollments.index` |
 | GET | `/orders/create` | `orders.create` |
 | POST | `/orders` | `orders.store` |
 | GET | `/orders/{order}` | `orders.show` |
 | GET | `/orders/{order}/edit` | `orders.edit` |
 | PUT | `/orders/{order}` | `orders.update` |
 | DELETE | `/orders/{order}` | `orders.destroy` |
+
+## ชนิดออเดอร์ (`orders.kind`)
+
+| ค่า | ความหมาย |
+|-----|----------|
+| `book` | ขายหนังสือ มีที่อยู่จัดส่งและพัสดุ |
+| `enrollment` | สมัครเรียน จากคอร์ส หลักสูตร หรือข้อสอบ ไม่จัดส่ง |
+
+ออเดอร์เก่าที่มีทั้งหนังสือและรายการเรียนยังเป็น `book` ออเดอร์ที่มีแต่รายการเรียนถูกปรับเป็น `enrollment` ตอนเพิ่มคอลัมน์
+
+การสร้างออเดอร์หนังสือในแอดมินเป็น `book` การสร้างออเดอร์จากหน้านักเรียนเป็น `enrollment`
 
 ## สถานะ
 

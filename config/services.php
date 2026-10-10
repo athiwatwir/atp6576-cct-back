@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'storefront' => [
+        'key' => env('STOREFRONT_API_KEY'),
+        'app_url' => env('STUDENT_APP_URL'),
+        'frontend_url' => env('FRONTEND_URL', 'http://localhost:3000'),
+    ],
+
 ];

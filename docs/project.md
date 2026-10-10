@@ -190,7 +190,7 @@ database/migrations/
 | Auth | `users`, `roles`, `permissions`, `social_accounts`, `user_sessions` |
 | Catalog | `categories`, `subjects`, `instructors`, `courses`, `chapters` |
 | Media | `videos`, `documents`, `chapter_videos`, `chapter_documents` |
-| Curriculum | `curriculums`, `curriculum_courses`, `curriculum_chapters`, `curriculum_subjects`, `curriculum_videos`, `curriculum_assessments`, `curriculum_products`, `curriculum_documents` |
+| Curriculum | `curriculums`, `curriculum_courses`, `curriculum_chapters`, `curriculum_subjects`, `curriculum_videos`, `curriculum_assessments`, `curriculum_documents` |
 | Learning | `enrollments`, `video_progress`, `learning_progress`, `trial_access` |
 | Assessment | `assessments`, `questions`, `question_choices`, `assessment_attempts`, `assessment_answers`, `rankings` |
 | Commerce | `products`, `carts`, `cart_items`, `orders`, `order_items`, `payments`, `payment_transactions` |
@@ -383,18 +383,34 @@ composer run test
 - โครงสร้าง `promotions.rules`
 - Refund แล้ว enrollment ถูกยกเลิกทันทีหรือไม่
 - หนังสือต้องมีที่อยู่จัดส่ง / tracking หรือไม่
-- Order เดียวมี Course + Book + Exam ได้ — schema รองรับแล้ว ต้องล็อก flow checkout
+- ออเดอร์หนึ่งใบเป็น `book` หรือ `enrollment` ตะกร้าหน้าร้านปนหนังสือกับคอร์สหรือหลักสูตรไม่ได้
 - ผู้ให้บริการ Payment Gateway
 - ผู้ให้บริการ video storage / CDN
 
 ---
 
-## 14. Related Documents
+## 14. ตัวเลขเมนูการเรียนการสอน
+
+เมนูการเรียนการสอนแสดง badge จำนวนรายการที่กำลังใช้งาน โดยหน้าเว็บโหลดก่อน แล้ว Alpine เรียก `GET /menu/teaching-counts` (ต้องล็อกอินหลังบ้าน) ผลลัพธ์ถูกจำไว้ 20 วินาที และเบราว์เซอร์เก็บชุดล่าสุดใน `sessionStorage` เพื่อให้ badge ขึ้นทันทีเมื่อเปิดหน้าถัดไป
+
+| คีย์ | นับเมื่อ |
+| --- | --- |
+| `subjects` | วิชาสถานะ `active` |
+| `courses` | คอร์สสถานะ `published` |
+| `curriculums` | หลักสูตรสถานะ `published` |
+| `exams` | ข้อสอบขายแยกที่สถานะ `published` |
+| `books` | หนังสือสถานะ `active` |
+
+เส้นนี้ไม่ได้อยู่ใน API ของเว็บนักเรียน
+
+## 15. Related Documents
 
 | File | ระดับ |
 | --- | --- |
 | [business-requirements-click-class-tutor.md](business-requirements-click-class-tutor.md) | Business requirements |
 | [database.md](database.md) | Database design |
+| [media-storage.md](media-storage.md) | ที่เก็บรูปและวิดีโอ |
+| [student-api.md](student-api.md) | API สำหรับเว็บนักเรียน |
 | [click_class_tutor_database.sql](click_class_tutor_database.sql) | Schema snapshot |
 | `project.md` | ภาพรวม repo / architecture (เอกสารนี้) |
 
@@ -409,7 +425,7 @@ docs/deployment.md
 
 ---
 
-## 15. สิ่งที่ควรทำถัดไป
+## 16. สิ่งที่ควรทำถัดไป
 
 1. Seed roles (`admin`, `staff`, `instructor`, `student`) และ permission เริ่มต้น
 2. ทำ authentication จริง แทนหน้า TailAdmin signin

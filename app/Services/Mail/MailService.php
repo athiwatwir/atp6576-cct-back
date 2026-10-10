@@ -169,6 +169,25 @@ class MailService
         );
     }
 
+    public function sendCustomerEmailVerification(
+        User|string $to,
+        string $verifyUrl,
+        int $expiresMinutes = 60,
+        bool $queue = false,
+    ): void {
+        $this->sendCustomer(
+            to: $to,
+            subject: 'ยืนยันอีเมล '.config('app.name'),
+            view: 'emails.customer.verify-email',
+            data: [
+                'actionUrl' => $verifyUrl,
+                'actionText' => 'ยืนยันอีเมล',
+                'expiresMinutes' => $expiresMinutes,
+            ],
+            queue: $queue,
+        );
+    }
+
     public function sendCustomerForgotPassword(
         User|string $to,
         string $resetUrl,

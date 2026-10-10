@@ -6,7 +6,7 @@
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
         <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
             <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">เพิ่มหนังสือสำหรับขาย</h3>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">กรอกข้อมูลหนังสือ ราคา และจำนวนคงเหลือ</p>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">กรอกข้อมูลหนังสือ ราคา จำนวนคงเหลือ รูปภาพ และวิดีโอ</p>
         </div>
 
         <form method="POST" action="{{ route('books.store') }}" enctype="multipart/form-data" class="space-y-6 p-5 sm:p-6">

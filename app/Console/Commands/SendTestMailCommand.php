@@ -11,7 +11,7 @@ class SendTestMailCommand extends Command
     protected $signature = 'mail:test
                             {email : Recipient email address}
                             {--audience=staff : staff|customer}
-                            {--type=notification : notification|password|forgot-password|payment|announcement}
+                            {--type=notification : notification|password|forgot-password|verify-email|payment|announcement}
                             {--sync : Send immediately without queue}';
 
     protected $description = 'Send a test email using the system MailService layouts';
@@ -40,6 +40,11 @@ class SendTestMailCommand extends Command
             [MailAudience::Customer, 'password'] => $mailService->sendCustomerPassword(
                 to: $email,
                 password: 'Student@123',
+                queue: $queue,
+            ),
+            [MailAudience::Customer, 'verify-email'] => $mailService->sendCustomerEmailVerification(
+                to: $email,
+                verifyUrl: config('app.url').'/api/v1/auth/email/verify/1/demo',
                 queue: $queue,
             ),
             [MailAudience::Customer, 'forgot-password'] => $mailService->sendCustomerForgotPassword(

@@ -41,6 +41,9 @@ class StoreBookRequest extends FormRequest
             'sale_price' => ['nullable', 'numeric', 'min:0', 'max:999999', 'lte:price'],
             'stock' => ['nullable', 'integer', 'min:0', 'max:999999'],
             'thumbnail' => MediaType::BookThumbnail->rules(),
+            'images' => ['nullable', 'array', 'max:20'],
+            'images.*' => MediaType::BookGallery->rules(),
+            'video' => MediaType::BookVideo->rules(),
         ];
     }
 
@@ -57,6 +60,9 @@ class StoreBookRequest extends FormRequest
             'sale_price' => 'ราคาลด',
             'stock' => 'จำนวนคงเหลือ',
             'thumbnail' => 'ปกหนังสือ',
+            'images' => 'รูปภาพ',
+            'images.*' => 'รูปภาพ',
+            'video' => 'วิดีโอ',
         ];
     }
 }

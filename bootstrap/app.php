@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\EnsureStudent;
 use App\Http\Middleware\EnsureUserCanAccessBackend;
+use App\Http\Middleware\VerifyStorefrontKey;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -22,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'backend' => EnsureUserCanAccessBackend::class,
             'student' => EnsureStudent::class,
+            'storefront' => VerifyStorefrontKey::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

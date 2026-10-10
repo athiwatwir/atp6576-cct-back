@@ -24,7 +24,10 @@ courses/{course_id}/thumbnails/{course_id}.webp
 courses/{course_id}/chapters/{chapter_id}/videos/{video_id}.{ext}
 instructors/{instructor_id}/{instructor_id}.webp
 exams/{exam_id}/{exam_id}.webp
+exams/{exam_id}/questions/{question_id}.webp
 books/{book_id}/{book_id}.webp
+books/{book_id}/gallery/{uuid}.webp
+books/{book_id}/video/{book_id}.{ext}
 documents/{course_id}/{chapter_id}/...   # เอกสารยังใช้ local public ตามเดิม
 ```
 
@@ -38,7 +41,10 @@ documents/{course_id}/{chapter_id}/...   # เอกสารยังใช้ 
 | `MediaStorage::storeCourseThumbnail($file, $courseId)` | แปลง WebP + อัปโหลดปกคอร์ส |
 | `MediaStorage::storeInstructorImage($file, $instructorId)` | แปลง WebP + อัปโหลดรูปครู |
 | `MediaStorage::storeExamThumbnail($file, $examId)` | แปลง WebP + อัปโหลดปกข้อสอบขายแยก |
+| `MediaStorage::storeQuestionImage($file, $examId, $questionId)` | แปลง WebP + อัปโหลดรูปประกอบคำถามข้อสอบ |
 | `MediaStorage::storeBookThumbnail($file, $bookId)` | แปลง WebP + อัปโหลดปกหนังสือ |
+| `MediaStorage::storeBookImage($file, $bookId)` | แปลง WebP + อัปโหลดรูปเพิ่มเติมของหนังสือ |
+| `MediaStorage::storeBookVideo($file, $bookId)` | อัปโหลดวิดีโอของหนังสือ (มีได้หนึ่งไฟล์) |
 | `MediaStorage::storeCourseVideo($file, $courseId, $chapterId, $videoId)` | อัปโหลดวิดีโอบทเรียน (ชื่อ = video_id) |
 | `MediaStorage::url($path)` | สร้าง public URL |
 | `MediaStorage::delete($path)` | ลบไฟล์ |
@@ -94,6 +100,29 @@ $path = MediaStorage::storeExamThumbnail(
 // => exams/15/15.webp
 ```
 
+### รูปประกอบคำถามข้อสอบ
+
+หนึ่งคำถามมีได้หนึ่งรูป เก็บที่ `questions.image` ฟอร์มเพิ่มและแก้ไขคำถามในหน้าข้อสอบขายแยกอัปโหลดไฟล์นี้ รับ JPG/PNG/WebP/GIF สูงสุด 4MB แล้วแปลงเป็น WebP อัปโหลดใหม่ทับ path เดิม ลบคำถามหรือลบข้อสอบจะลบไฟล์ด้วย
+
+```php
+$path = MediaStorage::storeQuestionImage(
+    $request->file('image'),
+    $exam->id,
+    $question->id
+);
+// => exams/15/questions/88.webp
+```
+
+API นักเรียนยังไม่ส่งรูปคำถาม เพราะข้อสอบไม่อยู่ใน storefront API
+
+### รูปเพิ่มเติมและวิดีโอของหนังสือ
+
+ปกหนังสือยังอยู่ที่ `products.thumbnail` รูปเพิ่มเติมและวิดีโออยู่ที่ตาราง `product_media` (`kind` เป็น `image` หรือ `video`)
+
+- รูปเพิ่มเติมได้ไม่เกิน 20 รูป รูปละไม่เกิน 4MB แปลงเป็น WebP
+- วิดีโอได้หนึ่งไฟล์ MP4, WebM หรือ MOV ไม่เกิน 500MB อัปโหลดใหม่แทนที่ไฟล์เดิม
+- หน้ารายละเอียดหนังสือใน API ส่ง `images` และ `video_url` ดู `docs/student-api.md`
+
 ### แสดง URL / ลบไฟล์
 
 ```php
@@ -104,7 +133,8 @@ MediaStorage::delete($course->thumbnail);
 ## หมายเหตุ
 
 - ต้องมี PHP GD พร้อม `imagewebp`
-- ปกคอร์ส / ปกข้อสอบ / รูปครู: รับ JPG/PNG/WebP/GIF สูงสุด 2MB แล้วแปลงเป็น WebP เสมอ
+- ปกคอร์ส / ปกข้อสอบ / ปกหนังสือ / รูปครู: รับ JPG/PNG/WebP/GIF สูงสุด 2MB แล้วแปลงเป็น WebP เสมอ
+- รูปคำถามข้อสอบและรูปเพิ่มเติมของหนังสือ: สูงสุด 4MB แล้วแปลงเป็น WebP
 - อัปเดตรูปปกจะทับไฟล์เดิมที่ path เดิม (`{id}.webp`)
 - ถ้า R2 ยังไม่ครบ จะใช้ disk `public` แทนอัตโนมัติ
 - วิดีโอ: validation สูงสุด 500MB — ต้องตั้ง PHP ให้รองรับด้วย เช่น

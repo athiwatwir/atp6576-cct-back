@@ -51,6 +51,28 @@
                     </a>
                 </div>
             </div>
+
+            <div class="mt-6 border-t border-gray-100 pt-5 dark:border-gray-800">
+                <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">วิดีโอ</h3>
+                @if ($book->video)
+                    <video src="{{ $book->video->url }}" controls class="mt-3 w-full rounded-xl border border-gray-200 bg-black dark:border-gray-700"></video>
+                @else
+                    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">ยังไม่มีวิดีโอ</p>
+                @endif
+            </div>
+
+            <div class="mt-6 border-t border-gray-100 pt-5 dark:border-gray-800">
+                <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">รูปภาพเพิ่มเติม</h3>
+                @if ($book->images->isNotEmpty())
+                    <div class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                        @foreach ($book->images as $image)
+                            <img src="{{ $image->url }}" alt="" class="h-36 w-full rounded-xl border border-gray-200 object-cover dark:border-gray-700" />
+                        @endforeach
+                    </div>
+                @else
+                    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">ยังไม่มีรูปเพิ่มเติม</p>
+                @endif
+            </div>
         </div>
 
         <div class="space-y-6 xl:col-span-4">

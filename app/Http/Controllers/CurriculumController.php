@@ -10,7 +10,6 @@ use App\Models\Category;
 use App\Models\Chapter;
 use App\Models\Course;
 use App\Models\Curriculum;
-use App\Models\Product;
 use App\Models\Subject;
 use App\Models\Video;
 use App\Support\Audit;
@@ -37,7 +36,6 @@ class CurriculumController extends Controller
                 'courses',
                 'chapters',
                 'videos',
-                'products as books_count',
                 'assessments as exams_count' => fn ($query) => $query->whereIn('type', ['exam', 'primary_exam']),
                 'assessments as exercises_count' => fn ($query) => $query->where('type', 'quiz'),
             ])
@@ -99,7 +97,6 @@ class CurriculumController extends Controller
             'courses',
             'chapters',
             'videos',
-            'products',
             'assessments as exams_count' => fn ($query) => $query->whereIn('assessments.type', ['exam', 'primary_exam']),
             'assessments as exercises_count' => fn ($query) => $query->where('assessments.type', 'quiz'),
         ]);
@@ -107,17 +104,15 @@ class CurriculumController extends Controller
         return view('pages.curriculums.show', [
             'title' => $curriculum->name,
             'curriculum' => $curriculum,
-            'catalog' => $this->simpleCatalog(),
-            'attached' => [
-                'book' => $curriculum->products()->pluck('products.id')->map(fn ($id) => (int) $id)->all(),
-            ],
+            'catalog' => [],
+            'attached' => [],
         ]);
     }
 
     public function attached(Request $request, Curriculum $curriculum): JsonResponse
     {
         $type = $request->validate([
-            'type' => ['required', Rule::in(['course', 'chapter', 'video', 'exam', 'exercise', 'book'])],
+            'type' => ['required', Rule::in(['course', 'chapter', 'video', 'exam', 'exercise'])],
         ])['type'];
 
         $items = match ($type) {
@@ -131,8 +126,6 @@ class CurriculumController extends Controller
                 ->map(fn (Assessment $item) => $this->assessmentCard($item)),
             'exercise' => $curriculum->assessments()->with(['courses:id,name', 'assessmentCourses.chapter:id,title'])->withCount('questions')->where('assessments.type', 'quiz')->get()
                 ->map(fn (Assessment $item) => $this->assessmentCard($item)),
-            'book' => $curriculum->products()->get()
-                ->map(fn (Product $book) => $this->bookCard($book)),
         };
 
         return response()->json([
@@ -307,7 +300,7 @@ class CurriculumController extends Controller
     public function attachItems(Request $request, Curriculum $curriculum): RedirectResponse
     {
         $data = $request->validate([
-            'type' => ['required', Rule::in(['course', 'chapter', 'video', 'exam', 'exercise', 'book'])],
+            'type' => ['required', Rule::in(['course', 'chapter', 'video', 'exam', 'exercise'])],
             'ids' => ['required', 'array', 'min:1'],
             'ids.*' => ['integer'],
         ], [], [
@@ -357,7 +350,7 @@ class CurriculumController extends Controller
     public function detachItem(Request $request, Curriculum $curriculum): RedirectResponse
     {
         $data = $request->validate([
-            'type' => ['required', Rule::in(['course', 'chapter', 'video', 'exam', 'exercise', 'book'])],
+            'type' => ['required', Rule::in(['course', 'chapter', 'video', 'exam', 'exercise'])],
             'id' => ['required', 'integer'],
         ]);
 
@@ -400,7 +393,6 @@ class CurriculumController extends Controller
             'chapter' => $curriculum->chapters(),
             'video' => $curriculum->videos(),
             'exam', 'exercise' => $curriculum->assessments(),
-            'book' => $curriculum->products(),
         };
     }
 
@@ -418,7 +410,6 @@ class CurriculumController extends Controller
             'video' => Video::query()->whereIn('id', $ids),
             'exam' => Assessment::query()->whereIn('id', $ids)->whereIn('type', ['exam', 'primary_exam']),
             'exercise' => Assessment::query()->whereIn('id', $ids)->where('type', 'quiz'),
-            'book' => Product::query()->whereIn('id', $ids)->where('type', 'book'),
         };
 
         return $query->pluck('id')->map(fn ($id) => (int) $id)->all();
@@ -722,25 +713,6 @@ class CurriculumController extends Controller
         return $place !== '' ? $place : null;
     }
 
-    /**
-     * @return array{id:int,title:string,code:?string,description:?string,thumbnail:?string,badges:list<string>}
-     */
-    private function bookCard(Product $book): array
-    {
-        return [
-            'id' => $book->id,
-            'title' => $book->name,
-            'code' => $book->code,
-            'description' => $this->previewText(null, $book->description),
-            'thumbnail' => $book->thumbnail_url,
-            'badges' => array_values(array_filter([
-                $book->sale_price !== null && (float) $book->sale_price > 0
-                    ? '฿'.number_format((float) $book->sale_price, 0).' จาก ฿'.number_format((float) $book->price, 0)
-                    : ((float) $book->price > 0 ? '฿'.number_format((float) $book->price, 0) : 'ฟรี'),
-            ])),
-        ];
-    }
-
     private function assessmentPriceBadge(Assessment $exam): string
     {
         if ((float) $exam->price > 0) {
@@ -748,21 +720,6 @@ class CurriculumController extends Controller
         }
 
         return 'ฟรี';
-    }
-
-    /**
-     * @return array<string, list<array{id:int,title:string,meta:?string}>>
-     */
-    private function simpleCatalog(): array
-    {
-        return [
-            'book' => Product::query()->books()->orderBy('name')->get()
-                ->map(fn (Product $book) => [
-                    'id' => $book->id,
-                    'title' => $book->name,
-                    'meta' => $book->code,
-                ])->all(),
-        ];
     }
 
     private function typeLabel(string $type): string
@@ -773,7 +730,6 @@ class CurriculumController extends Controller
             'video' => 'วิดีโอ',
             'exam' => 'ข้อสอบ',
             'exercise' => 'แบบฝึกหัด',
-            'book' => 'หนังสือ',
             default => 'เนื้อหา',
         };
     }

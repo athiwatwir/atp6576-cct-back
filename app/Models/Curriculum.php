@@ -94,13 +94,6 @@ class Curriculum extends Model
             ->orderByPivot('sort_order');
     }
 
-    public function products(): BelongsToMany
-    {
-        return $this->belongsToMany(Product::class, 'curriculum_products')
-            ->withPivot('sort_order')
-            ->orderByPivot('sort_order');
-    }
-
     public function documents(): BelongsToMany
     {
         return $this->belongsToMany(Document::class, 'curriculum_documents')
