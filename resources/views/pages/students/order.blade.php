@@ -23,20 +23,33 @@
 
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]"
         x-data="{
-            rows: {{ \Illuminate\Support\Js::from(old('items', [['type' => 'course', 'id' => '']])) }},
+            rows: {{ \Illuminate\Support\Js::from(old('items', [['type' => 'course', 'id' => '', 'plan_id' => '']])) }},
             catalog: {{ \Illuminate\Support\Js::from($catalog) }},
             options(type) {
                 return this.catalog[type] || [];
             },
+            item(row) {
+                return this.options(row.type).find((entry) => String(entry.id) === String(row.id)) || null;
+            },
+            plans(row) {
+                return this.item(row)?.plans || [];
+            },
+            pick(row) {
+                const plans = this.plans(row);
+                row.plan_id = plans.length === 1 ? String(plans[0].id) : '';
+            },
             price(row) {
-                const item = this.options(row.type).find((entry) => String(entry.id) === String(row.id));
-                return item ? Number(item.price) : 0;
+                const item = this.item(row);
+                if (!item) return 0;
+                const plan = this.plans(row).find((entry) => String(entry.id) === String(row.plan_id));
+                if (plan) return Number(plan.effective_price);
+                return this.plans(row).length > 1 ? 0 : Number(item.price);
             },
             total() {
                 return this.rows.reduce((sum, row) => sum + this.price(row), 0);
             },
             add() {
-                this.rows.push({ type: 'course', id: '' });
+                this.rows.push({ type: 'course', id: '', plan_id: '' });
             },
             remove(index) {
                 this.rows.splice(index, 1);
@@ -61,15 +74,21 @@
             <div class="space-y-3">
                 <template x-for="(row, index) in rows" :key="index">
                     <div class="grid grid-cols-1 gap-3 md:grid-cols-12">
-                        <select class="dark:bg-dark-900 h-11 rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 md:col-span-3" x-model="row.type" @change="row.id = ''" :name="'items[' + index + '][type]'">
+                        <select class="dark:bg-dark-900 h-11 rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 md:col-span-2" x-model="row.type" @change="row.id = ''; row.plan_id = ''" :name="'items[' + index + '][type]'">
                             <option value="course">คอร์ส</option>
                             <option value="curriculum">หลักสูตร</option>
                             <option value="exam">ข้อสอบ</option>
                         </select>
-                        <select class="dark:bg-dark-900 h-11 rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 md:col-span-6" x-model="row.id" :name="'items[' + index + '][id]'" required>
+                        <select class="dark:bg-dark-900 h-11 rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 md:col-span-4" x-model="row.id" @change="pick(row)" :name="'items[' + index + '][id]'" required>
                             <option value="">เลือกรายการ</option>
                             <template x-for="item in options(row.type)" :key="row.type + '-' + item.id">
-                                <option :value="item.id" x-text="item.name + ' · ฿' + Number(item.price).toLocaleString('th-TH')"></option>
+                                <option :value="item.id" x-text="item.name + (item.plans.length > 1 ? ' · เริ่มต้น ฿' : ' · ฿') + Number(item.price).toLocaleString('th-TH')"></option>
+                            </template>
+                        </select>
+                        <select class="dark:bg-dark-900 h-11 rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 md:col-span-3" x-model="row.plan_id" :name="'items[' + index + '][plan_id]'" :required="plans(row).length > 1" :disabled="plans(row).length === 0">
+                            <option value="" x-text="plans(row).length ? 'เลือกแพ็กเกจ' : 'แพ็กเกจ'"></option>
+                            <template x-for="plan in plans(row)" :key="'plan-' + plan.id">
+                                <option :value="String(plan.id)" x-text="plan.name + ' · ฿' + Number(plan.effective_price).toLocaleString('th-TH')"></option>
                             </template>
                         </select>
                         <div class="flex items-center justify-between gap-3 md:col-span-3">

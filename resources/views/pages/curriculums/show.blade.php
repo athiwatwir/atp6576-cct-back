@@ -59,13 +59,8 @@ $activeTab = 'course';
                 @if ($curriculum->short_description)
                 <p class="mt-2 max-w-2xl text-sm text-gray-600 dark:text-gray-300">{{ $curriculum->short_description }}</p>
                 @endif
-                <div class="mt-3 text-sm text-gray-800 dark:text-white/90">
-                    @if ($curriculum->sale_price !== null && (float) $curriculum->sale_price > 0)
-                    <span class="font-medium text-brand-600 dark:text-brand-400">฿{{ number_format((float) $curriculum->sale_price, 2) }}</span>
-                    <span class="ml-2 text-xs text-gray-400 line-through">฿{{ number_format((float) $curriculum->price, 2) }}</span>
-                    @else
-                    <span class="font-medium">฿{{ number_format((float) $curriculum->price, 2) }}</span>
-                    @endif
+                <div class="mt-3 max-w-sm">
+                    @include('pages.partials.price-plans-summary', ['plans' => $curriculum->pricePlans])
                 </div>
             </div>
         </div>

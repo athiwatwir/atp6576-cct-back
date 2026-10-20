@@ -55,6 +55,18 @@ class DocumentSequence
         return DocumentType::Order->prefix().$ymd.sprintf('%03d', $seq);
     }
 
+    /**
+     * เลขใบเสร็จรับเงิน: RC{ym}{seq4} เช่น RC26100001 เรียงต่อกันทั้งเดือน
+     */
+    public static function nextReceipt(?CarbonInterface $at = null): string
+    {
+        $at ??= now();
+        $ym = $at->format('ym');
+        $seq = self::nextNumber(DocumentType::Receipt, $ym);
+
+        return DocumentType::Receipt->prefix().$ym.sprintf('%04d', $seq);
+    }
+
     private static function nextNumber(DocumentType $type, string $periodKey): int
     {
         return (int) DB::transaction(function () use ($type, $periodKey) {

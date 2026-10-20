@@ -44,24 +44,7 @@
         @enderror
     </div>
 
-    <div>
-        <label for="price" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-            ราคาปกติ (บาท)<span class="text-error-500">*</span>
-        </label>
-        <input type="number" id="price" name="price" min="0" step="0.01" value="{{ old('price', $curriculum?->price ?? 0) }}" required class="{{ $inputClass }}" />
-        @error('price')
-            <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p>
-        @enderror
-    </div>
-
-    <div>
-        <label for="sale_price" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">ราคาลด (บาท)</label>
-        <input type="number" id="sale_price" name="sale_price" min="0" step="0.01" value="{{ old('sale_price', $curriculum?->sale_price) }}" class="{{ $inputClass }}" />
-        <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">ถ้าระบุ ต้องไม่สูงกว่าราคาปกติ</p>
-        @error('sale_price')
-            <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p>
-        @enderror
-    </div>
+    @include('pages.partials.price-plans', ['owner' => $curriculum])
 
     <div class="md:col-span-2">
         <label for="short_description" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">คำอธิบายสั้น</label>

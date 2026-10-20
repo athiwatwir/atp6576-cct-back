@@ -1,10 +1,10 @@
 # Student API สำหรับ Nuxt
 
-API นี้ให้เว็บนักเรียน (Nuxt) ใช้สมัครสมาชิก เข้าสู่ระบบ ดูคอร์ส หลักสูตร หนังสือ แบนเนอร์ และบทความที่เปิดแสดง สร้างออเดอร์ ส่งสลิปโอนเงิน และจัดการโปรไฟล์
+API นี้ให้เว็บนักเรียน (Nuxt) ใช้สมัครสมาชิก เข้าสู่ระบบ ดูคอร์ส หลักสูตร หนังสือ แบนเนอร์ บทความ และรีวิวที่เปิดแสดง เลือกแพ็กเกจราคาตามระยะเวลาเรียน สร้างออเดอร์ ชำระเงินด้วย QR พร้อมเพย์หรือบัตร ส่งสลิปโอนเงิน และจัดการโปรไฟล์
 
 ฐาน URL คือ `{APP_URL}/api/v1` เช่น `http://127.0.0.1:8000/api/v1`
 
-ข้อสอบที่ขายแยกอยู่ในรายการ `GET /catalog` ด้วย `item_type` เป็น `exam` API นี้ยังไม่ส่งคำถามหรือรูปประกอบคำถาม จำนวนรายการที่กำลังใช้งานบนเมนูแอดมินไม่รวมใน API นี้
+ข้อสอบที่ขายแยกอยู่ในรายการ `GET /catalog` ด้วย `item_type` เป็น `exam` API นี้ยังไม่ส่งคำถามหรือรูปประกอบคำถาม ทั้งข้อสอบขายแยก ข้อสอบในคอร์ส และแบบฝึกหัด จำนวนรายการที่กำลังใช้งานบนเมนูแอดมินไม่รวมใน API นี้
 
 ทุกคำขอต้องส่งคีย์ของเว็บนักเรียนใน header `X-Api-Key` ค่าเดียวกับ `STOREFRONT_API_KEY` ใน `.env` ของ Laravel ถ้าไม่ส่งหรือค่าไม่ตรง ระบบตอบ 401
 
@@ -16,7 +16,7 @@ X-Api-Key: {STOREFRONT_API_KEY}
 Authorization: Bearer {token}
 ```
 
-Endpoint ที่เปิดสาธารณะไม่ต้องส่ง token ถ้าส่ง token ที่ยังใช้ได้ รายการสินค้าจะมีฟิลด์ `purchased` บอกว่านักเรียนคนนี้มีสิทธิ์แล้วหรือไม่ คำขอสาธารณะยังต้องส่ง `X-Api-Key` และถูกจำกัด 60 ครั้งต่อนาทีต่อ IP สมัครสมาชิก เข้าสู่ระบบ และส่งลิงก์ยืนยันซ้ำถูกจำกัด 10 ครั้งต่อนาที
+Endpoint ที่เปิดสาธารณะไม่ต้องส่ง token ถ้าส่ง token ที่ยังใช้ได้ รายการสินค้าจะมีฟิลด์ `purchased` บอกว่านักเรียนคนนี้มีสิทธิ์แล้วหรือไม่ คำขอสาธารณะยังต้องส่ง `X-Api-Key` และถูกจำกัด 60 ครั้งต่อนาทีต่อ IP สมัครสมาชิก เข้าสู่ระบบ ส่งลิงก์ยืนยันซ้ำ และสั่งซื้อแบบไม่สมัครสมาชิกถูกจำกัด 10 ครั้งต่อนาที แยกนับแต่ละ endpoint
 
 ## ตั้งค่า Nuxt
 
@@ -67,7 +67,7 @@ export function useApi() {
 | 403 | บัญชีไม่ใช่นักเรียน หรือถูกปิดใช้งาน |
 | 404 | ไม่พบรายการ |
 | 422 | ข้อมูลไม่ผ่านเงื่อนไข ดู `errors` |
-| 429 | เรียก API ถี่เกิน 60 ครั้งต่อนาที หรือสมัครสมาชิก เข้าสู่ระบบ และส่งลิงก์ยืนยันซ้ำถี่เกิน 10 ครั้งต่อนาที |
+| 429 | เรียก API ถี่เกิน 60 ครั้งต่อนาที หรือสมัครสมาชิก เข้าสู่ระบบ ส่งลิงก์ยืนยันซ้ำ สั่งซื้อแบบไม่สมัครสมาชิก หรือส่งสลิปแบบไม่สมัครสมาชิกถี่เกิน 10 ครั้งต่อนาที (แต่ละ endpoint นับแยกกัน ไม่รวมกับการเปิดหน้าอื่น) |
 
 ```json
 {
@@ -209,14 +209,15 @@ export function useApi() {
     "status_label": "เปิดใช้งาน",
     "email_verified": true,
     "learning": {
-      "courses": [{ "id": 3, "name": "คอร์สฟิสิกส์", "slug": "physics" }],
-      "curriculums": []
+      "courses": [{ "id": 3, "name": "คอร์สฟิสิกส์", "slug": "physics", "thumbnail_url": null, "expires_at": "2026-11-16T10:00:00+07:00" }],
+      "curriculums": [],
+      "exams": []
     }
   }
 }
 ```
 
-`learning` คือสิ่งที่ชำระเงินแล้วและกำลังเรียนอยู่ ใช้แสดงเมนูคอร์สของฉันได้
+`learning` คือสิ่งที่ชำระเงินแล้วและยังไม่หมดอายุ ใช้แสดงเมนูคอร์สของฉันได้ `expires_at` คือวันหมดสิทธิ์ตามแพ็กเกจที่ซื้อ `null` = เรียนได้ไม่จำกัดเวลา
 
 ### POST `/profile`
 
@@ -300,7 +301,30 @@ await api('/profile', { method: 'POST', body: form })
 
 คอร์สที่สถานะไม่ใช่ `published` หลักสูตรที่ยังไม่เผยแพร่ ข้อสอบที่ไม่ได้เปิดขายแยก และหนังสือที่ไม่ได้เปิดขาย จะไม่ปรากฏใน API นี้ ข้อสอบในคอร์สและแบบฝึกหัดไม่ถูกส่งในรายการนี้
 
-ตะกร้ายังรับ `course`, `curriculum`, `book` การซื้อข้อสอบผ่าน checkout ยังไม่เปิดใน API นี้
+ตะกร้ารับ `course`, `curriculum`, `exam`, `book`
+
+### แพ็กเกจราคา (`price_plans`)
+
+คอร์ส หลักสูตร และข้อสอบขายแยกมีได้หลายราคาตามระยะเวลาเรียน ทุกรายการในรายการสินค้าและหน้ารายละเอียดมี `price_plans` เรียงตามที่แอดมินจัด ส่งเฉพาะแพ็กเกจที่เปิดขาย
+
+```json
+"price_plans": [
+  { "id": 11, "name": "30 วัน", "duration_days": 30, "price": 3000, "sale_price": null, "effective_price": 3000 },
+  { "id": 12, "name": "แพ็กคุ้ม", "duration_days": 60, "price": 5000, "sale_price": 4500, "effective_price": 4500 },
+  { "id": 13, "name": "ไม่จำกัดเวลา", "duration_days": null, "price": 9000, "sale_price": null, "effective_price": 9000 }
+]
+```
+
+| ฟิลด์ | ความหมาย |
+|------|----------|
+| `id` | ส่งเป็น `plan_id` ตอน `POST /checkout/quote` และ `POST /orders` |
+| `name` | ชื่อที่แสดง ถ้าแอดมินไม่ตั้งชื่อ ระบบส่ง "30 วัน" หรือ "ไม่จำกัดเวลา" |
+| `duration_days` | จำนวนวันที่เรียนได้หลังชำระ `null` = ไม่จำกัดเวลา |
+| `effective_price` | ราคาที่ต้องจ่ายของแพ็กเกจนั้น |
+
+`price`, `sale_price`, `effective_price` ระดับรายการคือราคาของแพ็กเกจที่ถูกที่สุด ใช้แสดง "เริ่มต้น ฿..." ในการ์ด ถ้า `price_plans` มีมากกว่าหนึ่งรายการ ให้ผู้ซื้อเลือกแพ็กเกจก่อนเพิ่มลงตะกร้า
+
+เมื่อส่ง token มาด้วย `purchased` เป็นจริงเฉพาะสิทธิ์ที่ยังไม่หมดอายุ และ `access_expires_at` คือวันหมดสิทธิ์ (`null` เมื่อยังไม่ซื้อ หรือซื้อแบบไม่จำกัดเวลา ดูคู่กับ `purchased`) ซื้อซ้ำขณะสิทธิ์ยังเหลือจะต่ออายุจากวันหมดอายุเดิม
 
 ### GET `/catalog`
 
@@ -318,8 +342,13 @@ await api('/profile', { method: 'POST', body: form })
       "price": 1500,
       "sale_price": 990,
       "effective_price": 990,
+      "price_plans": [
+        { "id": 11, "name": "30 วัน", "duration_days": 30, "price": 1500, "sale_price": 990, "effective_price": 990 },
+        { "id": 12, "name": "90 วัน", "duration_days": 90, "price": 2500, "sale_price": null, "effective_price": 2500 }
+      ],
       "is_featured": true,
       "purchased": false,
+      "access_expires_at": null,
       "category": { "id": 1, "name": "มัธยม", "slug": "secondary" },
       "subject": { "id": 2, "name": "ฟิสิกส์", "slug": "physics" },
       "instructor": { "id": 1, "name": "ครูเอ", "slug": "teacher-a" },
@@ -339,8 +368,12 @@ await api('/profile', { method: 'POST', body: form })
       "price": 2500,
       "sale_price": null,
       "effective_price": 2500,
+      "price_plans": [
+        { "id": 21, "name": "ไม่จำกัดเวลา", "duration_days": null, "price": 2500, "sale_price": null, "effective_price": 2500 }
+      ],
       "is_featured": false,
       "purchased": false,
+      "access_expires_at": null,
       "category": null,
       "subject": null,
       "instructor": null,
@@ -360,8 +393,12 @@ await api('/profile', { method: 'POST', body: form })
       "price": 490,
       "sale_price": null,
       "effective_price": 490,
+      "price_plans": [
+        { "id": 31, "name": "30 วัน", "duration_days": 30, "price": 490, "sale_price": null, "effective_price": 490 }
+      ],
       "is_featured": false,
       "purchased": false,
+      "access_expires_at": null,
       "category": null,
       "subject": null,
       "instructor": null,
@@ -391,21 +428,26 @@ await api('/profile', { method: 'POST', body: form })
   "price": 1500,
   "sale_price": 990,
   "effective_price": 990,
+  "price_plans": [
+    { "id": 11, "name": "30 วัน", "duration_days": 30, "price": 1500, "sale_price": 990, "effective_price": 990 },
+    { "id": 12, "name": "90 วัน", "duration_days": 90, "price": 2500, "sale_price": null, "effective_price": 2500 }
+  ],
   "is_featured": true,
   "is_trial_available": false,
   "chapter_count": 8,
-  "purchased": false,
+  "purchased": true,
+  "access_expires_at": "2026-11-16T10:00:00+07:00",
   "category": { "id": 1, "name": "มัธยม", "slug": "secondary" },
   "subject": { "id": 2, "name": "ฟิสิกส์", "slug": "physics" },
   "instructor": { "id": 1, "name": "ครูเอ", "slug": "teacher-a" }
 }
 ```
 
-ใช้ `effective_price` เป็นราคาที่ต้องจ่าย ถ้ามี `sale_price` มากกว่า 0 ระบบใช้ราคานั้น ไม่เช่นนั้นใช้ `price`
+ราคาที่ต้องจ่ายคือ `effective_price` ของแพ็กเกจที่เลือกใน `price_plans` ถ้าแพ็กเกจมี `sale_price` มากกว่า 0 ระบบใช้ราคานั้น ไม่เช่นนั้นใช้ `price` ส่วน `effective_price` ระดับคอร์สคือราคาเริ่มต้น
 
 ### GET `/curriculums/{slug}`
 
-ฟิลด์ราคาและรูปเหมือนคอร์ส และมี `item_type` เป็น `curriculum` หน้ารายละเอียดมี `courses` เป็นชื่อคอร์สที่เผยแพร่แล้วในหลักสูตรนั้น แพ็กเกจหลักสูตรไม่มีหนังสือ หนังสือซื้อแยกผ่าน `/books`
+ฟิลด์ราคา `price_plans`, `purchased`, `access_expires_at` และรูปเหมือนคอร์ส และมี `item_type` เป็น `curriculum` ซื้อหลักสูตรแล้ว คอร์สและข้อสอบในหลักสูตรได้สิทธิ์ตามระยะเวลาของแพ็กเกจหลักสูตร หน้ารายละเอียดมี `courses` เป็นชื่อคอร์สที่เผยแพร่แล้วในหลักสูตรนั้น แพ็กเกจหลักสูตรไม่มีหนังสือ หนังสือซื้อแยกผ่าน `/books`
 
 ```json
 "courses": [
@@ -429,11 +471,17 @@ await api('/profile', { method: 'POST', body: form })
   "price": 490,
   "sale_price": null,
   "effective_price": 490,
+  "price_plans": [
+    { "id": 31, "name": "30 วัน", "duration_days": 30, "price": 490, "sale_price": null, "effective_price": 490 }
+  ],
   "duration_minutes": 90,
   "question_count": 40,
-  "purchased": false
+  "purchased": false,
+  "access_expires_at": null
 }
 ```
+
+`duration_minutes` คือเวลาทำข้อสอบต่อครั้ง ส่วน `price_plans[].duration_days` คือจำนวนวันที่มีสิทธิ์ทำข้อสอบ
 
 ### GET `/books` และ GET `/books/{slug}`
 
@@ -458,9 +506,9 @@ await api('/profile', { method: 'POST', body: form })
 
 `description`, `images` และ `video_url` มีเฉพาะหน้ารายละเอียด `video_url` เป็น `null` เมื่อยังไม่มีวิดีโอ `images` เป็นรูปเพิ่มเติมนอกจากปก `stock` เป็น `null` แปลว่าไม่จำกัดจำนวน `purchased` ของหนังสือเป็นจริงเมื่อมีออเดอร์ที่ชำระแล้วซึ่งมีหนังสือเล่มนั้น
 
-## แบนเนอร์และบทความ
+## แบนเนอร์ บทความ และรีวิว
 
-รายการนี้เป็นสาธารณะ ไม่ต้องใช้ token แต่ต้องส่ง `X-Api-Key` ระบบส่งเฉพาะรายการที่สถานะเผยแพร่ และอยู่ในช่วงเวลาเริ่มถึงสิ้นสุด ร่าง ปิดใช้งาน และรายการที่ยังไม่ถึงเวลาหรือหมดเวลาแล้วจะไม่ปรากฏ
+รายการนี้เป็นสาธารณะ ไม่ต้องใช้ token แต่ต้องส่ง `X-Api-Key` แบนเนอร์ส่งเมื่อสถานะเผยแพร่และอยู่ในช่วงเวลาเริ่มถึงสิ้นสุด บทความและรีวิวส่งเมื่อสถานะเป็นเผยแพร่ ร่างและรายการที่ปิดใช้งานจะไม่ปรากฏ
 
 ### GET `/banners`
 
@@ -494,7 +542,7 @@ await api('/profile', { method: 'POST', body: form })
 
 ### GET `/articles` และ GET `/articles/{slug}`
 
-รายการใช้ `search`, `page`, `per_page` เหมือนสินค้า เรียงจากวันที่เผยแพร่ล่าสุด รายการไม่มีเนื้อหาเต็ม เพื่อให้โหลดหน้าแรกเร็ว
+บทความไม่มีวันเริ่มหรือวันสิ้นสุด แสดงเมื่อสถานะเป็นเผยแพร่ รายการใช้ `search`, `page`, `per_page` เหมือนสินค้า เรียงจากรายการล่าสุด รายการไม่มีเนื้อหาเต็ม เพื่อให้โหลดหน้าแรกเร็ว
 
 ```json
 {
@@ -503,17 +551,91 @@ await api('/profile', { method: 'POST', body: form })
   "title": "เทคนิคทำข้อสอบ",
   "excerpt": "อ่านโจทย์ให้ครบก่อนลงมือ",
   "image_url": null,
-  "published_at": "2026-09-29T09:00:00+07:00"
+  "seo": {
+    "title": "เทคนิคทำข้อสอบ | Click Class Tutor",
+    "description": "อ่านโจทย์ให้ครบก่อนลงมือ",
+    "keywords": "ข้อสอบ, เทคนิค",
+    "image_url": null
+  }
 }
 ```
 
-หน้ารายละเอียด `GET /articles/{slug}` เพิ่มฟิลด์ `content` เป็น HTML ที่ทำความสะอาดแล้ว แสดงด้วย `v-html` ได้ แท็กที่ใช้ได้คือหัวข้อ ย่อหน้า รายการ ลิงก์ รูป โค้ด และข้อความตัวหนาหรือเอียง
+ฟิลด์ `seo` มีทั้งในรายการและหน้ารายละเอียด สำหรับ `useSeoMeta` / Open Graph บน Nuxt ค่าที่ส่งเป็นค่าพร้อมใช้แล้ว ถ้าแอดมินไม่ใส่ SEO title จะใช้หัวข้อบทความ ถ้าไม่ใส่ SEO description จะใช้คำเกริ่น (อาจเป็น `null`) `image_url` ใน `seo` คือรูปปกบทความ
+
+หน้ารายละเอียด `GET /articles/{slug}` เพิ่มฟิลด์ `content` เป็น HTML ที่ทำความสะอาดแล้ว แสดงด้วย `v-html` ได้ แท็กที่ใช้ได้คือหัวข้อ ย่อหน้า รายการ ลิงก์ รูป โค้ด และข้อความตัวหนาหรือเอียง และมี `related` สำหรับคอร์ส หลักสูตร และข้อสอบขายแยกที่แอดมินผูกไว้ (เลือกได้หลายรายการ) ส่งเฉพาะรายการที่เผยแพร่อยู่แล้ว ใช้ `slug` ไปเปิดหน้ารายละเอียดสินค้าได้
+
+```json
+{
+  "id": 4,
+  "slug": "exam-tips",
+  "title": "เทคนิคทำข้อสอบ",
+  "excerpt": "อ่านโจทย์ให้ครบก่อนลงมือ",
+  "image_url": null,
+  "seo": {
+    "title": "เทคนิคทำข้อสอบ | Click Class Tutor",
+    "description": "อ่านโจทย์ให้ครบก่อนลงมือ",
+    "keywords": "ข้อสอบ, เทคนิค",
+    "image_url": null
+  },
+  "content": "<p>...</p>",
+  "related": {
+    "courses": [
+      {
+        "id": 12,
+        "slug": "math-m1",
+        "name": "คณิต ม.1",
+        "thumbnail_url": "https://..."
+      }
+    ],
+    "curriculums": [],
+    "exams": [
+      {
+        "id": 3,
+        "slug": "mock-midterm",
+        "name": "จำลองกลางภาค",
+        "thumbnail_url": null
+      }
+    ]
+  }
+}
+```
+
+รายการบทความไม่มี `related` และไม่มี `content` แต่มี `seo`
+
+### GET `/reviews`
+
+รีวิวจากแอดมินสำหรับแสดงบนเว็บ เช่น หน้าแรก ส่งเฉพาะรายการสถานะเผยแพร่ สูงสุด 50 รายการ เรียงตามลำดับที่แอดมินจัดไว้ ร่างและปิดใช้งานจะไม่ปรากฏ
+
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "name": "คุณมิน",
+      "content": "เรียนแล้วเข้าใจง่าย สอบติดตามเป้า",
+      "image_url": "https://..."
+    }
+  ]
+}
+```
+
+`image_url` เป็น `null` ได้ถ้ายังไม่มีหน้าปก `content` เป็นข้อความธรรมดา ไม่ใช่ HTML
 
 ## สั่งซื้อและชำระเงิน
 
-วิธีชำระของหน้าร้านคือโอนเงิน แล้วอัปโหลดสลิป แอดมินตรวจในหน้าการเงิน เมื่อสถานะเป็นชำระแล้ว ระบบเปิดสิทธิ์เรียนให้เอง เลขบัญชีที่ให้ลูกค้าโอนให้ตั้งในโปรเจกต์ Nuxt เพราะ API นี้ยังไม่เก็บข้อมูลบัญชีธนาคาร
+หน้าร้านชำระได้สามวิธี
 
-ประเภทสินค้าในตะกร้าคือ `course`, `curriculum`, `book` คอร์สและหลักสูตรจำนวนเป็น 1 เสมอ หนังสือส่ง `quantity` ได้ 1–99
+| วิธี | ขั้นตอน |
+|------|---------|
+| QR พร้อมเพย์ (`thai_qr`) | ผ่าน KGP ดูหัวข้อ [ชำระเงินออนไลน์](#ชำระเงินออนไลน์-qr-พร้อมเพย์-และบัตร) |
+| บัตรเครดิต / เดบิต (`credit_card`) | ผ่าน Omise ดูหัวข้อเดียวกัน |
+| โอนเงิน (`bank_transfer`) | โอนแล้วอัปโหลดสลิปด้วย `POST /orders/{id}/payment` แอดมินตรวจในหน้าการเงิน |
+
+เมื่อสถานะเป็นชำระแล้ว ระบบเปิดสิทธิ์เรียนให้เอง เลขบัญชีสำหรับโอนให้ตั้งในโปรเจกต์ Nuxt เพราะ API นี้ยังไม่เก็บข้อมูลบัญชีธนาคาร
+
+ประเภทสินค้าในตะกร้าคือ `course`, `curriculum`, `exam`, `book` คอร์ส หลักสูตร และข้อสอบจำนวนเป็น 1 เสมอ หนังสือส่ง `quantity` ได้ 1–99
+
+คอร์ส หลักสูตร และข้อสอบส่ง `plan_id` จาก `price_plans` ได้ ถ้ารายการนั้นมีแพ็กเกจเปิดขายแพ็กเกจเดียว ไม่ส่งก็ได้ ระบบเลือกให้ ถ้ามีหลายแพ็กเกจต้องส่ง ไม่ส่งตอบ `422` ที่ฟิลด์ `items` ข้อความ `กรุณาเลือกแพ็กเกจราคาของ ...` `plan_id` ที่ปิดขายแล้วหรือไม่ใช่ของรายการนั้นตอบ `422` เช่นกัน หนังสือไม่มีแพ็กเกจ ตะกร้าส่งรายการเดียวกันซ้ำ ระบบใช้แถวแรก
 
 ออเดอร์หนึ่งใบเป็นชนิดเดียว ตะกร้าที่ปนหนังสือกับคอร์สหรือหลักสูตรตอบ `422` ที่ฟิลด์ `items` พร้อมข้อความ `แยกคำสั่งซื้อหนังสือกับสมัครเรียนคนละออเดอร์`
 
@@ -526,7 +648,7 @@ await api('/profile', { method: 'POST', body: form })
 ```json
 {
   "items": [
-    { "type": "course", "id": 3 }
+    { "type": "course", "id": 3, "plan_id": 11 }
   ],
   "coupon_code": "SAVE10"
 }
@@ -536,7 +658,15 @@ await api('/profile', { method: 'POST', body: form })
 {
   "data": {
     "items": [
-      { "type": "course", "id": 3, "name": "คอร์สฟิสิกส์", "quantity": 1, "unit_price": 990, "total_price": 990 }
+      {
+        "type": "course",
+        "id": 3,
+        "name": "คอร์สฟิสิกส์ (30 วัน)",
+        "quantity": 1,
+        "unit_price": 990,
+        "total_price": 990,
+        "plan": { "id": 11, "name": "30 วัน", "duration_days": 30 }
+      }
     ],
     "subtotal": 990,
     "discount": 99,
@@ -548,18 +678,18 @@ await api('/profile', { method: 'POST', body: form })
 }
 ```
 
-รหัสคูปองที่ไม่ผ่านเงื่อนไขตอบ `422`
+รหัสคูปองที่ไม่ผ่านเงื่อนไขตอบ `422` `plan` ของรายการเป็น `null` สำหรับหนังสือ `plan.id` อาจเป็น `null` สำหรับรายการเก่าที่ยังไม่มีแพ็กเกจ `name` ของรายการต่อท้ายด้วยชื่อแพ็กเกจเมื่อเป็นแบบมีวันหมดอายุหรือรายการมีหลายแพ็กเกจ
 
 ### POST `/orders`
 
-สร้างออเดอร์ สถานะชำระเริ่มที่ `pending` ถ้ายอดสุทธิเป็น 0 ระบบตัดเป็นชำระแล้วและเปิดสิทธิ์เรียนทันที
+สร้างออเดอร์ สถานะชำระเริ่มที่ `pending` ถ้ายอดสุทธิเป็น 0 ระบบตัดเป็นชำระแล้วและเปิดสิทธิ์เรียนทันที หลังชำระ สิทธิ์เรียนมีอายุตาม `plan.duration_days` นับจากวันชำระ หรือต่อจากวันหมดอายุเดิมถ้าสิทธิ์ยังเหลือ
 
 สมัครเรียน
 
 ```json
 {
   "items": [
-    { "type": "course", "id": 3 }
+    { "type": "course", "id": 3, "plan_id": 11 }
   ],
   "coupon_code": "SAVE10",
   "notes": null
@@ -613,27 +743,58 @@ await api('/profile', { method: 'POST', body: form })
       "status": "pending",
       "status_label": "รอชำระเงิน",
       "amount": 990,
+      "fee_amount": 0,
       "paid_at": null,
-      "slip_url": null
+      "slip_url": null,
+      "provider": null,
+      "reference": null,
+      "expires_at": null,
+      "failure_message": null
     },
     "items": [
-      { "type": "course", "id": 3, "name": "คอร์สฟิสิกส์", "quantity": 1, "unit_price": 990, "total_price": 990 }
+      {
+        "type": "course",
+        "id": 3,
+        "name": "คอร์สฟิสิกส์ (30 วัน)",
+        "quantity": 1,
+        "unit_price": 990,
+        "total_price": 990,
+        "plan": { "id": 11, "name": "30 วัน", "duration_days": 30 }
+      }
     ],
+    "receipt": null,
     "created_at": "2026-09-29T02:00:00+07:00",
     "paid_at": null
   }
 }
 ```
 
+`receipt` เป็น `null` จนกว่าออเดอร์จะชำระแล้ว หลังชำระ:
+
+```json
+"receipt": {
+  "receipt_no": "RC26100001",
+  "issued_at": "2026-10-20T03:59:00+00:00",
+  "total": 580,
+  "download_url": "https://api.example.com/receipts/12/download?expires=...&signature=..."
+}
+```
+
+`download_url` เป็นลิงก์ PDF ที่เปิดได้โดยไม่ต้องแนบ token ใช้ใน `<a href>` ได้เลย หมดอายุใน 60 นาที (เรียก `GET /orders/{id}` ใหม่เพื่อได้ลิงก์ใหม่) ต่อท้าย `&inline=1` เพื่อเปิดในเบราว์เซอร์แทนการดาวน์โหลด ดูหัวข้อ [ใบเสร็จรับเงิน](#ใบเสร็จรับเงิน)
+
+`payment` คือรายการชำระล่าสุดของออเดอร์ `payment.amount` คือยอดที่ลูกค้าต้องจ่ายจริง รวมค่าธรรมเนียมตามวิธีชำระแล้ว `payment.fee_amount` คือค่าธรรมเนียมในยอดนั้น (0 เมื่อไม่เก็บ) ส่วน `total` ของออเดอร์ไม่รวมค่าธรรมเนียม หน้าโอนเงินควรให้ลูกค้าโอนตาม `payment.amount` `provider` เป็น `kgp`, `omise` หรือ `fake` (โหมดทดสอบ) เมื่อจ่ายผ่าน QR หรือบัตร และเป็น `null` สำหรับการโอนเงิน `reference` คือเลขอ้างอิงที่แสดงให้ลูกค้าได้ `expires_at` คือเวลาหมดอายุของ QR `failure_message` มีค่าเมื่อการชำระล่าสุดไม่สำเร็จ
+
 สถานะชำระเงินที่ใช้บนหน้าร้าน
 
 | ค่า | ความหมาย |
 |----|----------|
-| `pending` | รอให้นักเรียนโอนและส่งสลิป |
+| `pending` | รอชำระ (ยังไม่จ่าย หรือ QR ยังไม่ถูกสแกน) |
 | `awaiting_verification` | ส่งสลิปแล้ว รอแอดมินตรวจ |
 | `paid` | ชำระแล้ว เปิดสิทธิ์เรียนแล้ว |
-| `failed` | แอดมินตรวจแล้วไม่ผ่าน ส่งสลิปใหม่ได้ |
-| `refunded` | คืนเงินแล้ว ส่งสลิปใหม่ไม่ได้ |
+| `failed` | แอดมินตรวจสลิปไม่ผ่าน ส่งสลิปใหม่ได้ |
+| `refunded` | คืนเงินแล้ว ส่งสลิปใหม่ไม่ได้ ตั้งโดยแอดมิน หรืออัตโนมัติเมื่อ KGP ยืนยันการคืนเงินเต็มจำนวนของ QR พร้อมเพย์ |
+
+ถ้า QR หมดอายุหรือบัตรไม่ผ่าน `payment.status` ของรายการล่าสุดจะเป็น `failed` แต่ `payment_status` ของออเดอร์ยังเป็น `pending` ให้ลูกค้าลองจ่ายใหม่ได้
 
 ### GET `/orders` และ GET `/orders/{id}`
 
@@ -657,14 +818,266 @@ form.set('note', 'โอนจากกสิกร')
 const order = await api(`/orders/${orderId}/payment`, { method: 'POST', body: form })
 ```
 
-หลังส่งสำเร็จ `payment_status` เป็น `awaiting_verification` และ `payment.slip_url` เป็นที่อยู่ไฟล์สลิป ส่งซ้ำได้จนกว่าออเดอร์จะถูกตัดเป็นชำระแล้ว
+หลังส่งสำเร็จ `payment_status` เป็น `awaiting_verification` และ `payment.slip_url` เป็นที่อยู่ไฟล์สลิป ส่งซ้ำได้จนกว่าออเดอร์จะถูกตัดเป็นชำระแล้ว ถ้าแอดมินเปิดค่าธรรมเนียมโอนเงิน `payment.amount` จะรวมค่าธรรมเนียมแล้ว
+
+## ใบเสร็จรับเงิน
+
+ออเดอร์ที่ชำระแล้วมีใบเสร็จรับเงิน PDF 1 ใบ เลขที่รูปแบบ `RC{ปีเดือน}{ลำดับ}` ระบบแนบ PDF ไปกับอีเมล "ผลการสั่งซื้อ" ตอนชำระสำเร็จ และดาวน์โหลดซ้ำได้ตลอด รายละเอียดเนื้อหาดู `docs/receipts.md`
+
+| Endpoint | สิทธิ์ | ผล |
+|------|------|------|
+| `GET /orders/{id}/receipt` | Bearer token ของเจ้าของออเดอร์ | PDF |
+| `GET /guest/orders/{guest_token}/receipt` | `guest_token` ของออเดอร์ | PDF |
+| `receipt.download_url` | ไม่ต้องใช้ token (ลิงก์ signed) | PDF |
+
+ตอบ `Content-Type: application/pdf` และ `Content-Disposition: attachment; filename="receipt-RC26100001.pdf"` ใส่ `?inline=1` เพื่อให้เป็น `inline` ออเดอร์ที่ยังไม่ชำระตอบ `404` ออเดอร์ของคนอื่นตอบ `404` ทั้งสอง endpoint จำกัด 20 ครั้งต่อนาที
+
+```ts
+// ดาวน์โหลดด้วย token (กรณีไม่ใช้ download_url)
+const blob = await api(`/orders/${orderId}/receipt`, { responseType: 'blob' })
+const url = URL.createObjectURL(blob)
+window.open(url)
+```
+
+## สั่งซื้อโดยไม่ต้องสมัครสมาชิก (guest)
+
+ลูกค้าไม่ต้องสมัครหรือเข้าสู่ระบบ ส่งอีเมลมาพร้อมตะกร้า ไม่ต้องส่ง token แต่ยังต้องส่ง `X-Api-Key` ตะกร้า แพ็กเกจราคา คูปอง และที่อยู่จัดส่งใช้กติกาเดียวกับ `POST /orders`
+
+| อีเมล | ระบบทำอะไร |
+|------|------|
+| ยังไม่มีในระบบ | สร้างบัญชีนักเรียน (สถานะเปิดใช้งาน) ตั้งรหัสผ่านสุ่ม ส่งอีเมลบัญชีพร้อมรหัสผ่าน เลขคำสั่งซื้อ และปุ่มเข้าสู่ระบบ ทันที แล้วสร้างออเดอร์ให้บัญชีนั้น |
+| เป็นบัญชีนักเรียนอยู่แล้ว | สร้างออเดอร์ให้บัญชีเดิม **ไม่เปลี่ยนรหัสผ่าน** ส่งอีเมลแจ้งว่ามีคำสั่งซื้อและให้เข้าสู่ระบบด้วยบัญชีเดิม (ลืมรหัสผ่านใช้เมนูลืมรหัสผ่าน) |
+| เป็นบัญชีแอดมิน/พนักงาน | `422` ที่ `email` "อีเมลนี้ใช้สั่งซื้อไม่ได้ กรุณาใช้อีเมลอื่น" |
+| บัญชีถูกปิดใช้งานหรือถูกลบ | `422` ที่ `email` "บัญชีของอีเมลนี้ถูกปิดใช้งาน กรุณาติดต่อแอดมิน" |
+
+เมื่อชำระเงินสำเร็จ ลูกค้าได้อีเมล "ผลการสั่งซื้อ" อีกฉบับพร้อมใบเสร็จรับเงิน PDF แนบ (ทั้งแบบ guest และแบบเข้าสู่ระบบ) ฉบับนี้ไม่มีรหัสผ่าน บัญชีใหม่ได้รหัสผ่านในอีเมลแรกตอนสั่งซื้อ บัญชีเดิมใช้รหัสผ่านเดิม
+
+ระบบไม่ส่ง token เข้าสู่ระบบกลับมาใน guest API เพราะใครก็พิมพ์อีเมลคนอื่นได้ ลูกค้าดูออเดอร์ จ่ายเงิน และส่งสลิปได้ด้วย `guest_token` ของออเดอร์นั้น ถ้าจะดูคอร์สของฉันหรือเข้าเรียน ให้เข้าสู่ระบบด้วยรหัสผ่านที่ได้ทางอีเมล
+
+ถ้าตะกร้าหรือที่อยู่ไม่ผ่าน ระบบตอบ `422` และไม่สร้างบัญชี
+
+### POST `/guest/checkout/quote`
+
+คำนวณยอดก่อนสั่งซื้อ ไม่สร้างบัญชี ใช้ body เดียวกับ `POST /checkout/quote` และต้องมี `email` (คูปองที่จำกัดต่อคนคิดจากบัญชีของอีเมลนั้นถ้ามี) ตอบกลับรูปแบบเดียวกับ `POST /checkout/quote` จำกัด 30 ครั้งต่อนาที
+
+### POST `/guest/orders`
+
+| ฟิลด์ | บังคับ | หมายเหตุ |
+|------|--------|----------|
+| email | ใช่ | ระบบแปลงเป็นตัวพิมพ์เล็ก |
+| name | ไม่ | ชื่อบัญชีใหม่ ไม่ส่งใช้ส่วนหน้า `@` ของอีเมล ไม่เปลี่ยนชื่อบัญชีเดิม |
+| phone | ไม่ | เบอร์ของบัญชีใหม่ |
+| items, coupon_code, notes, shipping | ตาม `POST /orders` | |
+
+```json
+{
+  "email": "new.student@example.com",
+  "name": "ใหม่ ใจดี",
+  "phone": "0812345678",
+  "items": [{ "type": "course", "id": 3, "plan_id": 11 }]
+}
+```
+
+ตอบกลับ `201` จำกัด 10 ครั้งต่อนาที
+
+```json
+{
+  "data": {
+    "order": { "id": 41, "order_no": "O261019002", "payment_status": "pending", "total": 990, "payment": { "...": "เหมือน GET /orders/{id}" }, "items": [] },
+    "guest_token": "ua32DDOfWMx1ibhC7tLHCFMeJkWJFggvlM2uF3Rtt5AWoHaU",
+    "account_created": true,
+    "account_email_sent": true,
+    "login_url": "https://clickclasstutor.com/login",
+    "payment_url": "https://api.example.com/pay/Xy12...",
+    "payment_url_expires_at": "2026-10-19T20:30:00+07:00"
+  }
+}
+```
+
+| ฟิลด์ | ความหมาย |
+|------|----------|
+| `guest_token` | รหัสลับ 48 ตัวของออเดอร์นี้ เก็บไว้ในเบราว์เซอร์ (เช่น localStorage) ใช้กับ `GET /guest/orders/{guest_token}` และส่งสลิป ห้ามแสดงในหน้าเว็บหรือใส่ใน log |
+| `account_created` | `true` เมื่อสร้างบัญชีใหม่ `false` เมื่อใช้บัญชีเดิม |
+| `account_email_sent` | ส่งอีเมลสำเร็จหรือไม่ ถ้า `false` ออเดอร์ยังถูกสร้าง ให้บอกลูกค้าว่าใช้เมนูลืมรหัสผ่านได้ |
+| `payment_url` | ลิงก์หน้าชำระเงิน QR / บัตร redirect ไปได้เลย `null` เมื่อออเดอร์ไม่มียอดต้องจ่าย (ยอด 0 ระบบตัดเป็นชำระแล้วทันที) |
+
+หลังจ่ายผ่านหน้าชำระเงิน ปุ่มกลับไปเว็บพาไปที่ `{STUDENT_APP_URL}/orders/{order_id}?guest_token=...` ถ้าตั้ง `PAYMENT_RETURN_URL` เองใส่ `{guest_token}` ในรูปแบบ URL ได้ หน้านั้นใน Nuxt ถ้าไม่ได้เข้าสู่ระบบให้ใช้ `guest_token` เรียก `GET /guest/orders/{guest_token}`
+
+### GET `/guest/orders/{guest_token}`
+
+ดูสถานะออเดอร์ ถ้ารอชำระผ่าน QR หรือบัตร ระบบเช็กกับ gateway ให้ด้วย ใช้ถามสถานะเป็นระยะได้
+
+```json
+{
+  "data": {
+    "order": { "id": 41, "order_no": "O261019002", "payment_status": "paid", "payment": {}, "items": [] },
+    "payment_options": [
+      { "method": "thai_qr", "label": "QR พร้อมเพย์", "fee_label": null, "order_amount": 990, "fee_amount": 0, "total": 990 }
+    ],
+    "payment_url": null,
+    "payment_url_expires_at": null
+  }
+}
+```
+
+`payment_url` ได้ลิงก์ใหม่เมื่อลิงก์เดิมหมดอายุ และเป็น `null` เมื่อชำระแล้ว `guest_token` ผิดตอบ `404`
+
+### POST `/guest/orders/{guest_token}/payment`
+
+ส่งสลิปโอนเงินแบบ `multipart/form-data` ฟิลด์เดียวกับ `POST /orders/{id}/payment` (`slip`, `note`) ตอบ `{ "data": { "order": { ... } } }` จำกัด 10 ครั้งต่อนาที
+
+## ชำระเงินออนไลน์ (QR พร้อมเพย์ และบัตร)
+
+ทุก endpoint ต้องล็อกอิน และใช้ได้กับออเดอร์ของนักเรียนคนนั้นเท่านั้น ออเดอร์ที่ชำระแล้ว คืนเงินแล้ว ยกเลิก หรือยอดเป็น 0 ตอบ `422` ที่ฟิลด์ `order` รายละเอียดฝั่งระบบดู `docs/payments.md`
+
+มีสองแบบให้เลือก
+
+1. **ใช้หน้าชำระเงินของ Laravel (แนะนำ)** Nuxt ไม่ต้องทำหน้า QR หรือฟอร์มบัตรเอง แค่ขอลิงก์แล้ว redirect หน้านี้ทำตามคู่มือ UX/UI ของ KGP ไว้แล้ว
+2. **ทำหน้าเองใน Nuxt** เรียก endpoint สร้าง QR, ตัดบัตร และถามสถานะเอง ต้องทำหน้า QR ตามคู่มือ KGP (`docs/omise/attachments/KGP QR UXUI_Instruction_Guideline _v2_SA_20260713.pdf`) และสร้าง token บัตรด้วย Omise.js
+
+ตอนนี้ QR อยู่ในโหมดจำลอง (`test_mode.thai_qr: true`) สแกนไม่ได้ หน้าชำระเงินมีปุ่มจำลองผลให้กด ส่วนบัตรใช้ Omise test mode แล้ว (`test_mode.credit_card: false` แต่ `omise_public_key` ขึ้นต้น `pkey_test_`) ใช้บัตรทดสอบ `4242 4242 4242 4242` = สำเร็จ, `4111 1111 1114 0011` = ไม่ผ่าน ไม่มีเงินจริง
+
+### GET `/payment-methods`
+
+```json
+{
+  "data": {
+    "methods": ["thai_qr", "credit_card"],
+    "test_mode": {
+      "thai_qr": true,
+      "credit_card": false
+    },
+    "omise_public_key": "pkey_test_...",
+    "merchant_name": "Click Class Tutor",
+    "fees": [
+      { "method": "thai_qr", "enabled": false, "label": null, "percent": 0, "fixed_amount": 0, "min_amount": null, "max_amount": null },
+      { "method": "credit_card", "enabled": true, "label": "ค่าธรรมเนียมบัตรเครดิต (3.5% + 10.00 บาท)", "percent": 3.5, "fixed_amount": 10, "min_amount": null, "max_amount": null },
+      { "method": "bank_transfer", "enabled": false, "label": null, "percent": 0, "fixed_amount": 0, "min_amount": null, "max_amount": null }
+    ]
+  }
+}
+```
+
+`methods` คือวิธีที่เปิดอยู่ `test_mode` บอกว่าวิธีไหนเป็นตัวจำลองที่ไม่เรียก gateway `omise_public_key` ใช้กับ `Omise.setPublicKey()` เป็น `null` เมื่อบัตรเป็นตัวจำลอง `fees` คือกติกาค่าธรรมเนียมที่แอดมินตั้ง ใช้แสดงข้อความได้ ยอดจริงต่อออเดอร์ให้ใช้ `GET /orders/{id}/payment/options`
+
+### GET `/orders/{id}/payment/options`
+
+ยอดที่ต้องจ่ายของออเดอร์นี้แยกตามวิธีชำระ รวมค่าธรรมเนียมแล้ว ใช้แสดงก่อนให้ลูกค้าเลือกวิธี มีวิธีที่เปิดออนไลน์และโอนเงินเสมอ
+
+```json
+{
+  "data": [
+    { "method": "thai_qr", "label": "QR พร้อมเพย์", "fee_label": null, "order_amount": 290, "fee_amount": 0, "total": 290 },
+    { "method": "credit_card", "label": "บัตรเครดิต", "fee_label": "ค่าธรรมเนียมบัตรเครดิต (3.5% + 10.00 บาท)", "order_amount": 290, "fee_amount": 20.15, "total": 310.15 },
+    { "method": "bank_transfer", "label": "โอนเงิน", "fee_label": null, "order_amount": 290, "fee_amount": 0, "total": 290 }
+  ]
+}
+```
+
+ค่าธรรมเนียมคิดตอนเริ่มชำระ ถ้าแอดมินเปลี่ยนค่าระหว่างนั้น ยอดใน QR หรือการตัดบัตรจะใช้ค่าล่าสุด ยึด `payment.amount` ที่ได้จาก endpoint สร้าง QR หรือตัดบัตรเป็นยอดจริง
+
+### POST `/orders/{id}/payment-link`
+
+แบบที่ 1 ขอลิงก์หน้าชำระเงิน แล้วพาลูกค้าไปที่ `url` ลิงก์เดิมที่ยังไม่หมดอายุจะถูกใช้ซ้ำ
+
+```json
+{
+  "data": {
+    "url": "https://api.example.com/pay/Xy12...",
+    "expires_at": "2026-10-17T10:30:00+07:00"
+  }
+}
+```
+
+```ts
+const { data } = await api(`/orders/${orderId}/payment-link`, { method: 'POST' })
+window.location.href = data.url
+```
+
+เมื่อจ่ายเสร็จ หน้าชำระเงินมีปุ่มพากลับมาที่ `PAYMENT_RETURN_URL` ของ Laravel ค่าเริ่มต้นคือ `{STUDENT_APP_URL}/orders/{order_id}` หน้านั้นใน Nuxt ควรเรียก `GET /orders/{id}` ใหม่เพื่อดูสถานะล่าสุด
+
+### POST `/orders/{id}/payment/thai-qr`
+
+แบบที่ 2 สร้าง QR พร้อมเพย์ ถ้ามี QR ที่ยังไม่หมดอายุจะได้ QR เดิมกลับมา
+
+```json
+{
+  "data": {
+    "order_id": 10,
+    "order_no": "O261017001",
+    "order_payment_status": "pending",
+    "paid": false,
+    "payment": {
+      "id": 25,
+      "method": "thai_qr",
+      "method_label": "QR พร้อมเพย์",
+      "provider": "kgp",
+      "reference": "CCT0000000025",
+      "status": "pending",
+      "status_label": "รอชำระเงิน",
+      "amount": 295,
+      "order_amount": 290,
+      "fee_amount": 5,
+      "fee_label": "ค่าธรรมเนียม QR พร้อมเพย์ (5.00 บาท)",
+      "currency": "THB",
+      "expires_at": "2026-10-17T09:40:00+07:00",
+      "paid_at": null,
+      "failure_code": null,
+      "failure_message": null,
+      "qr_image": "data:image/png;base64,iVBORw0...",
+      "merchant_name": "Click Class Tutor",
+      "authorize_uri": null
+    }
+  }
+}
+```
+
+แสดง `qr_image` ใน `<img :src>` ได้ทันที ในโหมดทดสอบเป็น SVG จำลอง ระหว่างรอ ให้เรียก `GET /orders/{id}/payment/status` ทุก 3–5 วินาที จนกว่า `paid` เป็นจริง หรือ `payment.status` ไม่ใช่ `pending` สร้าง QR ได้ 10 ครั้งต่อนาที
+
+### POST `/orders/{id}/payment/card`
+
+แบบที่ 2 ตัดบัตรด้วย token จาก Omise.js ห้ามส่งเลขบัตรมาที่ API นี้
+
+| ฟิลด์ | บังคับ | หมายเหตุ |
+|------|--------|----------|
+| token | ใช่ | `tokn_...` จาก `Omise.createToken('card', ...)` |
+
+```ts
+Omise.setPublicKey(methods.omise_public_key)
+Omise.createToken('card', {
+  name, number, expiration_month, expiration_year, security_code,
+}, async (status, response) => {
+  if (status !== 200) return showError(response.message)
+  const { data } = await api(`/orders/${orderId}/payment/card`, {
+    method: 'POST',
+    body: { token: response.id },
+  })
+  if (data.payment.authorize_uri) window.location.href = data.payment.authorize_uri
+  else if (data.paid) goToSuccess()
+  else showError(data.payment.failure_message)
+})
+```
+
+ตอบกลับรูปแบบเดียวกับ QR ผลมีสามแบบ
+
+| ผล | ความหมาย |
+|----|----------|
+| `paid: true` | ตัดบัตรสำเร็จ |
+| `payment.authorize_uri` มีค่า | ต้องยืนยัน 3-D Secure พาลูกค้าไปที่ลิงก์นี้ เมื่อเสร็จระบบจะพากลับมาที่ `PAYMENT_RETURN_URL` |
+| `payment.status: failed` | ไม่ผ่าน แสดง `payment.failure_message` ให้ลองใหม่ |
+
+เมื่อ `test_mode.credit_card` เป็นจริง API นี้รับเฉพาะ token จำลอง `tokn_fake_success`, `tokn_fake_fail`, `tokn_fake_3ds` ส่งค่าอื่นจะตอบ `failed` เมื่อเป็นเท็จ ต้องใช้ token จริงจาก Omise.js `failure_message` ของบัตรเป็นภาษาไทยสำหรับรหัสที่พบบ่อย เช่น `insufficient_fund` = "วงเงินในบัตรไม่พอ กรุณาใช้บัตรอื่น"
+
+### GET `/orders/{id}/payment/status`
+
+ถามสถานะรายการชำระล่าสุดของออเดอร์ ถ้ายังรอชำระ ระบบจะเช็กกับ KGP หรือ Omise ให้ด้วย ตอบกลับรูปแบบเดียวกับข้างบน `qr_image` และ `authorize_uri` เป็น `null` เมื่อรายการไม่ได้รออยู่แล้ว
 
 ## ลำดับที่แนะนำใน Nuxt
 
-1. เปิดร้านด้วย `GET /catalog` และ `GET /books` โดยยังไม่ล็อกอิน
-2. ให้สมัครหรือเข้าสู่ระบบ แล้วเก็บ token
-3. หน้าตะกร้าเรียก `POST /checkout/quote` ทุกครั้งที่รายการหรือคูปองเปลี่ยน
+1. เปิดร้านด้วย `GET /catalog` และ `GET /books` โดยยังไม่ล็อกอิน การ์ดที่ `price_plans` มีหลายรายการแสดงเป็น "เริ่มต้น ฿..."
+2. ให้สมัครหรือเข้าสู่ระบบ แล้วเก็บ token หรือถ้าลูกค้าไม่อยากสมัคร ใช้ [สั่งซื้อโดยไม่ต้องสมัครสมาชิก](#สั่งซื้อโดยไม่ต้องสมัครสมาชิก-guest) (`POST /guest/orders` แล้ว redirect ไปที่ `payment_url`)
+3. หน้ารายละเอียดให้เลือกแพ็กเกจจาก `price_plans` แล้วเก็บ `plan_id` ไว้กับรายการในตะกร้า หน้าตะกร้าเรียก `POST /checkout/quote` ทุกครั้งที่รายการ แพ็กเกจ หรือคูปองเปลี่ยน
 4. ถ้า `requires_shipping` เป็นจริง ให้แสดงฟอร์มที่อยู่
-5. `POST /orders` แล้วพาไปหน้าโอนเงิน
-6. `POST /orders/{id}/payment` พร้อมสลิป
+5. `POST /orders` แล้วให้เลือกวิธีชำระ
+6. ชำระออนไลน์: `POST /orders/{id}/payment-link` แล้ว redirect ไปที่ `url` / โอนเงิน: `POST /orders/{id}/payment` พร้อมสลิป
 7. หน้าโปรไฟล์และประวัติใช้ `GET /profile` กับ `GET /orders`

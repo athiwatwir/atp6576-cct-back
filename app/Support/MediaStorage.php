@@ -19,6 +19,38 @@ class MediaStorage
         return $configured ? 'r2' : 'public';
     }
 
+    /**
+     * Options for Storage::put on the active media disk.
+     *
+     * @param  array<string, mixed>  $extra
+     * @return array<string, mixed>
+     */
+    private static function putOptions(array $extra = []): array
+    {
+        $options = $extra;
+
+        // R2 does not use S3 object ACLs; public files are served via R2_URL.
+        if (self::disk() !== 'r2') {
+            $options['visibility'] = 'public';
+        }
+
+        return $options;
+    }
+
+    /**
+     * Options for UploadedFile::storeAs on the active media disk.
+     *
+     * @param  array<string, mixed>  $extra
+     * @return array<string, mixed>
+     */
+    private static function writeOptions(array $extra = []): array
+    {
+        return [
+            'disk' => self::disk(),
+            ...self::putOptions($extra),
+        ];
+    }
+
     public static function courseThumbnailDirectory(int $courseId): string
     {
         return "courses/{$courseId}/thumbnails";
@@ -78,10 +110,7 @@ class MediaStorage
         $extension = $file->getClientOriginalExtension() ?: $file->extension() ?: 'bin';
         $filename = Str::uuid()->toString().'.'.strtolower($extension);
 
-        return $file->storeAs($directory, $filename, [
-            'disk' => self::disk(),
-            'visibility' => 'public',
-        ]);
+        return $file->storeAs($directory, $filename, self::writeOptions());
     }
 
     /**
@@ -100,10 +129,7 @@ class MediaStorage
         $file->storeAs(
             self::courseVideoDirectory($courseId, $chapterId),
             basename($path),
-            [
-                'disk' => self::disk(),
-                'visibility' => 'public',
-            ]
+            self::writeOptions()
         );
 
         return $path;
@@ -121,10 +147,7 @@ class MediaStorage
         $file->storeAs(
             self::standaloneVideoDirectory(),
             basename($path),
-            [
-                'disk' => self::disk(),
-                'visibility' => 'public',
-            ]
+            self::writeOptions()
         );
 
         return $path;
@@ -137,10 +160,15 @@ class MediaStorage
     {
         $webp = self::convertImageToWebp($file, $quality);
 
-        Storage::disk(self::disk())->put($path, $webp, [
-            'visibility' => 'public',
-            'ContentType' => 'image/webp',
-        ]);
+        $written = Storage::disk(self::disk())->put(
+            $path,
+            $webp,
+            self::putOptions(['ContentType' => 'image/webp'])
+        );
+
+        if ($written === false) {
+            throw new RuntimeException('Unable to store image at '.$path);
+        }
 
         return $path;
     }
@@ -207,10 +235,7 @@ class MediaStorage
         $extension = strtolower($file->getClientOriginalExtension() ?: $file->extension() ?: 'mp4');
         $filename = $bookId.'.'.$extension;
 
-        $file->storeAs(self::bookVideoDirectory($bookId), $filename, [
-            'disk' => self::disk(),
-            'visibility' => 'public',
-        ]);
+        $file->storeAs(self::bookVideoDirectory($bookId), $filename, self::writeOptions());
 
         return self::bookVideoDirectory($bookId).'/'.$filename;
     }
@@ -218,6 +243,53 @@ class MediaStorage
     public static function storeCurriculumThumbnail(UploadedFile $file, int $curriculumId): string
     {
         return self::storeWebp($file, self::curriculumThumbnailPath($curriculumId));
+    }
+
+    /**
+     * รูปของแบนเนอร์ / บทความ: banners/{id}/{id}.webp, articles/{id}/{id}.webp
+     */
+    public static function contentImagePath(string $type, int $contentId): string
+    {
+        return Str::plural($type)."/{$contentId}/{$contentId}.webp";
+    }
+
+    public static function storeContentImage(UploadedFile $file, string $type, int $contentId): string
+    {
+        return self::storeWebp($file, self::contentImagePath($type, $contentId));
+    }
+
+    public static function avatarPath(int $userId): string
+    {
+        return "avatars/{$userId}/{$userId}.webp";
+    }
+
+    public static function storeAvatar(UploadedFile $file, int $userId): string
+    {
+        return self::storeWebp($file, self::avatarPath($userId));
+    }
+
+    /**
+     * รูปทั่วไปที่ตั้งชื่อเป็น UUID แปลงเป็น WebP ยกเว้น GIF ที่เก็บไฟล์เดิมเพื่อให้ภาพเคลื่อนไหวยังเล่นได้
+     */
+    public static function storeImage(UploadedFile $file, string $directory): string
+    {
+        $extension = strtolower($file->getClientOriginalExtension() ?: (string) $file->extension());
+
+        if ($extension === 'gif' || $file->getMimeType() === 'image/gif') {
+            return self::store($file, $directory);
+        }
+
+        return self::storeWebp($file, rtrim($directory, '/').'/'.Str::uuid()->toString().'.webp');
+    }
+
+    public static function testimonialCoverPath(int $testimonialId): string
+    {
+        return "testimonials/{$testimonialId}/{$testimonialId}.webp";
+    }
+
+    public static function storeTestimonialCover(UploadedFile $file, int $testimonialId): string
+    {
+        return self::storeWebp($file, self::testimonialCoverPath($testimonialId));
     }
 
     public static function convertImageToWebp(UploadedFile $file, int $quality = 82): string
@@ -255,27 +327,36 @@ class MediaStorage
         return $webp;
     }
 
-    public static function url(?string $path): ?string
+    public static function url(?string $path, int|string|null $version = null): ?string
     {
         if (blank($path)) {
             return null;
         }
 
         if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
-            return $path;
+            return self::withVersion($path, $version);
         }
 
         $disk = self::disk();
 
         if ($disk === 'r2') {
-            return Storage::disk('r2')->url($path);
+            return self::withVersion(Storage::disk('r2')->url($path), $version);
         }
 
         if (Storage::disk('public')->exists($path)) {
-            return Storage::disk('public')->url($path);
+            return self::withVersion(Storage::disk('public')->url($path), $version);
         }
 
-        return Storage::disk('r2')->url($path);
+        return self::withVersion(Storage::disk('r2')->url($path), $version);
+    }
+
+    private static function withVersion(?string $url, int|string|null $version): ?string
+    {
+        if (blank($url) || $version === null || $version === '') {
+            return $url;
+        }
+
+        return $url.(str_contains($url, '?') ? '&' : '?').'v='.$version;
     }
 
     public static function delete(?string $path): void

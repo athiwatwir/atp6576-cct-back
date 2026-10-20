@@ -15,7 +15,7 @@ class ContentAdmin
     public function create(string $type, array $data, ?UploadedFile $image, ?int $userId): Content
     {
         $content = Content::query()->create([
-            ...$this->attributes($type, $data),
+            ...$this->attributes($type, $data, null),
             'slug' => $this->uniqueSlug($type, (string) $data['title']),
             'sort_order' => $type === 'banner'
                 ? (int) ($data['sort_order'] ?? $this->nextSortOrder())
@@ -26,8 +26,12 @@ class ContentAdmin
 
         if ($image) {
             $content->update([
-                'image' => MediaStorage::store($image, $type.'s/'.$content->id),
+                'image' => MediaStorage::storeContentImage($image, $type, $content->id),
             ]);
+        }
+
+        if ($type === 'article') {
+            $this->syncRelated($content, $data);
         }
 
         return $content->refresh();
@@ -39,7 +43,7 @@ class ContentAdmin
     public function update(Content $content, array $data, ?UploadedFile $image, bool $removeImage, ?int $userId): Content
     {
         $payload = [
-            ...$this->attributes($content->type, $data),
+            ...$this->attributes($content->type, $data, $content),
             'updated_by' => $userId,
         ];
 
@@ -58,14 +62,20 @@ class ContentAdmin
         }
 
         if ($image) {
-            if ($content->image) {
+            $path = MediaStorage::storeContentImage($image, $content->type, $content->id);
+
+            if ($content->image && $content->image !== $path) {
                 MediaStorage::delete($content->image);
             }
 
-            $payload['image'] = MediaStorage::store($image, $content->type.'s/'.$content->id);
+            $payload['image'] = $path;
         }
 
         $content->update($payload);
+
+        if ($content->type === 'article') {
+            $this->syncRelated($content, $data);
+        }
 
         return $content->refresh();
     }
@@ -74,6 +84,16 @@ class ContentAdmin
     {
         MediaStorage::delete($content->image);
         $content->delete();
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public function syncRelated(Content $content, array $data): void
+    {
+        $content->courses()->sync($data['course_ids'] ?? []);
+        $content->curriculums()->sync($data['curriculum_ids'] ?? []);
+        $content->assessments()->sync($data['assessment_ids'] ?? []);
     }
 
     public function moveBanner(Content $banner, string $direction): void
@@ -110,10 +130,12 @@ class ContentAdmin
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    private function attributes(string $type, array $data): array
+    private function attributes(string $type, array $data, ?Content $existing): array
     {
-        $publishedAt = $this->date($data['published_at'] ?? null);
-        $expiredAt = $this->date($data['expired_at'] ?? null);
+        $expiredAt = $type === 'article' ? null : $this->date($data['expired_at'] ?? null);
+        $publishedAt = $type === 'article'
+            ? $existing?->published_at
+            : $this->date($data['published_at'] ?? null);
 
         if (($data['status'] ?? null) === 'published' && $publishedAt === null) {
             $publishedAt = now();
@@ -124,6 +146,9 @@ class ContentAdmin
             'placement' => $type === 'banner' ? ($data['placement'] ?? 'home') : null,
             'title' => $data['title'],
             'excerpt' => $data['excerpt'] ?? null,
+            'seo_title' => $type === 'article' ? ($data['seo_title'] ?? null) : null,
+            'seo_description' => $type === 'article' ? ($data['seo_description'] ?? null) : null,
+            'seo_keywords' => $type === 'article' ? ($data['seo_keywords'] ?? null) : null,
             'content' => $type === 'article' ? ArticleHtml::clean($data['content'] ?? null) : null,
             'link_url' => $type === 'banner' ? ($data['link_url'] ?? null) : null,
             'status' => $data['status'],

@@ -16,6 +16,11 @@ class Order extends Model
 {
     use LogsActivity;
 
+    /** guest_token เป็นรหัสลับให้ผู้ซื้อแบบไม่สมัครสมาชิกใช้เปิดออเดอร์ ห้ามเก็บลง activity log */
+    public array $auditExclude = ['updated_at', 'created_at', 'guest_token'];
+
+    protected $hidden = ['guest_token'];
+
     public function getAuditLabel(): string
     {
         return 'ออเดอร์ '.($this->order_no ?: '#'.$this->id);
@@ -24,6 +29,7 @@ class Order extends Model
         'order_no',
         'kind',
         'user_id',
+        'guest_token',
         'coupon_id',
         'subtotal',
         'discount_amount',
@@ -93,6 +99,11 @@ class Order extends Model
     public function paymentLinks(): HasMany
     {
         return $this->hasMany(PaymentLink::class);
+    }
+
+    public function receipt(): HasOne
+    {
+        return $this->hasOne(Receipt::class);
     }
 
     public function enrollments(): HasMany

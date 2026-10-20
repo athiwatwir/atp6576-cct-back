@@ -11,6 +11,7 @@ use App\Models\Subject;
 use App\Support\CourseDeletion;
 use App\Support\DocumentSequence;
 use App\Support\MediaStorage;
+use App\Support\PricePlans;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -31,7 +32,7 @@ class CourseController extends Controller
 
         $courses = Course::query()
             ->with(['subject', 'category', 'instructor'])
-            ->withCount('chapters')
+            ->withCount(['chapters', 'activePricePlans as plans_count'])
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($inner) use ($search) {
                     $inner->where('name', 'like', "%{$search}%")
@@ -74,10 +75,13 @@ class CourseController extends Controller
     public function store(StoreCourseRequest $request): RedirectResponse
     {
         $data = $this->preparePayload($request->validated());
+        $plans = $data['plans'];
+        unset($data['plans']);
         $data['slug'] = $this->uniqueSlug($data['name']);
         $data['code'] = DocumentSequence::nextCourse();
 
         $course = Course::query()->create($data);
+        PricePlans::sync($course, $plans);
 
         if ($request->hasFile('thumbnail')) {
             $course->update([
@@ -104,13 +108,14 @@ class CourseController extends Controller
             'chapters.documents',
             'assessments' => fn($query) => $query->orderBy('title'),
             'assessments.questions.choices',
+            'pricePlans',
         ]);
 
         $course->loadCount(['chapters', 'enrollments', 'reviews']);
 
         $selectedChapterId = $request->integer('chapter') ?: $course->chapters->first()?->id;
         $selectedChapter = $course->chapters->firstWhere('id', $selectedChapterId);
-        $selectedAssessmentId = $request->integer('assessment') ?: null;
+        $selectedAssessmentId = $request->integer('assessment') ?: (int) old('_redirect_assessment') ?: null;
         $selectedAssessment = $course->assessments->firstWhere('id', $selectedAssessmentId);
 
         $videoCount = $course->chapters->sum(fn($chapter) => $chapter->videos->count());
@@ -123,7 +128,7 @@ class CourseController extends Controller
             'course' => $course,
             'selectedChapter' => $selectedChapter,
             'selectedAssessment' => $selectedAssessment,
-            'activeTab' => $request->string('tab')->toString() ?: 'chapters',
+            'activeTab' => $request->string('tab')->toString() ?: (string) old('_redirect_tab', 'chapters'),
             'stats' => [
                 'videos' => $videoCount,
                 'documents' => $documentCount,
@@ -173,9 +178,11 @@ class CourseController extends Controller
             );
         }
 
-        unset($data['remove_thumbnail']);
+        $plans = $data['plans'];
+        unset($data['remove_thumbnail'], $data['plans']);
 
         $course->update($data);
+        PricePlans::sync($course, $plans);
 
         return redirect()
             ->route('courses.show', $course)
@@ -257,7 +264,6 @@ class CourseController extends Controller
         $data['category_id'] = $data['category_id'] ?: null;
         $data['subject_id'] = $data['subject_id'] ?: null;
         $data['instructor_id'] = $data['instructor_id'] ?: null;
-        $data['sale_price'] = $data['sale_price'] ?? null;
         $data['is_featured'] = (bool) ($data['is_featured'] ?? false);
         $data['is_trial_available'] = (bool) ($data['is_trial_available'] ?? false);
 

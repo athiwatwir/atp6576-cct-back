@@ -56,7 +56,7 @@ The `type` column distinguishes the assessment type.
 
 An assessment can be attached to a Course, Chapter, or Video and can also be independent.
 
-`questions.image` stores one optional image for an exam question. The admin exam screen uploads it. The student storefront API does not return exam questions.
+`questions.image` stores one optional image for a question. Admin screens for independent exams, course exams, and course quizzes upload it. The student storefront API does not return questions or question images.
 
 ### Student profile
 
@@ -105,6 +105,8 @@ It supports:
 
 ### Order
 
+`orders.guest_token` (nullable, unique, 48 chars) is set for orders placed through the guest checkout API (`/api/v1/guest/orders`). It lets the buyer view, pay, and upload a slip without logging in. It is hidden from JSON and excluded from the activity log. The order still belongs to a student `user_id` (created from the email when the account did not exist).
+
 `orders.kind` is `book` or `enrollment`. A book order is a book sale and keeps shipping. An enrollment order is a course, curriculum, or exam purchase and does not use shipping. One order is one kind. Existing orders that contain only learning items are backfilled to `enrollment`. Orders that also contain a book stay `book`.
 
 ### Payment
@@ -114,6 +116,25 @@ The payment flow is:
 Order → Payment → Verify Payment → Complete Order → Grant Enrollment
 
 Payment status must always be verified by the backend.
+
+Price plans (details in `docs/pricing.md`): `price_plans` holds one or more prices per course, curriculum, or standalone exam (`course_id` / `curriculum_id` / `assessment_id`, `name`, `duration_days` nullable = lifetime, `price`, `sale_price`, `is_active`, `sort_order`). The old `price` / `sale_price` columns on the item are kept in sync with the cheapest active plan for listings. `order_items.price_plan_id` and `order_items.access_days` snapshot the chosen plan; on payment `enrollments.expires_at` is set from `access_days` (extended from the current expiry when still active, never shortened from lifetime).
+
+Online payment (details in `docs/payments.md`): each Thai QR or card attempt is a new `payments` row.
+
+| Column | Notes |
+|--------|--------|
+| `payment_method` | `bank_transfer`, `thai_qr`, `credit_card`, `cod` |
+| `provider` | `kgp` (Thai QR), `omise` (card), `fake` (test mode), `null` for slip transfer |
+| `transaction_id` | KGP `qr_id` or Omise charge id; unique with `provider` |
+| `reference` | Our reference `CCT` + 10-digit payment id, sent to KGP as `reference_order`; unique |
+| `expires_at` | QR expiry |
+| `failure_code`, `failure_message` | Why the attempt failed (`superseded` when replaced by a newer attempt or the order was paid by another row, `amount_mismatch` when the gateway amount differs) |
+
+Receipts (details in `docs/receipts.md`): `receipts` holds one receipt per paid order (`order_id` unique, `receipt_no` `RC{ym}{seq4}`) with a snapshot of customer, items, and amounts at payment time; the PDF is rendered from this snapshot.
+
+Payment fees: `payment_fees` has one row per method (`payment_method` unique: `thai_qr`, `credit_card`, `bank_transfer`) with `is_enabled`, `percent`, `fixed_amount`, `min_amount`, `max_amount`, `label`, `updated_by`. When enabled, `payments.amount` = order total + fee and `payments.fee_amount` stores the fee; `orders.total_amount` is unchanged.
+
+`payment_transactions` logs every gateway event (create QR, charge, inquiry, notify, refund notify, webhook). KGP refund notifications are stored under `payments.metadata.refunds.{refund_id}`; a confirmed full refund sets `payments.status` and `orders.payment_status` to `refunded`. `payment_links` holds the public `/pay/{token}` page token per order (`active` → `used` once the order is paid).
 
 ### Promotion / Coupon
 
@@ -125,6 +146,8 @@ Complex promotion conditions can be stored in `promotions.rules` and must be val
 
 ### Content Management
 
+Articles do not use `published_at` or `expired_at` for display. A published article stays visible until its status changes. Banners still use both timestamps as a display window.
+
 `contents.type` can represent:
 
 - news
@@ -134,12 +157,38 @@ Complex promotion conditions can be stored in `promotions.rules` and must be val
 
 Content can be connected to:
 
-- Course
-- Curriculum
+- Course (`content_courses`)
+- Curriculum (`content_curriculums`)
+- Assessment / standalone exam (`content_assessments`)
 - Promotion
 - Coupon
 
+Articles in admin can attach multiple courses, curriculums, and primary exams. The student article detail API exposes published related items under `related`.
+
+Article SEO fields on `contents` (nullable, used when `type = article`):
+
+| Column | Notes |
+|--------|--------|
+| `seo_title` | Meta / OG title; API falls back to `title` |
+| `seo_description` | Meta description; API falls back to `excerpt` |
+| `seo_keywords` | Comma-separated keywords; API may be `null` |
+
 `content_stats` stores impression / click events.
+
+### Testimonials (admin reviews for storefront)
+
+Table `testimonials` stores marketing-style reviews managed in admin (menu รีวิว / `/reviews`). Separate from student course ratings in `reviews`.
+
+| Column | Notes |
+|--------|--------|
+| `name` | Reviewer display name |
+| `content` | Review text (plain) |
+| `image` | Optional cover path on media disk (`testimonials/{id}/{id}.webp`) |
+| `status` | `draft` / `published` / `inactive` |
+| `sort_order` | Lower shows first |
+| soft deletes | Yes |
+
+Public API exposes published rows only via `GET /api/v1/reviews`.
 
 ### Security
 
@@ -184,5 +233,5 @@ Before production development, review the following business rules:
 - Enrollment behavior after refund
 - Book shipping / delivery requirements
 - Whether one Order can contain Course + Book + Exam
-- Payment Gateway provider
+- Refund through the payment gateway (not built yet; see `docs/payments.md`)
 - Video storage / CDN provider

@@ -2,6 +2,9 @@
     /** @var \App\Models\Content|null $article */
     $article = $article ?? null;
     $inputClass = 'dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90';
+    $selectedCourses = array_map('strval', old('course_ids', $article?->courses?->pluck('id')->all() ?? []));
+    $selectedCurriculums = array_map('strval', old('curriculum_ids', $article?->curriculums?->pluck('id')->all() ?? []));
+    $selectedExams = array_map('strval', old('assessment_ids', $article?->assessments?->pluck('id')->all() ?? []));
 @endphp
 
 <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -21,16 +24,34 @@
         @error('status') <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p> @enderror
     </div>
 
-    <div class="hidden md:block"></div>
-
-    <x-form.date-picker name="published_at" label="เริ่มเผยแพร่" :enable-time="true" :value="old('published_at', $article?->published_at)" />
-    <x-form.date-picker name="expired_at" label="สิ้นสุดการแสดง" :enable-time="true" :value="old('expired_at', $article?->expired_at)" />
-
     <div class="md:col-span-2">
         <label for="excerpt" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">คำเกริ่น</label>
         <textarea id="excerpt" name="excerpt" rows="3" class="dark:bg-dark-900 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">{{ old('excerpt', $article?->excerpt) }}</textarea>
         <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">แสดงในการ์ดรายการบทความบนเว็บนักเรียน</p>
         @error('excerpt') <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p> @enderror
+    </div>
+
+    <div class="md:col-span-2 rounded-xl border border-gray-200 p-4 dark:border-gray-800">
+        <h4 class="text-sm font-semibold text-gray-800 dark:text-white/90">การตั้งค่า SEO</h4>
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">ใช้บนเว็บนักเรียนสำหรับ title / meta description / keywords ถ้าเว้นว่าง API จะใช้หัวข้อและคำเกริ่นแทน</p>
+        <div class="mt-4 grid grid-cols-1 gap-5">
+            <div>
+                <label for="seo_title" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">SEO title</label>
+                <input type="text" id="seo_title" name="seo_title" value="{{ old('seo_title', $article?->seo_title) }}" maxlength="200" class="{{ $inputClass }}" placeholder="{{ $article?->title ?: 'ใช้หัวข้อบทความถ้าเว้นว่าง' }}" />
+                @error('seo_title') <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p> @enderror
+            </div>
+            <div>
+                <label for="seo_description" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">SEO description</label>
+                <textarea id="seo_description" name="seo_description" rows="3" maxlength="500" class="dark:bg-dark-900 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" placeholder="ใช้คำเกริ่นถ้าเว้นว่าง">{{ old('seo_description', $article?->seo_description) }}</textarea>
+                @error('seo_description') <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p> @enderror
+            </div>
+            <div>
+                <label for="seo_keywords" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">SEO keywords</label>
+                <input type="text" id="seo_keywords" name="seo_keywords" value="{{ old('seo_keywords', $article?->seo_keywords) }}" maxlength="500" class="{{ $inputClass }}" placeholder="คณิต, ข้อสอบ, ม.1" />
+                <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">คั่นด้วยเครื่องหมายจุลภาค</p>
+                @error('seo_keywords') <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p> @enderror
+            </div>
+        </div>
     </div>
 
     <div class="md:col-span-2">
@@ -80,5 +101,42 @@
                 ลบรูปปัจจุบัน
             </label>
         @endif
+    </div>
+
+    <div class="md:col-span-2 rounded-xl border border-gray-200 p-4 dark:border-gray-800">
+        <h4 class="text-sm font-semibold text-gray-800 dark:text-white/90">รายการที่เกี่ยวข้อง</h4>
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">เลือกคอร์ส หลักสูตร หรือข้อสอบขายแยกได้หลายรายการ เพื่อแสดงลิงก์ในหน้ารายละเอียดบทความบนเว็บนักเรียน กด Ctrl (หรือ Cmd) ค้างเพื่อเลือกหลายรายการ</p>
+        <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div>
+                <label for="course_ids" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">คอร์ส</label>
+                <select id="course_ids" name="course_ids[]" multiple class="{{ $inputClass }} h-40">
+                    @foreach ($courses as $course)
+                        <option value="{{ $course->id }}" @selected(in_array((string) $course->id, $selectedCourses, true))>{{ $course->name }}</option>
+                    @endforeach
+                </select>
+                @error('course_ids') <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p> @enderror
+                @error('course_ids.*') <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p> @enderror
+            </div>
+            <div>
+                <label for="curriculum_ids" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">หลักสูตร</label>
+                <select id="curriculum_ids" name="curriculum_ids[]" multiple class="{{ $inputClass }} h-40">
+                    @foreach ($curriculums as $curriculum)
+                        <option value="{{ $curriculum->id }}" @selected(in_array((string) $curriculum->id, $selectedCurriculums, true))>{{ $curriculum->name }}</option>
+                    @endforeach
+                </select>
+                @error('curriculum_ids') <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p> @enderror
+                @error('curriculum_ids.*') <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p> @enderror
+            </div>
+            <div>
+                <label for="assessment_ids" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">ข้อสอบขายแยก</label>
+                <select id="assessment_ids" name="assessment_ids[]" multiple class="{{ $inputClass }} h-40">
+                    @foreach ($exams as $exam)
+                        <option value="{{ $exam->id }}" @selected(in_array((string) $exam->id, $selectedExams, true))>{{ $exam->title }}</option>
+                    @endforeach
+                </select>
+                @error('assessment_ids') <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p> @enderror
+                @error('assessment_ids.*') <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p> @enderror
+            </div>
+        </div>
     </div>
 </div>

@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Courses;
 
 use App\Enums\MediaType;
+use App\Support\PricePlans;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -15,7 +16,7 @@ class StoreCourseRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        foreach (['category_id', 'subject_id', 'instructor_id', 'sale_price'] as $field) {
+        foreach (['category_id', 'subject_id', 'instructor_id'] as $field) {
             if ($this->input($field) === '') {
                 $this->merge([$field => null]);
             }
@@ -24,6 +25,7 @@ class StoreCourseRequest extends FormRequest
         $this->merge([
             'is_featured' => $this->boolean('is_featured'),
             'is_trial_available' => $this->boolean('is_trial_available'),
+            'plans' => PricePlans::normalizeInput($this->input('plans')),
         ]);
     }
 
@@ -41,11 +43,10 @@ class StoreCourseRequest extends FormRequest
             'description' => ['nullable', 'string'],
             'thumbnail' => MediaType::CourseThumbnail->rules(),
             'banner' => MediaType::CourseBanner->rules(),
-            'price' => ['required', 'numeric', 'min:0'],
-            'sale_price' => ['nullable', 'numeric', 'min:0', 'lte:price'],
             'status' => ['required', Rule::in(['draft', 'published', 'inactive'])],
             'is_featured' => ['boolean'],
             'is_trial_available' => ['boolean'],
+            ...PricePlans::rules(),
         ];
     }
 
@@ -54,8 +55,14 @@ class StoreCourseRequest extends FormRequest
      */
     public function messages(): array
     {
-        return [
-            'sale_price.lte' => 'ราคาลดต้องไม่สูงกว่าราคาปกติ',
-        ];
+        return PricePlans::messages();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function attributes(): array
+    {
+        return PricePlans::attributes();
     }
 }

@@ -15,6 +15,7 @@ use App\Models\Video;
 use App\Support\Audit;
 use App\Support\CourseVideoUpload;
 use App\Support\MediaStorage;
+use App\Support\PricePlans;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -38,6 +39,7 @@ class CurriculumController extends Controller
                 'videos',
                 'assessments as exams_count' => fn ($query) => $query->whereIn('type', ['exam', 'primary_exam']),
                 'assessments as exercises_count' => fn ($query) => $query->where('type', 'quiz'),
+                'activePricePlans as plans_count',
             ])
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($inner) use ($search) {
@@ -79,6 +81,7 @@ class CurriculumController extends Controller
             'slug' => $this->uniqueSlug($data['name']),
             'published_at' => $data['status'] === 'published' ? now() : null,
         ]);
+        PricePlans::sync($curriculum, $data['plans']);
 
         if ($request->hasFile('thumbnail')) {
             $curriculum->update([
@@ -93,7 +96,7 @@ class CurriculumController extends Controller
 
     public function show(Curriculum $curriculum): View
     {
-        $curriculum->load('category')->loadCount([
+        $curriculum->load(['category', 'pricePlans'])->loadCount([
             'courses',
             'chapters',
             'videos',
@@ -281,6 +284,7 @@ class CurriculumController extends Controller
         }
 
         $curriculum->update($payload);
+        PricePlans::sync($curriculum, $data['plans']);
 
         return redirect()
             ->route('curriculums.show', $curriculum)
@@ -380,8 +384,6 @@ class CurriculumController extends Controller
             'short_description' => $data['short_description'] ?? null,
             'description' => $data['description'] ?? null,
             'status' => $data['status'],
-            'price' => $data['price'] ?? 0,
-            'sale_price' => $data['sale_price'] ?? null,
             'is_featured' => (bool) ($data['is_featured'] ?? false),
         ];
     }

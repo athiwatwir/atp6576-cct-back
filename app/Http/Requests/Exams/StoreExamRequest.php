@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Exams;
 
 use App\Enums\MediaType;
+use App\Support\PricePlans;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -27,9 +28,9 @@ class StoreExamRequest extends FormRequest
             $this->merge(['max_attempts' => null]);
         }
 
-        if ($this->input('price') === '') {
-            $this->merge(['price' => 0]);
-        }
+        $this->merge([
+            'plans' => PricePlans::normalizeInput($this->input('plans')),
+        ]);
     }
 
     /**
@@ -44,9 +45,17 @@ class StoreExamRequest extends FormRequest
             'duration_minutes' => ['nullable', 'integer', 'min:1', 'max:600'],
             'passing_score' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'max_attempts' => ['nullable', 'integer', 'min:1', 'max:100'],
-            'price' => ['required', 'numeric', 'min:0', 'max:999999'],
             'thumbnail' => MediaType::ExamThumbnail->rules(),
+            ...PricePlans::rules(),
         ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return PricePlans::messages();
     }
 
     /**
@@ -61,8 +70,8 @@ class StoreExamRequest extends FormRequest
             'duration_minutes' => 'ระยะเวลา',
             'passing_score' => 'คะแนนผ่าน',
             'max_attempts' => 'จำนวนครั้งที่ทำได้',
-            'price' => 'ราคา',
             'thumbnail' => 'หน้าปก',
+            ...PricePlans::attributes(),
         ];
     }
 }

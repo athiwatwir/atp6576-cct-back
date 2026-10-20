@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Student;
 
+use App\Support\PricePlans;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -26,9 +27,11 @@ class CurriculumResource extends JsonResource
             'price' => (float) $this->price,
             'sale_price' => $this->sale_price !== null ? (float) $this->sale_price : null,
             'effective_price' => $this->effective_price,
+            'price_plans' => PricePlans::payload($this->resource),
             'is_featured' => (bool) $this->is_featured,
             'course_count' => (int) ($this->courses_count ?? $this->courses?->count() ?? 0),
             'purchased' => $purchased,
+            'access_expires_at' => $request->attributes->get('access_expires', [])['curriculum'][$this->id] ?? null,
             'category' => $this->category ? [
                 'id' => $this->category->id,
                 'name' => $this->category->name,

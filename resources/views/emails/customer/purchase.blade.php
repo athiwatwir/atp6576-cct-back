@@ -1,13 +1,20 @@
 @component($layout, get_defined_vars())
     <h1 style="margin:0 0 12px;font-size:22px;color:#0f766e;">ผลการสั่งซื้อ</h1>
     <p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#334155;">
-        การชำระเงินสำเร็จแล้ว รายการด้านล่างพร้อมให้เข้าเรียน
+        @if (! empty($isBook))
+            การชำระเงินสำเร็จแล้ว เราจะจัดส่งหนังสือตามที่อยู่ในคำสั่งซื้อโดยเร็ว
+        @else
+            การชำระเงินสำเร็จแล้ว รายการด้านล่างพร้อมให้เข้าเรียน
+        @endif
     </p>
 
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;">
         <tr>
             <td style="padding:16px 18px;font-size:14px;line-height:1.9;color:#334155;">
                 <div><strong>เลขที่คำสั่งซื้อ:</strong> {{ $orderNo }}</div>
+                @if (! empty($receiptNo))
+                    <div><strong>เลขที่ใบเสร็จ:</strong> {{ $receiptNo }} (แนบไฟล์ PDF มากับอีเมลนี้)</div>
+                @endif
                 <div><strong>ยอดชำระ:</strong> {{ $amount }}</div>
                 <div><strong>สถานะ:</strong> ชำระแล้ว</div>
                 @if (! empty($items))
@@ -21,6 +28,12 @@
             </td>
         </tr>
     </table>
+
+    @if (empty($password))
+        <p style="margin:0 0 20px;font-size:14px;line-height:1.7;color:#64748b;">
+            เข้าสู่ระบบด้วยอีเมล {{ $email }} และรหัสผ่านของบัญชีนี้ ถ้าบัญชีถูกสร้างตอนสั่งซื้อ รหัสผ่านอยู่ในอีเมล "ข้อมูลบัญชีและคำสั่งซื้อ" ที่ส่งไปก่อนหน้า
+        </p>
+    @endif
 
     @if (! empty($password))
         <p style="margin:0 0 12px;font-size:15px;line-height:1.7;color:#334155;">

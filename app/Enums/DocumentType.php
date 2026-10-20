@@ -8,6 +8,7 @@ enum DocumentType: string
     case Exam = 'exam';
     case Book = 'book';
     case Order = 'order';
+    case Receipt = 'receipt';
 
     public function prefix(): string
     {
@@ -16,6 +17,7 @@ enum DocumentType: string
             self::Exam => 'E',
             self::Book => 'B',
             self::Order => 'O',
+            self::Receipt => 'RC',
         };
     }
 }

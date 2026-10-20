@@ -54,7 +54,7 @@ class Product extends Model
 
     public function getThumbnailUrlAttribute(): ?string
     {
-        return MediaStorage::url($this->thumbnail);
+        return MediaStorage::url($this->thumbnail, $this->updated_at?->getTimestamp());
     }
 
     public function getEffectivePriceAttribute(): float

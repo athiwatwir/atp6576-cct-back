@@ -29,6 +29,6 @@ class ProductMedia extends Model
 
     public function getUrlAttribute(): ?string
     {
-        return MediaStorage::url($this->path);
+        return MediaStorage::url($this->path, $this->updated_at?->getTimestamp());
     }
 }

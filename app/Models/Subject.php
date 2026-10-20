@@ -16,7 +16,7 @@ class Subject extends Model
 
     public function getAuditLabel(): string
     {
-        return 'วิชา '.$this->name;
+        return 'ชนิดวิชา '.$this->name;
     }
 
     protected $fillable = [

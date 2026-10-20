@@ -8,6 +8,7 @@ use App\Models\Assessment;
 use App\Models\Question;
 use App\Support\DocumentSequence;
 use App\Support\MediaStorage;
+use App\Support\PricePlans;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -23,7 +24,7 @@ class ExamController extends Controller
         $exams = Assessment::query()
             ->independent()
             ->where('type', 'primary_exam')
-            ->withCount('questions')
+            ->withCount(['questions', 'activePricePlans as plans_count'])
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($inner) use ($search) {
                     $inner->where('title', 'like', "%{$search}%")
@@ -71,9 +72,9 @@ class ExamController extends Controller
             'passing_score' => $data['passing_score'] ?? null,
             'max_attempts' => $data['max_attempts'] ?? null,
             'is_independent' => true,
-            'price' => $data['price'] ?? 0,
             'published_at' => $data['status'] === 'published' ? now() : null,
         ]);
+        PricePlans::sync($exam, $data['plans']);
 
         if ($request->hasFile('thumbnail')) {
             $exam->update([
@@ -93,7 +94,7 @@ class ExamController extends Controller
     {
         $this->ensureIndependentExam($assessment);
 
-        $assessment->load(['questions.choices']);
+        $assessment->load(['questions.choices', 'pricePlans']);
 
         return view('pages.exams.show', [
             'title' => $assessment->title,
@@ -126,7 +127,6 @@ class ExamController extends Controller
             'passing_score' => $data['passing_score'] ?? null,
             'max_attempts' => $data['max_attempts'] ?? null,
             'is_independent' => true,
-            'price' => $data['price'] ?? 0,
             'published_at' => $data['status'] === 'published'
                 ? ($assessment->published_at ?? now())
                 : ($data['status'] === 'draft' ? null : $assessment->published_at),
@@ -157,6 +157,7 @@ class ExamController extends Controller
         unset($data['thumbnail'], $data['remove_thumbnail']);
 
         $assessment->update($payload);
+        PricePlans::sync($assessment, $data['plans']);
 
         return redirect()
             ->route('exams.show', $assessment)

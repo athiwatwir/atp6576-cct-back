@@ -51,6 +51,16 @@ class Assessment extends Model
         return (float) $this->price;
     }
 
+    public function pricePlans(): HasMany
+    {
+        return $this->hasMany(PricePlan::class)->ordered();
+    }
+
+    public function activePricePlans(): HasMany
+    {
+        return $this->pricePlans()->active();
+    }
+
     public function courses(): BelongsToMany
     {
         return $this->belongsToMany(Course::class, 'assessment_courses')
@@ -101,6 +111,6 @@ class Assessment extends Model
 
     public function getThumbnailUrlAttribute(): ?string
     {
-        return \App\Support\MediaStorage::url($this->thumbnail);
+        return \App\Support\MediaStorage::url($this->thumbnail, $this->updated_at?->getTimestamp());
     }
 }

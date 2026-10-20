@@ -6,6 +6,7 @@ use App\Enums\MailAudience;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Address;
+use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
@@ -16,6 +17,7 @@ class TemplatedMail extends Mailable
 
     /**
      * @param  array<string, mixed>  $data
+     * @param  list<array{name: string, mime: string, content: string}>  $files  content เป็น base64 เพื่อให้ serialize เข้าคิวได้
      */
     public function __construct(
         public readonly MailAudience $audience,
@@ -23,6 +25,7 @@ class TemplatedMail extends Mailable
         public readonly string $viewName,
         public readonly array $data = [],
         public readonly ?string $recipientName = null,
+        public readonly array $files = [],
     ) {}
 
     public function envelope(): Envelope
@@ -48,6 +51,17 @@ class TemplatedMail extends Mailable
                 'supportEmail' => config('cct_mail.support_email'),
                 'layout' => $this->audience->layout(),
             ]),
+        );
+    }
+
+    /**
+     * @return list<Attachment>
+     */
+    public function attachments(): array
+    {
+        return array_map(
+            fn (array $file) => Attachment::fromData(fn () => base64_decode($file['content']), $file['name'])->withMime($file['mime']),
+            $this->files,
         );
     }
 }

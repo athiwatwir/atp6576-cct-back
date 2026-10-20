@@ -29,7 +29,7 @@ class Question extends Model
 
     public function getImageUrlAttribute(): ?string
     {
-        return MediaStorage::url($this->image);
+        return MediaStorage::url($this->image, $this->updated_at?->getTimestamp());
     }
 
     public function assessment(): BelongsTo

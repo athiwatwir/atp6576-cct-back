@@ -47,6 +47,9 @@
 | GET | `/orders/{order}/edit` | `orders.edit` |
 | PUT | `/orders/{order}` | `orders.update` |
 | DELETE | `/orders/{order}` | `orders.destroy` |
+| POST | `/orders/{order}/payment-link` | `orders.payment-link` |
+| POST | `/orders/{order}/payments/{payment}/refresh` | `orders.payments.refresh` |
+| POST | `/orders/{order}/payments/{payment}/simulate` | `orders.payments.simulate` (โหมดทดสอบ) |
 
 ## ชนิดออเดอร์ (`orders.kind`)
 
@@ -58,6 +61,8 @@
 ออเดอร์เก่าที่มีทั้งหนังสือและรายการเรียนยังเป็น `book` ออเดอร์ที่มีแต่รายการเรียนถูกปรับเป็น `enrollment` ตอนเพิ่มคอลัมน์
 
 การสร้างออเดอร์หนังสือในแอดมินเป็น `book` การสร้างออเดอร์จากหน้านักเรียนเป็น `enrollment`
+
+ออเดอร์จากเว็บนักเรียนสั่งได้ทั้งแบบเข้าสู่ระบบ และแบบไม่สมัครสมาชิก (ส่งแค่อีเมล ระบบสร้างบัญชีนักเรียนและส่งรหัสผ่านทางอีเมล) แบบหลังมี `orders.guest_token` และมีบันทึก `storefront.guest_order` ใน Activity Log ดู `docs/student-api.md` หัวข้อสั่งซื้อโดยไม่ต้องสมัครสมาชิก
 
 ## สถานะ
 
@@ -87,7 +92,12 @@
 |-----|----------|
 | `cod` | เก็บเงินปลายทาง |
 | `bank_transfer` | โอนเงิน |
-| `credit_card` | บัตรเครดิต |
+| `credit_card` | บัตรเครดิต (ออนไลน์ผ่าน Omise) |
+| `thai_qr` | QR พร้อมเพย์ (ออนไลน์ผ่าน KGP) |
+
+การชำระออนไลน์ ลิงก์ชำระเงิน และปุ่มตรวจสถานะในหน้าออเดอร์ ดู `docs/payments.md`
+
+รายการคอร์ส หลักสูตร และข้อสอบในออเดอร์เก็บแพ็กเกจที่ซื้อ (`order_items.price_plan_id`, `order_items.access_days`) และชื่อรายการต่อท้ายด้วยชื่อแพ็กเกจ ดู `docs/pricing.md`
 
 ### จัดส่ง (`orders.shipping_status`)
 
@@ -182,4 +192,4 @@
 - รายการสินค้าตอนนี้โฟกัส **หนังสือ** (`products.type = book`)
 - ออเดอร์ที่ `payment_status = paid` ลบไม่ได้จากแอดมิน
 - เลขออเดอร์รูปแบบ `ORD-yymmdd-XXXXX`
-- Cart / ชำระเงินจริงผ่าน gateway ยังเป็นขั้นตอนถัดไป (ดู `docs/project.md`)
+- ชำระผ่าน gateway (QR พร้อมเพย์ / บัตร) ดู `docs/payments.md` ตอนนี้ยังเป็นโหมดทดสอบจนกว่าจะได้คีย์

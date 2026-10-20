@@ -155,6 +155,9 @@ $choiceLabels = ['ก', 'ข', 'ค', 'ง'];
                                     <span class="text-gray-400">{{ $qIndex + 1 }}.</span>
                                     {{ $question->question_text }}
                                 </div>
+                                @if ($question->image_url)
+                                    <img src="{{ $question->image_url }}" alt="" class="mt-2 max-h-40 rounded-lg border border-gray-200 object-contain dark:border-gray-700" />
+                                @endif
                                 <div class="mt-2 space-y-1">
                                     @foreach ($question->choices as $cIndex => $choice)
                                     <div class="flex items-start gap-2 text-xs {{ $choice->is_correct ? 'font-medium text-success-600 dark:text-success-400' : 'text-gray-600 dark:text-gray-400' }}">
@@ -196,12 +199,29 @@ $choiceLabels = ['ก', 'ข', 'ค', 'ง'];
                                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $assessment->title }} · ข้อ {{ $qIndex + 1 }}</p>
                             </div>
 
-                            <form method="POST" action="{{ route('courses.assessments.questions.update', [$course, $assessment, $question]) }}" class="mt-6 space-y-4">
+                            <form method="POST" action="{{ route('courses.assessments.questions.update', [$course, $assessment, $question]) }}" enctype="multipart/form-data" class="mt-6 space-y-4">
                                 @csrf
                                 @method('PUT')
+                                <input type="hidden" name="_redirect_tab" value="{{ $panel }}">
+                                <input type="hidden" name="_redirect_assessment" value="{{ $assessment->id }}">
+                                <input type="hidden" name="_question_id" value="{{ $question->id }}">
                                 <div>
                                     <label class="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">คำถาม</label>
                                     <textarea name="question_text" rows="3" required class="dark:bg-dark-900 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">{{ $question->question_text }}</textarea>
+                                </div>
+                                <div>
+                                    <label class="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">รูปประกอบคำถาม</label>
+                                    <input type="file" name="image" accept="image/jpeg,image/png,image/webp,image/gif" class="dark:bg-dark-900 block w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">JPG, PNG, WebP หรือ GIF ไม่เกิน 4 MB อัปโหลดใหม่จะแทนที่รูปเดิม</p>
+                                    @if ($question->image_url)
+                                        <div class="mt-3">
+                                            <img src="{{ $question->image_url }}" alt="" class="max-h-40 rounded-lg border border-gray-200 object-contain dark:border-gray-700" />
+                                            <label class="mt-2 inline-flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                                                <input type="checkbox" name="remove_image" value="1" class="rounded border-gray-300" />
+                                                ลบรูปปัจจุบัน
+                                            </label>
+                                        </div>
+                                    @endif
                                 </div>
                                 <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
                                     <div>
@@ -257,11 +277,18 @@ $choiceLabels = ['ก', 'ข', 'ค', 'ง'];
                             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $assessment->title }}</p>
                         </div>
 
-                        <form method="POST" action="{{ route('courses.assessments.questions.store', [$course, $assessment]) }}" class="mt-6 space-y-4">
+                        <form method="POST" action="{{ route('courses.assessments.questions.store', [$course, $assessment]) }}" enctype="multipart/form-data" class="mt-6 space-y-4">
                             @csrf
+                            <input type="hidden" name="_redirect_tab" value="{{ $panel }}">
+                            <input type="hidden" name="_redirect_assessment" value="{{ $assessment->id }}">
                             <div>
                                 <label class="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">คำถาม</label>
                                 <textarea name="question_text" rows="3" required placeholder="พิมพ์คำถาม..." class="dark:bg-dark-900 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"></textarea>
+                            </div>
+                            <div>
+                                <label class="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">รูปประกอบคำถาม</label>
+                                <input type="file" name="image" accept="image/jpeg,image/png,image/webp,image/gif" class="dark:bg-dark-900 block w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                                <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">ไม่บังคับ JPG, PNG, WebP หรือ GIF ไม่เกิน 4 MB</p>
                             </div>
                             <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
                                 <div>

@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Student;
 
+use App\Support\PricePlans;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -26,9 +27,11 @@ class ExamResource extends JsonResource
             'price' => (float) $this->price,
             'sale_price' => null,
             'effective_price' => $this->effective_price,
+            'price_plans' => PricePlans::payload($this->resource),
             'duration_minutes' => $this->duration_minutes,
             'question_count' => (int) ($this->questions_count ?? 0),
             'purchased' => $purchased,
+            'access_expires_at' => $request->attributes->get('access_expires', [])['exam'][$this->id] ?? null,
         ];
     }
 }

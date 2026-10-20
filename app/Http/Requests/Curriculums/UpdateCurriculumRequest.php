@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Curriculums;
 
 use App\Enums\MediaType;
+use App\Support\PricePlans;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -15,14 +16,6 @@ class UpdateCurriculumRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        if ($this->input('price') === '') {
-            $this->merge(['price' => 0]);
-        }
-
-        if ($this->input('sale_price') === '') {
-            $this->merge(['sale_price' => null]);
-        }
-
         if ($this->input('category_id') === '') {
             $this->merge(['category_id' => null]);
         }
@@ -30,6 +23,7 @@ class UpdateCurriculumRequest extends FormRequest
         $this->merge([
             'is_featured' => $this->boolean('is_featured'),
             'remove_thumbnail' => $this->boolean('remove_thumbnail'),
+            'plans' => PricePlans::normalizeInput($this->input('plans')),
         ]);
     }
 
@@ -44,12 +38,19 @@ class UpdateCurriculumRequest extends FormRequest
             'short_description' => ['nullable', 'string', 'max:500'],
             'description' => ['nullable', 'string'],
             'status' => ['required', Rule::in(['draft', 'published', 'inactive'])],
-            'price' => ['required', 'numeric', 'min:0', 'max:999999'],
-            'sale_price' => ['nullable', 'numeric', 'min:0', 'max:999999', 'lte:price'],
             'is_featured' => ['nullable', 'boolean'],
             'thumbnail' => MediaType::CurriculumThumbnail->rules(),
             'remove_thumbnail' => ['nullable', 'boolean'],
+            ...PricePlans::rules(),
         ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return PricePlans::messages();
     }
 
     /**
@@ -63,10 +64,9 @@ class UpdateCurriculumRequest extends FormRequest
             'short_description' => 'คำอธิบายสั้น',
             'description' => 'รายละเอียด',
             'status' => 'สถานะ',
-            'price' => 'ราคา',
-            'sale_price' => 'ราคาลด',
             'is_featured' => 'แนะนำ',
             'thumbnail' => 'รูปปก',
+            ...PricePlans::attributes(),
         ];
     }
 }

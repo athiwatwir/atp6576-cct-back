@@ -12,6 +12,7 @@ Helper กลางสำหรับรันเลขเอกสารจา�
 | ข้อสอบ (ขายแยก) | `E{dayOfYear}{seq2}` | `E26901` | `assessments.code` |
 | หนังสือ | `B{seq3}` | `B001` | `products.code` |
 | ออเดอร์ | `O{ymd}{seq3}` | `O260926001` | `orders.order_no` |
+| ใบเสร็จรับเงิน | `RC{ym}{seq4}` | `RC26100001` | `receipts.receipt_no` |
 
 ### ความหมายส่วนประกอบ
 
@@ -29,6 +30,7 @@ Helper กลางสำหรับรันเลขเอกสารจา�
 | คอร์ส / ข้อสอบ | `dayOfYear` เช่น `269` | รันต่อเนื่องตามวันของปี (ไม่รีเซ็ตทุกปี เพื่อไม่ให้รหัสซ้ำข้ามปี) |
 | หนังสือ | `global` | รันเลขทั้งระบบ ไม่ผูกวันที่ |
 | ออเดอร์ | `ymd` เช่น `260926` | รีเซ็ตทุกวัน (รหัสมีวันที่อยู่แล้ว จึงไม่ชนกัน) |
+| ใบเสร็จรับเงิน | `ym` ของวันที่ชำระ เช่น `2610` | รีเซ็ตทุกเดือน ลำดับ 4 หลัก (`{seq4}` เริ่ม `0001`) |
 
 ## ไฟล์ที่เกี่ยวข้อง
 
@@ -43,7 +45,7 @@ Helper กลางสำหรับรันเลขเอกสารจา�
 
 | คอลัมน์ | ประเภท | ความหมาย |
 |---------|--------|----------|
-| `doc_type` | string | `course` / `exam` / `book` / `order` |
+| `doc_type` | string | `course` / `exam` / `book` / `order` / `receipt` |
 | `period_key` | string | ช่วงรันเลข (ดูตารางด้านบน) |
 | `last_number` | unsigned int | เลขล่าสุดที่ออกไปแล้ว |
 
@@ -57,6 +59,7 @@ Unique: `(doc_type, period_key)`
 | `DocumentSequence::nextExam(?CarbonInterface $at = null)` | รหัสข้อสอบ |
 | `DocumentSequence::nextBook()` | รหัสหนังสือ |
 | `DocumentSequence::nextOrder(?CarbonInterface $at = null)` | หมายเลขออเดอร์ |
+| `DocumentSequence::nextReceipt(?CarbonInterface $at = null)` | เลขที่ใบเสร็จรับเงิน (ดู `docs/receipts.md`) |
 
 พารามิเตอร์ `$at` ใช้กำหนดวันที่อ้างอิง (ค่าเริ่มต้น = `now()`) — มีประโยชน์ตอนทดสอบหรือ backdate
 

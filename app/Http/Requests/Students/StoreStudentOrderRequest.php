@@ -27,6 +27,7 @@ class StoreStudentOrderRequest extends FormRequest
             'items' => ['required', 'array', 'min:1'],
             'items.*.type' => ['required', Rule::in(['course', 'curriculum', 'exam'])],
             'items.*.id' => ['required', 'integer'],
+            'items.*.plan_id' => ['nullable', 'integer'],
             'notes' => ['nullable', 'string', 'max:2000'],
             'coupon_code' => ['nullable', 'string', 'max:100'],
         ];
@@ -41,6 +42,7 @@ class StoreStudentOrderRequest extends FormRequest
             'items' => 'รายการ',
             'items.*.type' => 'ประเภท',
             'items.*.id' => 'สินค้า',
+            'items.*.plan_id' => 'แพ็กเกจราคา',
             'notes' => 'หมายเหตุ',
             'coupon_code' => 'รหัสคูปอง',
         ];

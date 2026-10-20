@@ -21,6 +21,9 @@ class Content extends Model
         'title',
         'slug',
         'excerpt',
+        'seo_title',
+        'seo_description',
+        'seo_keywords',
         'content',
         'image',
         'link_url',
@@ -58,10 +61,14 @@ class Content extends Model
         return $query
             ->where('status', 'published')
             ->where(function (Builder $inner) use ($now) {
-                $inner->whereNull('published_at')->orWhere('published_at', '<=', $now);
+                $inner->where('type', 'article')
+                    ->orWhereNull('published_at')
+                    ->orWhere('published_at', '<=', $now);
             })
             ->where(function (Builder $inner) use ($now) {
-                $inner->whereNull('expired_at')->orWhere('expired_at', '>=', $now);
+                $inner->where('type', 'article')
+                    ->orWhereNull('expired_at')
+                    ->orWhere('expired_at', '>=', $now);
             });
     }
 
@@ -69,6 +76,10 @@ class Content extends Model
     {
         if ($this->status !== 'published') {
             return false;
+        }
+
+        if ($this->type === 'article') {
+            return true;
         }
 
         if ($this->published_at && $this->published_at->isFuture()) {
@@ -84,7 +95,7 @@ class Content extends Model
 
     public function getImageUrlAttribute(): ?string
     {
-        return MediaStorage::url($this->image);
+        return MediaStorage::url($this->image, $this->updated_at?->getTimestamp());
     }
 
     public function getPlacementLabelAttribute(): string
@@ -110,6 +121,11 @@ class Content extends Model
     public function curriculums(): BelongsToMany
     {
         return $this->belongsToMany(Curriculum::class, 'content_curriculums');
+    }
+
+    public function assessments(): BelongsToMany
+    {
+        return $this->belongsToMany(Assessment::class, 'content_assessments');
     }
 
     public function promotions(): BelongsToMany

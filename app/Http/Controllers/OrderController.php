@@ -218,7 +218,7 @@ class OrderController extends Controller
 
     public function show(Order $order): View
     {
-        $order->load(['user', 'items.product', 'payments', 'coupon']);
+        $order->load(['user', 'items.product', 'payments', 'latestPayment', 'coupon', 'receipt']);
 
         return view('pages.orders.show', [
             'title' => $order->order_no,

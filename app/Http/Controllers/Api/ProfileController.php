@@ -35,7 +35,13 @@ class ProfileController extends Controller
         ]);
 
         if ($request->hasFile('avatar')) {
-            $data['avatar'] = MediaStorage::store($request->file('avatar'), 'avatars/'.$user->id);
+            $path = MediaStorage::storeAvatar($request->file('avatar'), $user->id);
+
+            if ($user->avatar && $user->avatar !== $path) {
+                MediaStorage::delete($user->avatar);
+            }
+
+            $data['avatar'] = $path;
         }
 
         $user->update($data);

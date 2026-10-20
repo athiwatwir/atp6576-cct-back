@@ -24,8 +24,31 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PromotionController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\SubjectController;
+use App\Http\Controllers\TestimonialController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\OrderPaymentController;
+use App\Http\Controllers\PaymentFeeController;
+use App\Http\Controllers\ReceiptController;
+use App\Http\Controllers\PaymentPageController;
 use Illuminate\Support\Facades\Route;
+
+Route::prefix('pay')->name('payment.')->middleware('throttle:60,1')->group(function () {
+    Route::get('return/{payment}', [PaymentPageController::class, 'returnFromGateway'])
+        ->middleware('signed')
+        ->name('return');
+    Route::match(['get', 'post'], 'test-authorize/{payment}', [PaymentPageController::class, 'fakeAuthorize'])
+        ->middleware('signed')
+        ->name('fake-authorize');
+    Route::get('{token}', [PaymentPageController::class, 'show'])->name('page');
+    Route::post('{token}/thai-qr', [PaymentPageController::class, 'thaiQr'])->middleware('throttle:10,1,pay-page-qr')->name('thai-qr');
+    Route::post('{token}/card', [PaymentPageController::class, 'card'])->middleware('throttle:10,1,pay-page-card')->name('card');
+    Route::get('{token}/status', [PaymentPageController::class, 'status'])->name('status');
+    Route::post('{token}/simulate', [PaymentPageController::class, 'simulate'])->name('simulate');
+});
+
+Route::get('receipts/{receipt}/download', [ReceiptController::class, 'signed'])
+    ->middleware(['signed', 'throttle:60,1'])
+    ->name('receipts.download');
 
 Route::middleware('guest')->group(function () {
     Route::get('login', [AuthenticatedSessionController::class, 'create'])->name('login');
@@ -69,14 +92,22 @@ Route::middleware(['auth', 'backend'])->group(function () {
     Route::resource('orders', OrderController::class);
     Route::put('orders/{order}/shipping-status', [OrderController::class, 'updateShippingStatus'])->name('orders.shipping-status');
     Route::put('orders/{order}/tracking', [OrderController::class, 'updateTracking'])->name('orders.tracking');
+    Route::post('orders/{order}/payment-link', [OrderPaymentController::class, 'link'])->name('orders.payment-link');
+    Route::get('orders/{order}/receipt', [ReceiptController::class, 'order'])->name('orders.receipt');
+    Route::post('orders/{order}/payments/{payment}/refresh', [OrderPaymentController::class, 'refresh'])->name('orders.payments.refresh');
+    Route::post('orders/{order}/payments/{payment}/simulate', [OrderPaymentController::class, 'simulate'])->name('orders.payments.simulate');
     Route::get('finance', [FinanceController::class, 'index'])->name('finance.index');
     Route::put('finance/payments/{payment}', [FinanceController::class, 'updatePayment'])->name('finance.payments.update');
+    Route::get('settings/payment-fees', [PaymentFeeController::class, 'edit'])->name('payment-fees.edit');
+    Route::put('settings/payment-fees', [PaymentFeeController::class, 'update'])->name('payment-fees.update');
     Route::resource('promotions', PromotionController::class);
     Route::resource('coupons', CouponController::class);
     Route::post('banners/{banner}/move', [BannerController::class, 'move'])->name('banners.move');
     Route::resource('banners', BannerController::class);
     Route::post('articles/images', [ArticleController::class, 'uploadImage'])->name('articles.images.store');
     Route::resource('articles', ArticleController::class);
+    Route::post('reviews/{testimonial}/move', [TestimonialController::class, 'move'])->name('reviews.move');
+    Route::resource('reviews', TestimonialController::class)->parameters(['reviews' => 'testimonial']);
 
     Route::post('courses/{course}/chapters', [CourseChapterController::class, 'store'])->name('courses.chapters.store');
     Route::put('courses/{course}/chapters/reorder', [CourseChapterController::class, 'reorder'])->name('courses.chapters.reorder');

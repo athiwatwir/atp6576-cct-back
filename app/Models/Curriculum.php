@@ -143,7 +143,17 @@ class Curriculum extends Model
 
     public function getThumbnailUrlAttribute(): ?string
     {
-        return MediaStorage::url($this->thumbnail);
+        return MediaStorage::url($this->thumbnail, $this->updated_at?->getTimestamp());
+    }
+
+    public function pricePlans(): HasMany
+    {
+        return $this->hasMany(PricePlan::class)->ordered();
+    }
+
+    public function activePricePlans(): HasMany
+    {
+        return $this->pricePlans()->active();
     }
 
     public function getEffectivePriceAttribute(): float

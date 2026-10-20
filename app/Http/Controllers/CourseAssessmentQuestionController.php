@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\MediaType;
 use App\Models\Assessment;
 use App\Models\Course;
 use App\Models\Question;
+use App\Support\MediaStorage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,13 +25,17 @@ class CourseAssessmentQuestionController extends Controller
             'choices' => ['required', 'array', 'min:2'],
             'choices.*.choice_text' => ['nullable', 'string'],
             'correct_index' => ['required', 'integer', 'min:0'],
+            'image' => MediaType::QuestionImage->rules(),
+        ], [
+            'image.image' => 'รูปคำถามต้องเป็นไฟล์รูปภาพ',
+            'image.max' => 'รูปคำถามต้องไม่เกิน 4 MB',
         ]);
 
         $choices = $this->normalizedChoices($data['choices'], (int) $data['correct_index']);
 
         $sortOrder = ((int) $assessment->questions()->max('sort_order')) + 1;
 
-        DB::transaction(function () use ($assessment, $data, $choices, $sortOrder) {
+        DB::transaction(function () use ($assessment, $request, $data, $choices, $sortOrder) {
             $question = $assessment->questions()->create([
                 'question_text' => $data['question_text'],
                 'question_type' => 'single_choice',
@@ -38,6 +44,12 @@ class CourseAssessmentQuestionController extends Controller
                 'sort_order' => $sortOrder,
                 'status' => 'active',
             ]);
+
+            if ($request->hasFile('image')) {
+                $question->update([
+                    'image' => MediaStorage::storeQuestionImage($request->file('image'), $assessment->id, $question->id),
+                ]);
+            }
 
             foreach ($choices as $index => $choice) {
                 $question->choices()->create([
@@ -64,16 +76,38 @@ class CourseAssessmentQuestionController extends Controller
             'choices' => ['required', 'array', 'min:2'],
             'choices.*.choice_text' => ['nullable', 'string'],
             'correct_index' => ['required', 'integer', 'min:0'],
+            'image' => MediaType::QuestionImage->rules(),
+            'remove_image' => ['nullable', 'boolean'],
+        ], [
+            'image.image' => 'รูปคำถามต้องเป็นไฟล์รูปภาพ',
+            'image.max' => 'รูปคำถามต้องไม่เกิน 4 MB',
         ]);
 
         $choices = $this->normalizedChoices($data['choices'], (int) $data['correct_index']);
 
-        DB::transaction(function () use ($question, $data, $choices) {
-            $question->update([
+        DB::transaction(function () use ($request, $assessment, $question, $data, $choices) {
+            $payload = [
                 'question_text' => $data['question_text'],
                 'explanation' => $data['explanation'] ?? null,
                 'points' => $data['points'] ?? $question->points,
-            ]);
+            ];
+
+            if ($request->boolean('remove_image') && $question->image) {
+                MediaStorage::delete($question->image);
+                $payload['image'] = null;
+            }
+
+            if ($request->hasFile('image')) {
+                $newPath = MediaStorage::questionImagePath($assessment->id, $question->id);
+
+                if ($question->image && $question->image !== $newPath) {
+                    MediaStorage::delete($question->image);
+                }
+
+                $payload['image'] = MediaStorage::storeQuestionImage($request->file('image'), $assessment->id, $question->id);
+            }
+
+            $question->update($payload);
 
             $question->choices()->delete();
 
@@ -95,6 +129,7 @@ class CourseAssessmentQuestionController extends Controller
         $this->ensureAssessmentBelongsToCourse($course, $assessment);
         $this->ensureQuestionBelongsToAssessment($assessment, $question);
 
+        MediaStorage::delete($question->image);
         $question->delete();
 
         return $this->redirectBack($course, $assessment)

@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Enums\OrderKind;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\ReceiptController;
+use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Validation\Rule;
 use App\Http\Requests\Api\StorefrontOrderRequest;
 use App\Http\Requests\Api\SubmitPaymentSlipRequest;
@@ -33,12 +35,12 @@ class OrderController extends Controller
 
     public function index(Request $request): AnonymousResourceCollection
     {
-        $kind = (string) $request->validate([
+        $kind = (string) ($request->validate([
             'kind' => ['nullable', Rule::in([OrderKind::Book->value, OrderKind::Enrollment->value])],
-        ])['kind'] ?? '';
+        ])['kind'] ?? '');
 
         $orders = Order::query()
-            ->with(['items', 'latestPayment.slips'])
+            ->with(['items', 'latestPayment.slips', 'receipt'])
             ->where('user_id', $request->user()->id)
             ->when($kind !== '', fn ($query) => $query->where('kind', $kind))
             ->latest('id')
@@ -69,9 +71,16 @@ class OrderController extends Controller
     {
         $this->owned($request, $order);
 
-        $order->load(['items', 'latestPayment.slips']);
+        $order->load(['items', 'latestPayment.slips', 'receipt']);
 
         return OrderResource::make($order);
+    }
+
+    public function receipt(Request $request, Order $order, ReceiptController $receipts): Response
+    {
+        $this->owned($request, $order);
+
+        return $receipts->respond($order, $request->boolean('inline'));
     }
 
     public function pay(SubmitPaymentSlipRequest $request, Order $order): OrderResource

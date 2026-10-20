@@ -81,6 +81,9 @@
                         </div>
                     </td>
                     <td class="px-5 py-4 text-sm font-medium text-gray-800 dark:text-white/90">
+                        @if ((int) $exam->plans_count > 1)
+                        <div class="text-[11px] font-normal text-gray-400">เริ่มต้น · {{ $exam->plans_count }} แพ็กเกจ</div>
+                        @endif
                         ฿{{ number_format((float) $exam->price, 2) }}
                     </td>
                     <td class="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">

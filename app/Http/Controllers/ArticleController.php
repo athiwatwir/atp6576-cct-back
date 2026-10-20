@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Articles\ArticleRequest;
+use App\Models\Assessment;
 use App\Models\Content;
+use App\Models\Course;
+use App\Models\Curriculum;
 use App\Support\ContentAdmin;
 use App\Support\MediaStorage;
 use Illuminate\Http\JsonResponse;
@@ -22,6 +25,7 @@ class ArticleController extends Controller
 
         $articles = Content::query()
             ->articles()
+            ->withCount(['courses', 'curriculums', 'assessments'])
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($inner) use ($search) {
                     $inner->where('title', 'like', '%'.$search.'%')
@@ -44,6 +48,7 @@ class ArticleController extends Controller
     {
         return view('pages.articles.create', [
             'title' => 'เพิ่มบทความ',
+            ...$this->formData(),
         ]);
     }
 
@@ -64,6 +69,11 @@ class ArticleController extends Controller
     public function show(Content $article): View
     {
         $this->ensureArticle($article);
+        $article->load([
+            'courses:id,name,slug',
+            'curriculums:id,name,slug',
+            'assessments:id,title,slug',
+        ]);
 
         return view('pages.articles.show', [
             'title' => $article->title,
@@ -74,10 +84,12 @@ class ArticleController extends Controller
     public function edit(Content $article): View
     {
         $this->ensureArticle($article);
+        $article->load(['courses:id', 'curriculums:id', 'assessments:id']);
 
         return view('pages.articles.edit', [
             'title' => 'แก้ไขบทความ',
             'article' => $article,
+            ...$this->formData(),
         ]);
     }
 
@@ -104,7 +116,7 @@ class ArticleController extends Controller
             'image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:4096'],
         ]);
 
-        $path = MediaStorage::store($request->file('image'), 'articles/body');
+        $path = MediaStorage::storeImage($request->file('image'), 'articles/body');
 
         return response()->json([
             'url' => MediaStorage::url($path),
@@ -119,6 +131,18 @@ class ArticleController extends Controller
         return redirect()
             ->route('articles.index')
             ->with('success', 'ลบบทความเรียบร้อยแล้ว');
+    }
+
+    /**
+     * @return array{courses: \Illuminate\Database\Eloquent\Collection<int, Course>, curriculums: \Illuminate\Database\Eloquent\Collection<int, Curriculum>, exams: \Illuminate\Database\Eloquent\Collection<int, Assessment>}
+     */
+    private function formData(): array
+    {
+        return [
+            'courses' => Course::query()->orderBy('name')->get(['id', 'name']),
+            'curriculums' => Curriculum::query()->orderBy('name')->get(['id', 'name']),
+            'exams' => Assessment::query()->where('type', 'primary_exam')->orderBy('title')->get(['id', 'title']),
+        ];
     }
 
     private function ensureArticle(Content $article): void

@@ -58,6 +58,10 @@ class FinanceController extends Controller
                 ->whereNotNull('cancelled_at')
                 ->whereBetween('cancelled_at', [$from, $to])
                 ->count(),
+            'fees' => (float) Payment::query()
+                ->where('status', PaymentStatus::Paid->value)
+                ->whereBetween('paid_at', [$from, $to])
+                ->sum('fee_amount'),
         ];
 
         $byPaymentStatus = Order::query()
@@ -134,7 +138,7 @@ class FinanceController extends Controller
             ]);
 
         $payments = Payment::query()
-            ->with(['order.user:id,name,email', 'order.items:id,order_id,item_name'])
+            ->with(['order.user:id,name,email', 'order.items:id,order_id,item_name', 'order.receipt:id,order_id,receipt_no'])
             ->whereBetween('created_at', [$from, $to])
             ->latest('id')
             ->paginate(20)

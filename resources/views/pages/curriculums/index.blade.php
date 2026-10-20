@@ -88,6 +88,9 @@
                                 <div class="mt-1">ข้อสอบ {{ $curriculum->exams_count }} · แบบฝึกหัด {{ $curriculum->exercises_count }}</div>
                             </td>
                             <td class="px-5 py-4 text-sm text-gray-800 dark:text-white/90">
+                                @if ((int) $curriculum->plans_count > 1)
+                                    <div class="text-[11px] text-gray-400">เริ่มต้น · {{ $curriculum->plans_count }} แพ็กเกจ</div>
+                                @endif
                                 @if ($curriculum->sale_price !== null && (float) $curriculum->sale_price > 0)
                                     <div class="font-medium text-brand-600 dark:text-brand-400">฿{{ number_format((float) $curriculum->sale_price, 2) }}</div>
                                     <div class="text-xs text-gray-400 line-through">฿{{ number_format((float) $curriculum->price, 2) }}</div>

@@ -31,7 +31,7 @@ class SubjectController extends Controller
             ->withQueryString();
 
         return view('pages.subjects.index', [
-            'title' => 'วิชา',
+            'title' => 'ชนิดวิชา',
             'subjects' => $subjects,
             'filters' => [
                 'search' => $search,
@@ -43,7 +43,7 @@ class SubjectController extends Controller
     public function create(): View
     {
         return view('pages.subjects.create', [
-            'title' => 'เพิ่มวิชา',
+            'title' => 'เพิ่มชนิดวิชา',
         ]);
     }
 
@@ -56,13 +56,13 @@ class SubjectController extends Controller
 
         return redirect()
             ->route('subjects.index')
-            ->with('success', 'เพิ่มวิชาเรียบร้อยแล้ว');
+            ->with('success', 'เพิ่มชนิดวิชาเรียบร้อยแล้ว');
     }
 
     public function edit(Subject $subject): View
     {
         return view('pages.subjects.edit', [
-            'title' => 'แก้ไขวิชา',
+            'title' => 'แก้ไขชนิดวิชา',
             'subject' => $subject,
         ]);
     }
@@ -79,7 +79,7 @@ class SubjectController extends Controller
 
         return redirect()
             ->route('subjects.index')
-            ->with('success', 'บันทึกข้อมูลวิชาเรียบร้อยแล้ว');
+            ->with('success', 'บันทึกข้อมูลชนิดวิชาเรียบร้อยแล้ว');
     }
 
     public function destroy(Subject $subject): RedirectResponse
@@ -87,14 +87,14 @@ class SubjectController extends Controller
         if ($subject->courses()->exists()) {
             return redirect()
                 ->route('subjects.index')
-                ->with('error', 'ไม่สามารถลบวิชาที่มีคอร์สผูกอยู่ได้');
+                ->with('error', 'ไม่สามารถลบชนิดวิชาที่มีคอร์สผูกอยู่ได้');
         }
 
         $subject->delete();
 
         return redirect()
             ->route('subjects.index')
-            ->with('success', 'ลบวิชาเรียบร้อยแล้ว');
+            ->with('success', 'ลบชนิดวิชาเรียบร้อยแล้ว');
     }
 
     private function uniqueSlug(string $value, ?int $ignoreId = null): string

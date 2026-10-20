@@ -7,6 +7,7 @@ use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
 use App\Enums\ShippingStatus;
+use App\Models\Assessment;
 use App\Models\Course;
 use App\Models\Curriculum;
 use App\Models\Order;
@@ -14,6 +15,7 @@ use App\Models\Payment;
 use App\Models\PaymentSlip;
 use App\Models\Product;
 use App\Models\User;
+use App\Support\Payments\PaymentFees;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -92,7 +94,7 @@ class StorefrontCheckout
             Payment::query()->create([
                 'order_id' => $order->id,
                 'payment_method' => PaymentMethod::BankTransfer->value,
-                'amount' => $priced['total'],
+                ...$this->transferAmounts($priced['total']),
                 'status' => PaymentStatus::Pending->value,
                 'metadata' => [
                     'channel' => 'storefront',
@@ -144,7 +146,7 @@ class StorefrontCheckout
                 $payment = Payment::query()->create([
                     'order_id' => $order->id,
                     'payment_method' => PaymentMethod::BankTransfer->value,
-                    'amount' => $order->total_amount,
+                    ...$this->transferAmounts((float) $order->total_amount),
                     'status' => PaymentStatus::Pending->value,
                     'metadata' => [
                         'channel' => 'storefront',
@@ -165,6 +167,7 @@ class StorefrontCheckout
 
             $payment->update([
                 'payment_method' => PaymentMethod::BankTransfer->value,
+                ...$this->transferAmounts((float) $order->total_amount),
                 'status' => PaymentStatus::AwaitingVerification->value,
             ]);
 
@@ -177,7 +180,7 @@ class StorefrontCheckout
     }
 
     /**
-     * @param  list<array{type:string,id:int|string,quantity?:int|string|null}>  $items
+     * @param  list<array{type:string,id:int|string,quantity?:int|string|null,plan_id?:int|string|null}>  $items
      * @return Collection<int, array<string, mixed>>
      */
     private function resolveLines(array $items, bool $lockBooks): Collection
@@ -187,8 +190,9 @@ class StorefrontCheckout
                 'type' => (string) ($item['type'] ?? ''),
                 'id' => (int) ($item['id'] ?? 0),
                 'quantity' => max(1, (int) ($item['quantity'] ?? 1)),
+                'plan_id' => filled($item['plan_id'] ?? null) ? (int) $item['plan_id'] : null,
             ])
-            ->filter(fn (array $item) => $item['id'] > 0 && in_array($item['type'], ['course', 'curriculum', 'book'], true))
+            ->filter(fn (array $item) => $item['id'] > 0 && in_array($item['type'], ['course', 'curriculum', 'exam', 'book'], true))
             ->groupBy(fn (array $item) => $item['type'].':'.$item['id'])
             ->map(function (Collection $group) {
                 $first = $group->first();
@@ -198,6 +202,7 @@ class StorefrontCheckout
                     'type' => $first['type'],
                     'id' => $first['id'],
                     'quantity' => min(99, max(1, $quantity)),
+                    'plan_id' => $first['plan_id'],
                 ];
             })
             ->values();
@@ -219,33 +224,36 @@ class StorefrontCheckout
 
         $lines = $normalized->map(function (array $item) use ($lockBooks) {
             if ($item['type'] === 'course') {
-                $course = Course::query()->where('status', 'published')->find($item['id']);
+                $course = Course::query()->with('activePricePlans')->where('status', 'published')->find($item['id']);
                 if (! $course) {
                     throw ValidationException::withMessages([
                         'items' => 'มีคอร์สที่ยังไม่เปิดขายหรือไม่พบในระบบ',
                     ]);
                 }
 
-                $price = round((float) $course->effective_price, 2);
-
-                return $this->line($item['type'], $course->name, $price, 1, [
-                    'course_id' => $course->id,
-                ]);
+                return $this->learningLine('course', $course, $course->name, $item['plan_id'], ['course_id' => $course->id]);
             }
 
             if ($item['type'] === 'curriculum') {
-                $curriculum = Curriculum::query()->where('status', 'published')->find($item['id']);
+                $curriculum = Curriculum::query()->with('activePricePlans')->where('status', 'published')->find($item['id']);
                 if (! $curriculum) {
                     throw ValidationException::withMessages([
                         'items' => 'มีหลักสูตรที่ยังไม่เปิดขายหรือไม่พบในระบบ',
                     ]);
                 }
 
-                $price = round((float) $curriculum->effective_price, 2);
+                return $this->learningLine('curriculum', $curriculum, $curriculum->name, $item['plan_id'], ['curriculum_id' => $curriculum->id]);
+            }
 
-                return $this->line($item['type'], $curriculum->name, $price, 1, [
-                    'curriculum_id' => $curriculum->id,
-                ]);
+            if ($item['type'] === 'exam') {
+                $exam = Assessment::query()->with('activePricePlans')->forSale()->find($item['id']);
+                if (! $exam) {
+                    throw ValidationException::withMessages([
+                        'items' => 'มีข้อสอบที่ยังไม่เปิดขายหรือไม่พบในระบบ',
+                    ]);
+                }
+
+                return $this->learningLine('exam', $exam, $exam->title, $item['plan_id'], ['assessment_id' => $exam->id]);
             }
 
             $bookQuery = Product::query()->forSale();
@@ -276,6 +284,45 @@ class StorefrontCheckout
     }
 
     /**
+     * @return array{amount: float, fee_amount: float}
+     */
+    private function transferAmounts(float $total): array
+    {
+        $fee = PaymentFees::calculate(PaymentMethod::BankTransfer, round($total, 2));
+
+        return [
+            'amount' => round($total + $fee, 2),
+            'fee_amount' => $fee,
+        ];
+    }
+
+    /**
+     * @param  array<string, int|null>  $foreign
+     * @return array<string, mixed>
+     */
+    private function learningLine(string $type, Course|Curriculum|Assessment $owner, string $name, ?int $planId, array $foreign): array
+    {
+        $plan = PricePlans::resolve($owner, $planId);
+        $line = $this->line(
+            $type,
+            PricePlans::itemName($name, $plan, $owner->activePricePlans->count()),
+            $plan['price'],
+            1,
+            $foreign,
+        );
+
+        return [
+            ...$line,
+            'price_plan_id' => $plan['plan_id'],
+            'access_days' => $plan['duration_days'],
+            'metadata' => [
+                ...$line['metadata'],
+                'plan_name' => $plan['label'],
+            ],
+        ];
+    }
+
+    /**
      * @param  array<string, int|null>  $foreign
      * @return array<string, mixed>
      */
@@ -285,7 +332,9 @@ class StorefrontCheckout
             'product_id' => $foreign['product_id'] ?? null,
             'course_id' => $foreign['course_id'] ?? null,
             'curriculum_id' => $foreign['curriculum_id'] ?? null,
-            'assessment_id' => null,
+            'assessment_id' => $foreign['assessment_id'] ?? null,
+            'price_plan_id' => null,
+            'access_days' => null,
             'item_name' => $name,
             'quantity' => $quantity,
             'unit_price' => $unitPrice,
@@ -377,11 +426,16 @@ class StorefrontCheckout
     {
         return [
             'type' => $line['metadata']['type'] ?? null,
-            'id' => $line['course_id'] ?? $line['curriculum_id'] ?? $line['product_id'],
+            'id' => $line['course_id'] ?? $line['curriculum_id'] ?? $line['assessment_id'] ?? $line['product_id'],
             'name' => $line['item_name'],
             'quantity' => (int) $line['quantity'],
             'unit_price' => (float) $line['unit_price'],
             'total_price' => (float) $line['total_price'],
+            'plan' => $line['product_id'] === null ? [
+                'id' => $line['price_plan_id'],
+                'name' => $line['metadata']['plan_name'] ?? null,
+                'duration_days' => $line['access_days'],
+            ] : null,
         ];
     }
 }

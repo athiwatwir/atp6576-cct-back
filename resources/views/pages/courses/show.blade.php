@@ -56,10 +56,10 @@ $btn = [
         showDocumentForm: false,
         showQuizForm: false,
         showExamForm: false,
-        showQuestionForm: false,
+        showQuestionForm: {{ ($errors->hasAny(['question_text', 'choices', 'correct_index', 'image', 'points', 'explanation']) && ! old('_question_id')) ? 'true' : 'false' }},
         editingVideoId: null,
         editingChapter: false,
-        editingQuestionId: null,
+        editingQuestionId: {{ old('_question_id') ? (int) old('_question_id') : 'null' }},
         editingAssessmentId: null,
         uploadingVideo: false,
         uploadProgress: 0,
@@ -295,6 +295,16 @@ $btn = [
                 </div>
             </div>
 
+            @if ($errors->any())
+                <div class="mb-6 rounded-xl border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-600 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-400">
+                    <ul class="list-disc space-y-1 pl-4">
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+
             {{-- Tabs --}}
             <div class="rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03]">
                 <div class="overflow-x-auto border-b border-gray-100 dark:border-gray-800">
@@ -339,16 +349,7 @@ $btn = [
                 </form>
 
                 <div class="mt-5 space-y-3 border-t border-gray-100 pt-5 text-sm dark:border-gray-800">
-                    <div class="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2.5 dark:bg-white/[0.03]">
-                        <span class="text-gray-500 dark:text-gray-400">ราคา</span>
-                        <span class="font-semibold text-gray-800 dark:text-white/90">฿{{ number_format((float) $course->price, 2) }}</span>
-                    </div>
-                    <div class="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2.5 dark:bg-white/[0.03]">
-                        <span class="text-gray-500 dark:text-gray-400">ราคาพิเศษ</span>
-                        <span class="font-semibold text-gray-800 dark:text-white/90">
-                            {{ $course->sale_price !== null ? '฿'.number_format((float) $course->sale_price, 2) : '-' }}
-                        </span>
-                    </div>
+                    @include('pages.partials.price-plans-summary', ['plans' => $course->pricePlans])
                     <div class="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2.5 dark:bg-white/[0.03]">
                         <span class="text-gray-500 dark:text-gray-400">วันที่เผยแพร่</span>
                         <span class="font-medium text-gray-800 dark:text-white/90">

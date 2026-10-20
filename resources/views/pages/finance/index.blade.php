@@ -54,6 +54,9 @@ $presets = [
         <div class="text-sm text-success-700 dark:text-success-400">รายได้ที่ชำระแล้ว</div>
         <div class="mt-2 text-2xl font-semibold text-success-800 dark:text-success-300">{{ $money($summary['revenue']) }}</div>
         <div class="mt-1 text-xs text-success-600/80 dark:text-success-400/80">{{ number_format($summary['paid_orders']) }} ออเดอร์</div>
+        @if ($summary['fees'] > 0)
+        <div class="mt-1 text-xs text-success-600/80 dark:text-success-400/80">ค่าธรรมเนียมที่เก็บจากลูกค้า {{ $money($summary['fees']) }} (ไม่รวมในยอดนี้)</div>
+        @endif
     </div>
     <div class="rounded-2xl border border-warning-200 bg-warning-50 p-5 dark:border-warning-500/30 dark:bg-warning-500/10">
         <div class="text-sm text-warning-700 dark:text-warning-400">รอตรวจสอบการชำระ</div>
@@ -114,11 +117,26 @@ $presets = [
                         <div class="text-xs text-gray-400">{{ $order?->user?->email }}</div>
                     </td>
                     <td class="px-5 py-3 text-sm text-gray-500 whitespace-nowrap">{{ \App\Enums\PaymentMethod::tryFrom((string) $payment->payment_method)?->label() ?? $payment->payment_method }}</td>
-                    <td class="px-5 py-3 text-right text-sm font-semibold text-gray-800 dark:text-white/90 whitespace-nowrap">{{ $money($payment->amount) }}</td>
+                    <td class="px-5 py-3 text-right text-sm font-semibold text-gray-800 dark:text-white/90 whitespace-nowrap">
+                        {{ $money($payment->amount) }}
+                        @if ((float) $payment->fee_amount > 0)
+                        <div class="text-[11px] font-normal text-gray-400">รวมค่าธรรมเนียม {{ $money($payment->fee_amount) }}</div>
+                        @endif
+                    </td>
                     <td class="px-5 py-3">
                         <x-common.status-badge :status="\App\Enums\PaymentStatus::tryFrom((string) $payment->status) ?? $payment->status" />
                     </td>
                     <td class="px-5 py-3">
+                        @if ($order && $payment->status === 'paid' && $order->payment_status === 'paid')
+                        <div class="mb-2 flex justify-end gap-2">
+                            <a href="{{ route('orders.receipt', [$order, 'inline' => 1]) }}" target="_blank" rel="noopener" data-no-loading
+                                class="inline-flex items-center rounded-lg border border-brand-300 bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 hover:bg-brand-100 dark:border-brand-500/40 dark:bg-brand-500/10 dark:text-brand-400">
+                                ใบเสร็จ{{ $order->receipt ? ' '.$order->receipt->receipt_no : '' }}
+                            </a>
+                            <a href="{{ route('orders.receipt', $order) }}" data-no-loading
+                                class="inline-flex items-center rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300" title="ดาวน์โหลด PDF">PDF</a>
+                        </div>
+                        @endif
                         <form method="POST" action="{{ route('finance.payments.update', $payment) }}" class="flex items-center justify-end gap-2" onsubmit="return confirm('เปลี่ยนสถานะการชำระเงินนี้หรือไม่?')">
                             @csrf
                             @method('PUT')

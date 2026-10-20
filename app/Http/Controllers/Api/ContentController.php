@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Enums\BannerPlacement;
 use App\Http\Controllers\Controller;
 use App\Models\Content;
+use App\Models\Testimonial;
 use App\Support\ArticleHtml;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -52,7 +53,6 @@ class ContentController extends Controller
                         ->orWhere('excerpt', 'like', '%'.$search.'%');
                 });
             })
-            ->orderByDesc('published_at')
             ->orderByDesc('id')
             ->paginate($perPage)
             ->withQueryString();
@@ -79,6 +79,20 @@ class ContentController extends Controller
         $article = Content::query()
             ->articles()
             ->visible()
+            ->with([
+                'courses' => fn ($query) => $query
+                    ->where('courses.status', 'published')
+                    ->orderBy('courses.name')
+                    ->select(['courses.id', 'courses.name', 'courses.slug', 'courses.thumbnail']),
+                'curriculums' => fn ($query) => $query
+                    ->where('curriculums.status', 'published')
+                    ->orderBy('curriculums.name')
+                    ->select(['curriculums.id', 'curriculums.name', 'curriculums.slug', 'curriculums.thumbnail']),
+                'assessments' => fn ($query) => $query
+                    ->forSale()
+                    ->orderBy('assessments.title')
+                    ->select(['assessments.id', 'assessments.title', 'assessments.slug', 'assessments.thumbnail']),
+            ])
             ->where('slug', $slug)
             ->first();
 
@@ -88,6 +102,27 @@ class ContentController extends Controller
 
         return response()->json([
             'data' => $this->articlePayload($article, withContent: true),
+        ]);
+    }
+
+    public function reviews(): JsonResponse
+    {
+        $reviews = Testimonial::query()
+            ->published()
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->limit(50)
+            ->get()
+            ->map(fn (Testimonial $review) => [
+                'id' => $review->id,
+                'name' => $review->name,
+                'content' => $review->content,
+                'image_url' => $review->image_url,
+            ])
+            ->values();
+
+        return response()->json([
+            'data' => $reviews,
         ]);
     }
 
@@ -118,13 +153,58 @@ class ContentController extends Controller
             'title' => $article->title,
             'excerpt' => $article->excerpt,
             'image_url' => $article->image_url,
-            'published_at' => $article->published_at?->toIso8601String(),
+            'seo' => $this->articleSeoPayload($article),
         ];
 
         if ($withContent) {
             $payload['content'] = ArticleHtml::clean($article->content);
+            $payload['related'] = [
+                'courses' => $article->courses
+                    ->map(fn ($course) => [
+                        'id' => $course->id,
+                        'slug' => $course->slug,
+                        'name' => $course->name,
+                        'thumbnail_url' => $course->thumbnail_url,
+                    ])
+                    ->values(),
+                'curriculums' => $article->curriculums
+                    ->map(fn ($curriculum) => [
+                        'id' => $curriculum->id,
+                        'slug' => $curriculum->slug,
+                        'name' => $curriculum->name,
+                        'thumbnail_url' => $curriculum->thumbnail_url,
+                    ])
+                    ->values(),
+                'exams' => $article->assessments
+                    ->map(fn ($exam) => [
+                        'id' => $exam->id,
+                        'slug' => $exam->slug,
+                        'name' => $exam->title,
+                        'thumbnail_url' => $exam->thumbnail_url,
+                    ])
+                    ->values(),
+            ];
         }
 
         return $payload;
+    }
+
+    /**
+     * @return array{title: string, description: ?string, keywords: ?string, image_url: ?string}
+     */
+    private function articleSeoPayload(Content $article): array
+    {
+        $title = filled($article->seo_title) ? (string) $article->seo_title : (string) $article->title;
+        $description = filled($article->seo_description)
+            ? (string) $article->seo_description
+            : ($article->excerpt !== null && $article->excerpt !== '' ? (string) $article->excerpt : null);
+        $keywords = filled($article->seo_keywords) ? (string) $article->seo_keywords : null;
+
+        return [
+            'title' => $title,
+            'description' => $description,
+            'keywords' => $keywords,
+            'image_url' => $article->image_url,
+        ];
     }
 }

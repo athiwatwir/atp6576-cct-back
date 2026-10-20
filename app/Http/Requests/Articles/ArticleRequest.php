@@ -16,10 +16,14 @@ class ArticleRequest extends FormRequest
     {
         $this->merge([
             'excerpt' => $this->filled('excerpt') ? $this->input('excerpt') : null,
+            'seo_title' => $this->filled('seo_title') ? $this->input('seo_title') : null,
+            'seo_description' => $this->filled('seo_description') ? $this->input('seo_description') : null,
+            'seo_keywords' => $this->filled('seo_keywords') ? $this->input('seo_keywords') : null,
             'content' => $this->filled('content') ? $this->input('content') : null,
-            'published_at' => $this->filled('published_at') ? $this->input('published_at') : null,
-            'expired_at' => $this->filled('expired_at') ? $this->input('expired_at') : null,
             'remove_image' => $this->boolean('remove_image'),
+            'course_ids' => array_values(array_filter((array) $this->input('course_ids', []))),
+            'curriculum_ids' => array_values(array_filter((array) $this->input('curriculum_ids', []))),
+            'assessment_ids' => array_values(array_filter((array) $this->input('assessment_ids', []))),
         ]);
     }
 
@@ -31,12 +35,23 @@ class ArticleRequest extends FormRequest
         return [
             'title' => ['required', 'string', 'max:200'],
             'excerpt' => ['nullable', 'string', 'max:500'],
+            'seo_title' => ['nullable', 'string', 'max:200'],
+            'seo_description' => ['nullable', 'string', 'max:500'],
+            'seo_keywords' => ['nullable', 'string', 'max:500'],
             'content' => ['nullable', 'string', 'max:200000'],
             'status' => ['required', Rule::in(['draft', 'published', 'inactive'])],
-            'published_at' => ['nullable', 'date'],
-            'expired_at' => ['nullable', 'date', 'after_or_equal:published_at'],
             'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
             'remove_image' => ['nullable', 'boolean'],
+            'course_ids' => ['nullable', 'array'],
+            'course_ids.*' => ['integer', 'distinct', 'exists:courses,id'],
+            'curriculum_ids' => ['nullable', 'array'],
+            'curriculum_ids.*' => ['integer', 'distinct', 'exists:curriculums,id'],
+            'assessment_ids' => ['nullable', 'array'],
+            'assessment_ids.*' => [
+                'integer',
+                'distinct',
+                Rule::exists('assessments', 'id')->where(fn ($query) => $query->where('type', 'primary_exam')),
+            ],
         ];
     }
 
@@ -48,11 +63,15 @@ class ArticleRequest extends FormRequest
         return [
             'title' => 'หัวข้อ',
             'excerpt' => 'คำเกริ่น',
+            'seo_title' => 'SEO title',
+            'seo_description' => 'SEO description',
+            'seo_keywords' => 'SEO keywords',
             'content' => 'เนื้อหา',
             'status' => 'สถานะ',
-            'published_at' => 'เริ่มเผยแพร่',
-            'expired_at' => 'สิ้นสุด',
             'image' => 'รูปปก',
+            'course_ids' => 'คอร์สที่เกี่ยวข้อง',
+            'curriculum_ids' => 'หลักสูตรที่เกี่ยวข้อง',
+            'assessment_ids' => 'ข้อสอบที่เกี่ยวข้อง',
         ];
     }
 }

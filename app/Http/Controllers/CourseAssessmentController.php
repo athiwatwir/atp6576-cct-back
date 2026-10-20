@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Assessment;
 use App\Models\Course;
 use App\Models\Question;
+use App\Support\MediaStorage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -92,6 +93,7 @@ class CourseAssessmentController extends Controller
 
         $type = $assessment->type;
         $assessment->questions()->each(function (Question $question) {
+            MediaStorage::delete($question->image);
             $question->delete();
         });
         $course->assessments()->detach($assessment->id);

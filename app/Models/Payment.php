@@ -13,9 +13,14 @@ class Payment extends Model
         'payment_method',
         'provider',
         'transaction_id',
+        'reference',
         'amount',
+        'fee_amount',
         'status',
         'paid_at',
+        'expires_at',
+        'failure_code',
+        'failure_message',
         'metadata',
     ];
 
@@ -23,7 +28,9 @@ class Payment extends Model
     {
         return [
             'amount' => 'decimal:2',
+            'fee_amount' => 'decimal:2',
             'paid_at' => 'datetime',
+            'expires_at' => 'datetime',
             'metadata' => 'array',
         ];
     }
@@ -43,11 +50,22 @@ class Payment extends Model
         return $this->hasMany(PaymentSlip::class);
     }
 
+    public function isGateway(): bool
+    {
+        return in_array($this->provider, ['kgp', 'omise', 'fake'], true);
+    }
+
+    public function isExpired(): bool
+    {
+        return $this->expires_at !== null && $this->expires_at->isPast();
+    }
+
     public function sourceLabel(): string
     {
         return match ($this->metadata['channel'] ?? null) {
             'student-admin' => 'สมัครเรียน',
             'storefront' => 'เว็บไซต์',
+            'gateway' => 'ชำระออนไลน์',
             default => 'ออเดอร์',
         };
     }

@@ -4,6 +4,7 @@ namespace App\Http\Resources\Student;
 
 use App\Enums\AccountStatus;
 use App\Support\MediaStorage;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -18,30 +19,33 @@ class StudentResource extends JsonResource
         $this->resource->loadMissing([
             'enrollments' => fn ($query) => $query
                 ->where('status', 'active')
+                ->where(function ($query) {
+                    $query->whereNull('expires_at')->orWhere('expires_at', '>', now());
+                })
                 ->with([
-                    'course:id,name,slug',
-                    'curriculum:id,name,slug',
+                    'course:id,name,slug,thumbnail',
+                    'curriculum:id,name,slug,thumbnail',
+                    'assessment:id,title,slug,thumbnail',
                 ]),
         ]);
 
         $courses = [];
         $curriculums = [];
+        $exams = [];
 
         foreach ($this->enrollments as $enrollment) {
-            if ($enrollment->course_id && $enrollment->course && ! $enrollment->curriculum_id && ! $enrollment->assessment_id) {
-                $courses[] = [
-                    'id' => $enrollment->course->id,
-                    'name' => $enrollment->course->name,
-                    'slug' => $enrollment->course->slug,
-                ];
+            $expiresAt = $enrollment->expires_at?->toIso8601String();
+
+            if ($enrollment->course) {
+                $courses[$enrollment->course->id] = $this->learningItem($enrollment->course, $enrollment->course->name, $expiresAt);
             }
 
-            if ($enrollment->curriculum_id && $enrollment->curriculum && ! $enrollment->course_id && ! $enrollment->assessment_id) {
-                $curriculums[] = [
-                    'id' => $enrollment->curriculum->id,
-                    'name' => $enrollment->curriculum->name,
-                    'slug' => $enrollment->curriculum->slug,
-                ];
+            if ($enrollment->curriculum) {
+                $curriculums[$enrollment->curriculum->id] = $this->learningItem($enrollment->curriculum, $enrollment->curriculum->name, $expiresAt);
+            }
+
+            if ($enrollment->assessment) {
+                $exams[$enrollment->assessment->id] = $this->learningItem($enrollment->assessment, $enrollment->assessment->title, $expiresAt);
             }
         }
 
@@ -58,14 +62,29 @@ class StudentResource extends JsonResource
                 'province' => $this->province,
                 'postal_code' => $this->postal_code,
             ],
-            'avatar_url' => MediaStorage::url($this->avatar),
+            'avatar_url' => MediaStorage::url($this->avatar, $this->updated_at?->getTimestamp()),
             'status' => $this->status,
             'status_label' => AccountStatus::labelFor($this->status),
             'email_verified' => $this->email_verified_at !== null,
             'learning' => [
-                'courses' => $courses,
-                'curriculums' => $curriculums,
+                'courses' => array_values($courses),
+                'curriculums' => array_values($curriculums),
+                'exams' => array_values($exams),
             ],
+        ];
+    }
+
+    /**
+     * @return array{id: int, name: string, slug: string, thumbnail_url: string|null, expires_at: string|null}
+     */
+    private function learningItem(Model $item, string $name, ?string $expiresAt): array
+    {
+        return [
+            'id' => $item->id,
+            'name' => $name,
+            'slug' => $item->slug,
+            'thumbnail_url' => $item->thumbnail_url,
+            'expires_at' => $expiresAt,
         ];
     }
 }

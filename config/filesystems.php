@@ -79,9 +79,9 @@ return [
             'url' => env('R2_URL'),
             'endpoint' => env('R2_ENDPOINT'),
             'use_path_style_endpoint' => env('R2_USE_PATH_STYLE_ENDPOINT', false),
-            'throw' => false,
-            'report' => false,
-            'visibility' => 'public',
+            'throw' => true,
+            'report' => true,
+            // R2 ไม่ใช้ S3 ACL — สาธารณะผ่าน custom domain (R2_URL)
         ],
 
     ],

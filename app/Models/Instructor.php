@@ -39,6 +39,6 @@ class Instructor extends Model
 
     public function getImageUrlAttribute(): ?string
     {
-        return \App\Support\MediaStorage::url($this->image);
+        return \App\Support\MediaStorage::url($this->image, $this->updated_at?->getTimestamp());
     }
 }

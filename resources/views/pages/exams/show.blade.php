@@ -64,10 +64,7 @@ $choiceLabels = ['ก', 'ข', 'ค', 'ง'];
             <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
                 <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">ข้อมูลการขาย</h3>
                 <div class="mt-4 space-y-3 text-sm">
-                    <div class="flex items-center justify-between rounded-lg bg-brand-50 px-3 py-2.5 dark:bg-brand-500/10">
-                        <span class="text-brand-600 dark:text-brand-400">ราคา</span>
-                        <span class="font-semibold text-brand-700 dark:text-brand-300">฿{{ number_format((float) $exam->price, 2) }}</span>
-                    </div>
+                    @include('pages.partials.price-plans-summary', ['plans' => $exam->pricePlans])
                     <div class="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2.5 dark:bg-white/[0.03]">
                         <span class="text-gray-500">คำถาม</span>
                         <span class="font-medium text-gray-800 dark:text-white/90">{{ $exam->questions->count() }} ข้อ</span>

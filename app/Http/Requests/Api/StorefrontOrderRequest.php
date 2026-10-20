@@ -28,9 +28,10 @@ class StorefrontOrderRequest extends FormRequest
     {
         return [
             'items' => ['required', 'array', 'min:1', 'max:30'],
-            'items.*.type' => ['required', Rule::in(['course', 'curriculum', 'book'])],
+            'items.*.type' => ['required', Rule::in(['course', 'curriculum', 'exam', 'book'])],
             'items.*.id' => ['required', 'integer', 'min:1'],
             'items.*.quantity' => ['nullable', 'integer', 'min:1', 'max:99'],
+            'items.*.plan_id' => ['nullable', 'integer', 'min:1'],
             'coupon_code' => ['nullable', 'string', 'max:100'],
             'notes' => ['nullable', 'string', 'max:2000'],
             'shipping' => ['nullable', 'array'],
@@ -55,6 +56,7 @@ class StorefrontOrderRequest extends FormRequest
             'items.*.type' => 'ประเภทสินค้า',
             'items.*.id' => 'รหัสสินค้า',
             'items.*.quantity' => 'จำนวน',
+            'items.*.plan_id' => 'แพ็กเกจราคา',
             'coupon_code' => 'รหัสคูปอง',
             'notes' => 'หมายเหตุ',
             'shipping.name' => 'ชื่อผู้รับ',

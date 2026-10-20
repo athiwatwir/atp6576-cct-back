@@ -6,7 +6,9 @@ use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
 use App\Enums\ShippingStatus;
+use App\Models\PricePlan;
 use App\Support\MediaStorage;
+use App\Support\Receipts;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -55,8 +57,13 @@ class OrderResource extends JsonResource
                 'status' => $payment?->status ?? $this->payment_status,
                 'status_label' => PaymentStatus::tryFrom((string) ($payment?->status ?? $this->payment_status))?->label(),
                 'amount' => (float) ($payment?->amount ?? $this->total_amount),
+                'fee_amount' => (float) ($payment?->fee_amount ?? 0),
                 'paid_at' => $payment?->paid_at?->toIso8601String(),
                 'slip_url' => MediaStorage::url($slip?->file_path),
+                'provider' => $payment?->provider,
+                'reference' => $payment?->reference,
+                'expires_at' => $payment?->expires_at?->toIso8601String(),
+                'failure_message' => $payment?->status === PaymentStatus::Failed->value ? $payment?->failure_message : null,
             ],
             'items' => $this->items->map(fn ($item) => [
                 'type' => $item->metadata['type'] ?? $this->itemType($item),
@@ -65,7 +72,15 @@ class OrderResource extends JsonResource
                 'quantity' => (int) $item->quantity,
                 'unit_price' => (float) $item->unit_price,
                 'total_price' => (float) $item->total_price,
+                'plan' => $item->product_id === null ? [
+                    'id' => $item->price_plan_id,
+                    'name' => $item->metadata['plan_name'] ?? PricePlan::durationLabel($item->access_days),
+                    'duration_days' => $item->access_days,
+                ] : null,
             ])->values(),
+            'receipt' => $this->payment_status === PaymentStatus::Paid->value
+                ? app(Receipts::class)->payload($this->receipt ?? app(Receipts::class)->issue($this->resource))
+                : null,
             'created_at' => $this->created_at?->toIso8601String(),
             'paid_at' => $this->paid_at?->toIso8601String(),
         ];

@@ -28,8 +28,18 @@ exams/{exam_id}/questions/{question_id}.webp
 books/{book_id}/{book_id}.webp
 books/{book_id}/gallery/{uuid}.webp
 books/{book_id}/video/{book_id}.{ext}
+testimonials/{testimonial_id}/{testimonial_id}.webp
+banners/{content_id}/{content_id}.webp
+articles/{content_id}/{content_id}.webp     # รูปปกบทความ
+articles/body/{uuid}.webp                   # รูปในเนื้อหาบทความ (GIF เก็บไฟล์เดิม .gif)
+avatars/{user_id}/{user_id}.webp            # รูปโปรไฟล์นักเรียนจาก API
+payments/{order_id}/slips/{uuid}.{ext}      # สลิปโอนเงิน เก็บไฟล์เดิม (รองรับ PDF)
 documents/{course_id}/{chapter_id}/...   # เอกสารยังใช้ local public ตามเดิม
 ```
+
+รูปทุกชนิดที่อัปโหลดผ่านแอดมินหรือ API แปลงเป็น WebP ก่อนเก็บ ยกเว้น GIF ในเนื้อหาบทความ (เก็บเดิมเพื่อให้ภาพเคลื่อนไหวยังเล่นได้) และสลิปโอนเงิน (เป็นหลักฐาน และรับ PDF) รูปที่ใช้ path คงที่ (เช่น `banners/{id}/{id}.webp`) ต่อท้าย URL ด้วย `?v={updated_at}` เพื่อให้ CDN ไม่แสดงรูปเก่าหลังเปลี่ยนรูป
+
+แบนเนอร์และบทความที่อัปโหลดก่อนวันที่ 19 ต.ค. 2026 เคยเก็บเป็นไฟล์เดิม (`banners/{id}/{uuid}.png` ฯลฯ) ระบบแปลงรายการที่ยังใช้งาน (#11–#14) เป็น WebP แล้ว ไฟล์เดิมยังอยู่บน R2 ลบได้เมื่อแน่ใจว่าไม่ต้องย้อนกลับ
 
 ## API ที่เรียกใช้ได้ทั้งโปรเจค
 
@@ -46,7 +56,11 @@ documents/{course_id}/{chapter_id}/...   # เอกสารยังใช้ 
 | `MediaStorage::storeBookImage($file, $bookId)` | แปลง WebP + อัปโหลดรูปเพิ่มเติมของหนังสือ |
 | `MediaStorage::storeBookVideo($file, $bookId)` | อัปโหลดวิดีโอของหนังสือ (มีได้หนึ่งไฟล์) |
 | `MediaStorage::storeCourseVideo($file, $courseId, $chapterId, $videoId)` | อัปโหลดวิดีโอบทเรียน (ชื่อ = video_id) |
-| `MediaStorage::url($path)` | สร้าง public URL |
+| `MediaStorage::storeTestimonialCover($file, $testimonialId)` | แปลง WebP + อัปโหลดหน้าปกรีวิว |
+| `MediaStorage::storeContentImage($file, $type, $contentId)` | แปลง WebP + อัปโหลดรูปแบนเนอร์ / ปกบทความ (`banners/{id}/{id}.webp`, `articles/{id}/{id}.webp`) |
+| `MediaStorage::storeAvatar($file, $userId)` | แปลง WebP + อัปโหลดรูปโปรไฟล์ |
+| `MediaStorage::storeImage($file, $directory)` | รูปทั่วไปชื่อ UUID แปลง WebP ยกเว้น GIF |
+| `MediaStorage::url($path, $version = null)` | สร้าง public URL ใส่ `$version` (เช่น timestamp ของ `updated_at`) เพื่อต่อท้าย `?v=` |
 | `MediaStorage::delete($path)` | ลบไฟล์ |
 
 ## ตัวอย่างการใช้งาน
@@ -102,7 +116,7 @@ $path = MediaStorage::storeExamThumbnail(
 
 ### รูปประกอบคำถามข้อสอบ
 
-หนึ่งคำถามมีได้หนึ่งรูป เก็บที่ `questions.image` ฟอร์มเพิ่มและแก้ไขคำถามในหน้าข้อสอบขายแยกอัปโหลดไฟล์นี้ รับ JPG/PNG/WebP/GIF สูงสุด 4MB แล้วแปลงเป็น WebP อัปโหลดใหม่ทับ path เดิม ลบคำถามหรือลบข้อสอบจะลบไฟล์ด้วย
+หนึ่งคำถามมีได้หนึ่งรูป เก็บที่ `questions.image` ฟอร์มเพิ่มและแก้ไขคำถามของข้อสอบขายแยก ข้อสอบในคอร์ส และแบบฝึกหัดในคอร์สอัปโหลดไฟล์นี้ รับ JPG/PNG/WebP/GIF สูงสุด 4MB แล้วแปลงเป็น WebP อัปโหลดใหม่ทับ path เดิม ลบคำถาม ลบข้อสอบ หรือลบแบบทดสอบในคอร์สจะลบไฟล์ด้วย
 
 ```php
 $path = MediaStorage::storeQuestionImage(
@@ -126,9 +140,13 @@ API นักเรียนยังไม่ส่งรูปคำถาม 
 ### แสดง URL / ลบไฟล์
 
 ```php
-$url = MediaStorage::url($course->thumbnail);
+$url = MediaStorage::url($course->thumbnail, $course->updated_at?->getTimestamp());
 MediaStorage::delete($course->thumbnail);
 ```
+
+URL จาก model เช่น `thumbnail_url` ใส่ `?v={updated_at}` ให้แล้ว เพื่อไม่ให้ CDN/เบราว์เซอร์ค้างไฟล์หรือ 404 เก่าเมื่ออัปโหลดทับ path เดิม
+
+ดิสก์ `r2` ตั้ง `throw` เป็นจริง ถ้าอัปโหลดไม่สำเร็จระบบจะแจ้ง error แทนการบันทึก path ว่างเปล่า
 
 ## หมายเหตุ
 
@@ -137,6 +155,8 @@ MediaStorage::delete($course->thumbnail);
 - รูปคำถามข้อสอบและรูปเพิ่มเติมของหนังสือ: สูงสุด 4MB แล้วแปลงเป็น WebP
 - อัปเดตรูปปกจะทับไฟล์เดิมที่ path เดิม (`{id}.webp`)
 - ถ้า R2 ยังไม่ครบ จะใช้ disk `public` แทนอัตโนมัติ
+- บน Windows ต้องตั้ง `curl.cainfo` / `openssl.cafile` ใน `php.ini` ไม่เช่นนั้นอัปโหลด R2 จะล้มเหลวด้วย SSL และต้องรีสตาร์ท `php artisan serve` หลังแก้ `php.ini`
+- อัปโหลดขึ้น R2 ไม่ส่ง S3 ACL เพราะ R2 ไม่รองรับ การเปิดสาธารณะใช้ custom domain (`R2_URL`)
 - วิดีโอ: validation สูงสุด 500MB — ต้องตั้ง PHP ให้รองรับด้วย เช่น
   - `upload_max_filesize=512M`
   - `post_max_size=520M`

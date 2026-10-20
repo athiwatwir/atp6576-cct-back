@@ -13,6 +13,7 @@ class MailService
      * Generic send for reuse across the whole system.
      *
      * @param  array<string, mixed>  $data
+     * @param  list<array{name: string, mime: string, data: string}>  $attachments  ไฟล์แนบเป็น binary
      */
     public function send(
         MailAudience $audience,
@@ -21,6 +22,7 @@ class MailService
         string $view,
         array $data = [],
         bool $queue = true,
+        array $attachments = [],
     ): void {
         [$email, $name] = $this->resolveRecipient($to);
 
@@ -33,6 +35,11 @@ class MailService
                 'email' => $email,
             ]),
             recipientName: $name,
+            files: array_map(fn (array $file) => [
+                'name' => $file['name'],
+                'mime' => $file['mime'],
+                'content' => base64_encode($file['data']),
+            ], $attachments),
         );
 
         $pending = Mail::to($email, $name);
@@ -72,14 +79,18 @@ class MailService
     /**
      * @param  array<string, mixed>  $data
      */
+    /**
+     * @param  list<array{name: string, mime: string, data: string}>  $attachments
+     */
     public function sendCustomer(
         User|string $to,
         string $subject,
         string $view,
         array $data = [],
         bool $queue = true,
+        array $attachments = [],
     ): void {
-        $this->send(MailAudience::Customer, $to, $subject, $view, $data, $queue);
+        $this->send(MailAudience::Customer, $to, $subject, $view, $data, $queue, $attachments);
     }
 
     public function sendStaffPassword(
@@ -150,6 +161,11 @@ class MailService
         \App\Models\Order $order,
         ?string $password = null,
         bool $queue = true,
+        ?float $amount = null,
+        ?string $actionUrl = null,
+        ?string $actionText = null,
+        ?\App\Models\Receipt $receipt = null,
+        ?string $receiptPdf = null,
     ): void {
         $items = $order->items->pluck('item_name')->filter()->values()->all();
 
@@ -159,13 +175,18 @@ class MailService
             view: 'emails.customer.purchase',
             data: [
                 'orderNo' => $order->order_no,
-                'amount' => '฿'.number_format((float) $order->total_amount, 2),
+                'amount' => '฿'.number_format($amount ?? (float) $order->total_amount, 2),
                 'items' => $items,
                 'password' => $password,
-                'actionUrl' => config('app.url'),
-                'actionText' => 'เริ่มเรียนเลย',
+                'isBook' => $order->isBook(),
+                'receiptNo' => $receipt?->receipt_no,
+                'actionUrl' => $actionUrl ?? config('app.url'),
+                'actionText' => $actionText ?? 'เริ่มเรียนเลย',
             ],
             queue: $queue,
+            attachments: $receipt && $receiptPdf !== null
+                ? [['name' => $receipt->filename(), 'mime' => 'application/pdf', 'data' => $receiptPdf]]
+                : [],
         );
     }
 

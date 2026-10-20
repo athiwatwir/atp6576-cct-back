@@ -15,6 +15,8 @@ use App\Models\Enrollment;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\User;
+use App\Models\VideoProgress;
+use App\Support\PricePlans;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -58,18 +60,19 @@ class CatalogController extends Controller
 
         $rows = collect($paginator->items());
         $courses = Course::query()
-            ->with(['category:id,name,slug', 'subject:id,name,slug', 'instructor:id,name,slug'])
+            ->with(['category:id,name,slug', 'subject:id,name,slug', 'instructor:id,name,slug', 'activePricePlans'])
             ->withCount('chapters')
             ->whereIn('id', $rows->where('item_type', 'course')->pluck('id'))
             ->get()
             ->keyBy('id');
         $curriculums = Curriculum::query()
-            ->with(['category:id,name,slug'])
+            ->with(['category:id,name,slug', 'activePricePlans'])
             ->withCount('courses')
             ->whereIn('id', $rows->where('item_type', 'curriculum')->pluck('id'))
             ->get()
             ->keyBy('id');
         $exams = Assessment::query()
+            ->with('activePricePlans')
             ->whereIn('id', $rows->where('item_type', 'exam')->pluck('id'))
             ->get()
             ->keyBy('id');
@@ -91,7 +94,16 @@ class CatalogController extends Controller
         $this->rememberPurchases($request);
 
         $course = Course::query()
-            ->with(['category:id,name,slug', 'subject:id,name,slug', 'instructor:id,name,slug'])
+            ->with([
+                'category:id,name,slug',
+                'subject:id,name,slug',
+                'instructor:id,name,slug',
+                'chapters' => fn ($query) => $query->orderBy('seq'),
+                'chapters.videos',
+                'chapters.documents',
+                'assessments' => fn ($query) => $query->withCount('questions'),
+                'activePricePlans',
+            ])
             ->withCount('chapters')
             ->where('status', 'published')
             ->where('slug', $slug)
@@ -100,6 +112,20 @@ class CatalogController extends Controller
         if (! $course) {
             abort(404, 'ไม่พบคอร์สนี้');
         }
+
+        $user = $request->user() ?? auth('sanctum')->user();
+        $videoIds = $course->chapters->flatMap(fn ($chapter) => $chapter->videos->pluck('id'))->unique()->values();
+        $progress = collect();
+
+        if ($user && $videoIds->isNotEmpty()) {
+            $progress = VideoProgress::query()
+                ->where('user_id', $user->id)
+                ->whereIn('video_id', $videoIds)
+                ->get()
+                ->keyBy('video_id');
+        }
+
+        $request->attributes->set('video_progress', $progress);
 
         return CourseResource::make($course);
     }
@@ -114,6 +140,7 @@ class CatalogController extends Controller
                 'courses' => fn ($query) => $query
                     ->where('courses.status', 'published')
                     ->select('courses.id', 'courses.name', 'courses.slug', 'courses.thumbnail'),
+                'activePricePlans',
             ])
             ->withCount('courses')
             ->where('status', 'published')
@@ -133,6 +160,7 @@ class CatalogController extends Controller
 
         $exam = Assessment::query()
             ->forSale()
+            ->with('activePricePlans')
             ->withCount('questions')
             ->where('slug', $slug)
             ->first();
@@ -243,8 +271,10 @@ class CatalogController extends Controller
             'price' => (float) $course->price,
             'sale_price' => $course->sale_price !== null ? (float) $course->sale_price : null,
             'effective_price' => $course->effective_price,
+            'price_plans' => PricePlans::payload($course),
             'is_featured' => (bool) $course->is_featured,
             'purchased' => in_array($course->id, $request->attributes->get('purchased_course_ids', []), true),
+            'access_expires_at' => $request->attributes->get('access_expires', [])['course'][$course->id] ?? null,
             'category' => $this->categoryCard($course->category),
             'subject' => $course->subject ? [
                 'id' => $course->subject->id,
@@ -283,8 +313,10 @@ class CatalogController extends Controller
             'price' => (float) $curriculum->price,
             'sale_price' => $curriculum->sale_price !== null ? (float) $curriculum->sale_price : null,
             'effective_price' => $curriculum->effective_price,
+            'price_plans' => PricePlans::payload($curriculum),
             'is_featured' => (bool) $curriculum->is_featured,
             'purchased' => in_array($curriculum->id, $request->attributes->get('purchased_curriculum_ids', []), true),
+            'access_expires_at' => $request->attributes->get('access_expires', [])['curriculum'][$curriculum->id] ?? null,
             'category' => $this->categoryCard($curriculum->category),
             'subject' => null,
             'instructor' => null,
@@ -315,8 +347,10 @@ class CatalogController extends Controller
             'price' => (float) $exam->price,
             'sale_price' => null,
             'effective_price' => $exam->effective_price,
+            'price_plans' => PricePlans::payload($exam),
             'is_featured' => false,
             'purchased' => in_array($exam->id, $request->attributes->get('purchased_exam_ids', []), true),
+            'access_expires_at' => $request->attributes->get('access_expires', [])['exam'][$exam->id] ?? null,
             'category' => null,
             'subject' => null,
             'instructor' => null,
@@ -356,29 +390,24 @@ class CatalogController extends Controller
             return;
         }
 
-        $request->attributes->set('purchased_course_ids', Enrollment::query()
+        $active = Enrollment::query()
             ->where('user_id', $user->id)
             ->where('status', 'active')
-            ->whereNotNull('course_id')
-            ->pluck('course_id')
-            ->map(fn ($id) => (int) $id)
-            ->all());
+            ->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+            ->get(['course_id', 'curriculum_id', 'assessment_id', 'expires_at']);
 
-        $request->attributes->set('purchased_curriculum_ids', Enrollment::query()
-            ->where('user_id', $user->id)
-            ->where('status', 'active')
-            ->whereNotNull('curriculum_id')
-            ->pluck('curriculum_id')
-            ->map(fn ($id) => (int) $id)
-            ->all());
+        $expires = ['course' => [], 'curriculum' => [], 'exam' => []];
 
-        $request->attributes->set('purchased_exam_ids', Enrollment::query()
-            ->where('user_id', $user->id)
-            ->where('status', 'active')
-            ->whereNotNull('assessment_id')
-            ->pluck('assessment_id')
-            ->map(fn ($id) => (int) $id)
-            ->all());
+        foreach ([['course', 'course_id'], ['curriculum', 'curriculum_id'], ['exam', 'assessment_id']] as [$type, $column]) {
+            foreach ($active->whereNotNull($column) as $enrollment) {
+                $expires[$type][(int) $enrollment->{$column}] = $enrollment->expires_at?->toIso8601String();
+            }
+        }
+
+        $request->attributes->set('access_expires', $expires);
+        $request->attributes->set('purchased_course_ids', array_keys($expires['course']));
+        $request->attributes->set('purchased_curriculum_ids', array_keys($expires['curriculum']));
+        $request->attributes->set('purchased_exam_ids', array_keys($expires['exam']));
 
         $request->attributes->set('purchased_book_ids', OrderItem::query()
             ->whereNotNull('product_id')

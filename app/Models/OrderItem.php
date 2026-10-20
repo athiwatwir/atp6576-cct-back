@@ -13,6 +13,8 @@ class OrderItem extends Model
         'course_id',
         'curriculum_id',
         'assessment_id',
+        'price_plan_id',
+        'access_days',
         'item_name',
         'quantity',
         'unit_price',
@@ -24,6 +26,7 @@ class OrderItem extends Model
     {
         return [
             'quantity' => 'integer',
+            'access_days' => 'integer',
             'unit_price' => 'decimal:2',
             'total_price' => 'decimal:2',
             'metadata' => 'array',
@@ -53,5 +56,10 @@ class OrderItem extends Model
     public function assessment(): BelongsTo
     {
         return $this->belongsTo(Assessment::class);
+    }
+
+    public function pricePlan(): BelongsTo
+    {
+        return $this->belongsTo(PricePlan::class);
     }
 }

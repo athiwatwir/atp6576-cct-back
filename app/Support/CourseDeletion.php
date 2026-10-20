@@ -228,6 +228,7 @@ class CourseDeletion
             foreach ($assessments as $assessment) {
                 /** @var Assessment $assessment */
                 $assessment->questions()->each(function (Question $question) {
+                    MediaStorage::delete($question->image);
                     $question->choices()->delete();
                     $question->delete();
                 });
