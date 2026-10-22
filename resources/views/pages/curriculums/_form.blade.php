@@ -16,7 +16,7 @@
     </div>
 
     <div>
-        <label for="category_id" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">หมวดหมู่</label>
+        <label for="category_id" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">ระดับชั้น</label>
         <select id="category_id" name="category_id" class="{{ $inputClass }}">
             <option value="">ไม่ระบุ</option>
             @foreach ($categories as $category)

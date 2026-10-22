@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * แพ็กเกจราคาของคอร์ส หลักสูตร และข้อสอบขายแยก
+ * แพ็กเกจราคาของวิชา หลักสูตร และข้อสอบขายแยก
  * คอลัมน์ price / sale_price ของรายการหลักเก็บราคาของแพ็กเกจที่ถูกที่สุดไว้แสดงในรายการ
  */
 class PricePlans

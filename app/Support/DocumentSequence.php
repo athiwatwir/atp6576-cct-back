@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 class DocumentSequence
 {
     /**
-     * รหัสคอร์ส: C{dayOfYear}{seq2} เช่น C26901
+     * รหัสวิชา: C{dayOfYear}{seq2} เช่น C26901
      */
     public static function nextCourse(?CarbonInterface $at = null): string
     {

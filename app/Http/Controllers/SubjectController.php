@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Subjects\StoreSubjectRequest;
 use App\Http\Requests\Subjects\UpdateSubjectRequest;
+use App\Models\Category;
 use App\Models\Subject;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -18,6 +20,7 @@ class SubjectController extends Controller
         $status = $request->string('status')->toString();
 
         $subjects = Subject::query()
+            ->with('category:id,name')
             ->withCount('courses')
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($inner) use ($search) {
@@ -44,6 +47,7 @@ class SubjectController extends Controller
     {
         return view('pages.subjects.create', [
             'title' => 'เพิ่มชนิดวิชา',
+            'categories' => $this->categories(),
         ]);
     }
 
@@ -64,6 +68,7 @@ class SubjectController extends Controller
         return view('pages.subjects.edit', [
             'title' => 'แก้ไขชนิดวิชา',
             'subject' => $subject,
+            'categories' => $this->categories($subject->category_id),
         ]);
     }
 
@@ -87,7 +92,7 @@ class SubjectController extends Controller
         if ($subject->courses()->exists()) {
             return redirect()
                 ->route('subjects.index')
-                ->with('error', 'ไม่สามารถลบชนิดวิชาที่มีคอร์สผูกอยู่ได้');
+                ->with('error', 'ไม่สามารถลบชนิดวิชาที่มีวิชาผูกอยู่ได้');
         }
 
         $subject->delete();
@@ -95,6 +100,20 @@ class SubjectController extends Controller
         return redirect()
             ->route('subjects.index')
             ->with('success', 'ลบชนิดวิชาเรียบร้อยแล้ว');
+    }
+
+    /**
+     * @return Collection<int, Category>
+     */
+    private function categories(?int $currentId = null): Collection
+    {
+        return Category::query()
+            ->where(fn ($query) => $query
+                ->where('status', 'active')
+                ->when($currentId, fn ($inner) => $inner->orWhere('id', $currentId)))
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get(['id', 'name', 'status']);
     }
 
     private function uniqueSlug(string $value, ?int $ignoreId = null): string

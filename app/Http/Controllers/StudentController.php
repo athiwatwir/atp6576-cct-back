@@ -84,7 +84,7 @@ class StudentController extends Controller
 
         return redirect()
             ->route('students.orders.create', $student)
-            ->with('success', 'สร้างนักเรียนแล้ว เลือกคอร์ส หลักสูตร หรือข้อสอบ แล้วไปขั้นตอนชำระเงิน');
+            ->with('success', 'สร้างนักเรียนแล้ว เลือกวิชา หลักสูตร หรือข้อสอบ แล้วไปขั้นตอนชำระเงิน');
     }
 
     public function show(User $student): View

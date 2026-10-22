@@ -19,7 +19,7 @@
         <div class="flex flex-col gap-4 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
             <div>
                 <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">รายการหลักสูตร</h3>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">แพ็กเกจที่รวมคอร์ส บทเรียน วิดีโอ ข้อสอบ แบบฝึกหัด และหนังสือ</p>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">แพ็กเกจที่รวมวิชา บทเรียน วิดีโอ ข้อสอบ แบบฝึกหัด และหนังสือ</p>
             </div>
             <a href="{{ route('curriculums.create') }}"
                 class="bg-brand-500 shadow-theme-xs hover:bg-brand-600 inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium text-white">
@@ -79,12 +79,12 @@
                                         @if ($curriculum->short_description)
                                             <div class="mt-0.5 line-clamp-1 text-sm text-gray-500 dark:text-gray-400">{{ $curriculum->short_description }}</div>
                                         @endif
-                                        <div class="mt-1 text-[11px] text-gray-400">{{ $curriculum->category?->name ?? 'ไม่มีหมวดหมู่' }}</div>
+                                        <div class="mt-1 text-[11px] text-gray-400">{{ $curriculum->category?->name ?? 'ไม่มีระดับชั้น' }}</div>
                                     </div>
                                 </div>
                             </td>
                             <td class="px-5 py-4 text-xs text-gray-600 dark:text-gray-400">
-                                <div>คอร์ส {{ $curriculum->courses_count }} · บท {{ $curriculum->chapters_count }} · วิดีโอ {{ $curriculum->videos_count }}</div>
+                                <div>วิชา {{ $curriculum->courses_count }} · บท {{ $curriculum->chapters_count }} · วิดีโอ {{ $curriculum->videos_count }}</div>
                                 <div class="mt-1">ข้อสอบ {{ $curriculum->exams_count }} · แบบฝึกหัด {{ $curriculum->exercises_count }}</div>
                             </td>
                             <td class="px-5 py-4 text-sm text-gray-800 dark:text-white/90">

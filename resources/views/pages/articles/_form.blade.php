@@ -105,10 +105,10 @@
 
     <div class="md:col-span-2 rounded-xl border border-gray-200 p-4 dark:border-gray-800">
         <h4 class="text-sm font-semibold text-gray-800 dark:text-white/90">รายการที่เกี่ยวข้อง</h4>
-        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">เลือกคอร์ส หลักสูตร หรือข้อสอบขายแยกได้หลายรายการ เพื่อแสดงลิงก์ในหน้ารายละเอียดบทความบนเว็บนักเรียน กด Ctrl (หรือ Cmd) ค้างเพื่อเลือกหลายรายการ</p>
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">เลือกวิชา หลักสูตร หรือข้อสอบขายแยกได้หลายรายการ เพื่อแสดงลิงก์ในหน้ารายละเอียดบทความบนเว็บนักเรียน กด Ctrl (หรือ Cmd) ค้างเพื่อเลือกหลายรายการ</p>
         <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
             <div>
-                <label for="course_ids" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">คอร์ส</label>
+                <label for="course_ids" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">วิชา</label>
                 <select id="course_ids" name="course_ids[]" multiple class="{{ $inputClass }} h-40">
                     @foreach ($courses as $course)
                         <option value="{{ $course->id }}" @selected(in_array((string) $course->id, $selectedCourses, true))>{{ $course->name }}</option>

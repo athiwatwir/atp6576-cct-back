@@ -110,7 +110,7 @@ class CatalogController extends Controller
             ->first();
 
         if (! $course) {
-            abort(404, 'ไม่พบคอร์สนี้');
+            abort(404, 'ไม่พบวิชานี้');
         }
 
         $user = $request->user() ?? auth('sanctum')->user();

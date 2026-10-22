@@ -38,7 +38,7 @@
         @forelse ($coupons as $coupon)
         @php
             $targets = collect()
-                ->merge($coupon->courses->map(fn ($item) => 'คอร์ส '.$item->name))
+                ->merge($coupon->courses->map(fn ($item) => 'วิชา '.$item->name))
                 ->merge($coupon->curriculums->map(fn ($item) => 'หลักสูตร '.$item->name))
                 ->merge($coupon->assessments->map(fn ($item) => 'ข้อสอบ '.$item->title))
                 ->merge($coupon->products->map(fn ($item) => 'หนังสือ '.$item->name));

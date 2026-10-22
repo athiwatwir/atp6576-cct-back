@@ -1,6 +1,6 @@
 <div x-show="tab === 'overview'" x-cloak class="space-y-5">
     <div>
-        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">ภาพรวมคอร์ส</h3>
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">ภาพรวมวิชา</h3>
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">สรุปรายละเอียดและโครงสร้างเนื้อหา</p>
     </div>
 

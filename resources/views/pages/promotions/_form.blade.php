@@ -93,7 +93,7 @@
 
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
-            <label for="required_course_ids" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">ต้องเคยซื้อคอร์ส</label>
+            <label for="required_course_ids" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">ต้องเคยซื้อวิชา</label>
             <select id="required_course_ids" name="required_course_ids[]" multiple class="{{ $inputClass }} h-36">
                 @foreach ($courses as $course)
                     <option value="{{ $course->id }}" @selected(in_array((string) $course->id, $selectedRequiredCourses, true))>{{ $course->name }}</option>
@@ -110,7 +110,7 @@
             <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">ไม่เลือกทั้งสองช่อง เท่ากับไม่บังคับว่าต้องเคยซื้อ</p>
         </div>
         <div>
-            <label for="gift_course_ids" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">ซื้อคอร์สนี้</label>
+            <label for="gift_course_ids" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">ซื้อวิชานี้</label>
             <select id="gift_course_ids" name="gift_course_ids[]" multiple class="{{ $inputClass }} h-36">
                 @foreach ($courses as $course)
                     <option value="{{ $course->id }}" @selected(in_array((string) $course->id, $selectedGiftCourses, true))>{{ $course->name }}</option>
@@ -152,7 +152,7 @@
     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">ไม่เลือกเลย เท่ากับใช้ได้กับทุกรายการในออเดอร์ ถ้าเลือกอย่างน้อย 1 รายการ ส่วนลดจะคิดเฉพาะรายการที่เลือก</p>
     <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
-            <label for="course_ids" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">คอร์ส</label>
+            <label for="course_ids" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">วิชา</label>
             <select id="course_ids" name="course_ids[]" multiple class="{{ $inputClass }} h-40">
                 @foreach ($courses as $course)
                     <option value="{{ $course->id }}" @selected(in_array((string) $course->id, $selectedCourses, true))>{{ $course->name }}</option>

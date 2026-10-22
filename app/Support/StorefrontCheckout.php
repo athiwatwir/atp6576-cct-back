@@ -227,7 +227,7 @@ class StorefrontCheckout
                 $course = Course::query()->with('activePricePlans')->where('status', 'published')->find($item['id']);
                 if (! $course) {
                     throw ValidationException::withMessages([
-                        'items' => 'มีคอร์สที่ยังไม่เปิดขายหรือไม่พบในระบบ',
+                        'items' => 'มีวิชาที่ยังไม่เปิดขายหรือไม่พบในระบบ',
                     ]);
                 }
 

@@ -31,7 +31,7 @@ class CourseController extends Controller
         $categoryId = $request->integer('category_id') ?: null;
 
         $courses = Course::query()
-            ->with(['subject', 'category', 'instructor'])
+            ->with(['subject:id,name', 'category:id,name'])
             ->withCount(['chapters', 'activePricePlans as plans_count'])
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($inner) use ($search) {
@@ -49,7 +49,7 @@ class CourseController extends Controller
             ->withQueryString();
 
         return view('pages.courses.index', [
-            'title' => 'คอร์ส',
+            'title' => 'วิชา',
             'courses' => $courses,
             'subjects' => $this->subjects(),
             'categories' => $this->categories(),
@@ -65,7 +65,7 @@ class CourseController extends Controller
     public function create(): View
     {
         return view('pages.courses.create', [
-            'title' => 'เพิ่มคอร์ส',
+            'title' => 'เพิ่มวิชา',
             'subjects' => $this->subjects(),
             'categories' => $this->categories(),
             'instructors' => $this->instructors(),
@@ -94,7 +94,7 @@ class CourseController extends Controller
 
         return redirect()
             ->route('courses.show', $course)
-            ->with('success', 'เพิ่มคอร์สเรียบร้อยแล้ว');
+            ->with('success', 'เพิ่มวิชาเรียบร้อยแล้ว');
     }
 
     public function show(Request $request, Course $course): View
@@ -143,10 +143,10 @@ class CourseController extends Controller
     public function edit(Course $course): View
     {
         return view('pages.courses.edit', [
-            'title' => 'แก้ไขคอร์ส',
+            'title' => 'แก้ไขวิชา',
             'course' => $course,
             'subjects' => $this->subjects(),
-            'categories' => $this->categories(),
+            'categories' => $this->categories($course->category_id),
             'instructors' => $this->instructors(),
         ]);
     }
@@ -186,7 +186,7 @@ class CourseController extends Controller
 
         return redirect()
             ->route('courses.show', $course)
-            ->with('success', 'บันทึกข้อมูลคอร์สเรียบร้อยแล้ว');
+            ->with('success', 'บันทึกข้อมูลวิชาเรียบร้อยแล้ว');
     }
 
     public function updateStatus(Request $request, Course $course): RedirectResponse
@@ -205,7 +205,7 @@ class CourseController extends Controller
 
         return redirect()
             ->route('courses.show', $course)
-            ->with('success', 'อัปเดตสถานะคอร์สเรียบร้อยแล้ว');
+            ->with('success', 'อัปเดตสถานะวิชาเรียบร้อยแล้ว');
     }
 
     public function deletionSummary(Course $course): JsonResponse
@@ -245,14 +245,14 @@ class CourseController extends Controller
         if ($course->enrollments()->exists()) {
             return redirect()
                 ->route('courses.index')
-                ->with('error', 'ไม่สามารถลบคอร์สที่มีผู้เรียนลงทะเบียนอยู่ได้');
+                ->with('error', 'ไม่สามารถลบวิชาที่มีผู้เรียนลงทะเบียนอยู่ได้');
         }
 
         $course->delete();
 
         return redirect()
             ->route('courses.index')
-            ->with('success', 'ลบคอร์สเรียบร้อยแล้ว');
+            ->with('success', 'ลบวิชาเรียบร้อยแล้ว');
     }
 
     /**
@@ -283,10 +283,12 @@ class CourseController extends Controller
     /**
      * @return Collection<int, Category>
      */
-    private function categories()
+    private function categories(?int $currentId = null)
     {
         return Category::query()
-            ->where('status', 'active')
+            ->where(fn ($query) => $query
+                ->where('status', 'active')
+                ->when($currentId, fn ($inner) => $inner->orWhere('id', $currentId)))
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();

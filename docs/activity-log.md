@@ -74,14 +74,14 @@ class Course extends Model
 
     public function getAuditLabel(): string
     {
-        return 'คอร์ส '.$this->code.' '.$this->name;
+        return 'วิชา '.$this->code.' '.$this->name;
     }
 }
 ```
 
 โมเดลที่เปิดใช้แล้ว:
 
-- `Course`, `Order`, `Product`, `Assessment`, `Instructor`, `Subject`, `User`
+- `Course`, `Order`, `Product`, `Assessment`, `Instructor`, `Subject`, `Category`, `User`
 
 ### 3) ปิด log ชั่วคราว / จัดกลุ่ม batch
 
@@ -103,7 +103,7 @@ Audit::batch(function () use ($course) {
 
 ```blade
 {{-- ดึง log ของ entity อัตโนมัติ --}}
-<x-common.activity-logs :entity="$course" :limit="8" title="ประวัติการแก้ไขคอร์ส" />
+<x-common.activity-logs :entity="$course" :limit="8" title="ประวัติการแก้ไขวิชา" />
 
 {{-- หรือส่ง collection เอง --}}
 <x-common.activity-logs :logs="$logs" :show-link="false" />
@@ -126,7 +126,7 @@ Audit::batch(function () use ($course) {
 
 | ตัวอย่าง | ความหมาย |
 |----------|----------|
-| `course.created` | สร้างคอร์ส (จาก trait) |
+| `course.created` | สร้างวิชา (จาก trait) |
 | `order.updated` | แก้้ออเดอร์ (จาก trait) |
 | `order.shipping_status_updated` | อัปเดตสถานะจัดส่ง (manual) |
 | `order.tracking_updated` | บันทึกพัสดุ (manual) |

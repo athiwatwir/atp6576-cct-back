@@ -77,7 +77,7 @@ $selectedBooks = array_map('strval', old('product_ids', $coupon?->products->pluc
     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">ไม่เลือกเลย เท่ากับใช้ได้กับทุกรายการในออเดอร์ ถ้าเลือกอย่างน้อย 1 รายการ ส่วนลดจะคิดเฉพาะรายการที่เลือก</p>
     <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
-            <label for="course_ids" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">คอร์ส</label>
+            <label for="course_ids" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">วิชา</label>
             <select id="course_ids" name="course_ids[]" multiple class="{{ $inputClass }} h-40">
                 @foreach ($courses as $course)
                 <option value="{{ $course->id }}" @selected(in_array((string) $course->id, $selectedCourses, true))>{{ $course->name }}</option>

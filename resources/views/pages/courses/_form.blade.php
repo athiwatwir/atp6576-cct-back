@@ -6,7 +6,7 @@ $course = $course ?? null;
 <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
     <div class="md:col-span-2">
         <label for="name" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-            ชื่อคอร์ส<span class="text-error-500">*</span>
+            ชื่อวิชา<span class="text-error-500">*</span>
         </label>
         <input type="text" id="name" name="name" value="{{ old('name', $course?->name) }}" required class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
         @error('name')
@@ -16,7 +16,7 @@ $course = $course ?? null;
 
     <div>
         <label for="subject_id" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-            วิชา
+            ชนิดวิชา
         </label>
         <select id="subject_id" name="subject_id" class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
             <option value="">ไม่ระบุ</option>
@@ -33,10 +33,10 @@ $course = $course ?? null;
 
     <div>
         <label for="category_id" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-            หมวดหมู่
+            ระดับชั้น
         </label>
         <select id="category_id" name="category_id" class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-            <option value="">ไม่ระบุ / ตามวิชา</option>
+            <option value="">ไม่ระบุ / ตามชนิดวิชา</option>
             @foreach ($categories as $category)
             <option value="{{ $category->id }}" @selected((int) old('category_id', $course?->category_id) === $category->id)>
                 {{ $category->name }}
@@ -118,7 +118,7 @@ $course = $course ?? null;
 
     <div class="md:col-span-2">
         <label for="thumbnail" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-            รูปปกคอร์ส
+            รูปปกวิชา
         </label>
         <input type="file" id="thumbnail" name="thumbnail" accept="image/*" class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 block w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
         <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">รองรับ JPG/PNG/WebP/GIF ไม่เกิน 2MB — ระบบจะแปลงเป็น WebP อัตโนมัติก่อนอัปโหลด</p>
@@ -161,7 +161,7 @@ $course = $course ?? null;
         <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
             <input type="checkbox" name="is_featured" value="1" @checked(old('is_featured', $course?->is_featured))
             class="text-brand-500 focus:ring-brand-500/20 h-4 w-4 rounded border-gray-300 dark:border-gray-700" />
-            คอร์สแนะนำ
+            วิชาแนะนำ
         </label>
         <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
             <input type="checkbox" name="is_trial_available" value="1" @checked(old('is_trial_available', $course?->is_trial_available))

@@ -58,7 +58,7 @@ class StoreCurriculumRequest extends FormRequest
     {
         return [
             'name' => 'ชื่อหลักสูตร',
-            'category_id' => 'หมวดหมู่',
+            'category_id' => 'ระดับชั้น',
             'short_description' => 'คำอธิบายสั้น',
             'description' => 'รายละเอียด',
             'status' => 'สถานะ',

@@ -19,7 +19,7 @@
         <div class="flex flex-col gap-4 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
             <div>
                 <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">รายการนักเรียน</h3>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">บัญชีสำหรับเข้าเรียน ค้นหา และดูคอร์สที่ลงทะเบียนไว้</p>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">บัญชีสำหรับเข้าเรียน ค้นหา และดูวิชาที่ลงทะเบียนไว้</p>
             </div>
             <a href="{{ route('students.create') }}"
                 class="bg-brand-500 shadow-theme-xs hover:bg-brand-600 inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium text-white">
@@ -57,7 +57,7 @@
                     <tr class="border-b border-gray-100 dark:border-gray-800">
                         <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">นักเรียน</th>
                         <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">เบอร์โทร</th>
-                        <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">คอร์ส</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">วิชา</th>
                         <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">ออเดอร์</th>
                         <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">สถานะ</th>
                         <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">เข้าสู่ระบบล่าสุด</th>

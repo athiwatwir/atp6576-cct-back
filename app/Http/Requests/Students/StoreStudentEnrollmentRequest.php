@@ -32,7 +32,7 @@ class StoreStudentEnrollmentRequest extends FormRequest
     public function attributes(): array
     {
         return [
-            'course_id' => 'คอร์ส',
+            'course_id' => 'วิชา',
             'started_at' => 'วันที่เริ่มเรียน',
             'expires_at' => 'วันหมดอายุ',
         ];

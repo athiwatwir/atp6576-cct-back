@@ -132,7 +132,7 @@ class InstructorController extends Controller
         if ($instructor->courses()->exists()) {
             return redirect()
                 ->route('instructors.index')
-                ->with('error', 'ไม่สามารถลบครูผู้สอนที่มีคอร์สผูกอยู่ได้');
+                ->with('error', 'ไม่สามารถลบครูผู้สอนที่มีวิชาผูกอยู่ได้');
         }
 
         MediaStorage::delete($instructor->image);

@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-<x-common.page-breadcrumb pageTitle="คอร์ส" />
+<x-common.page-breadcrumb pageTitle="วิชา" />
 
 @if (session('success'))
 <div class="mb-6 rounded-xl border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-700 dark:border-success-500/30 dark:bg-success-500/10 dark:text-success-400">
@@ -18,22 +18,22 @@
 <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
     <div class="flex flex-col gap-4 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
         <div>
-            <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">รายการคอร์ส</h3>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">จัดการคอร์สเรียนที่เปิดขายและเผยแพร่</p>
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">รายการวิชา</h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">จัดการวิชาที่เปิดขายและเผยแพร่</p>
         </div>
         <a href="{{ route('courses.create') }}" class="bg-brand-500 shadow-theme-xs hover:bg-brand-600 inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium text-white">
-            เพิ่มคอร์ส
+            เพิ่มวิชา
         </a>
     </div>
 
     <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
         <form method="GET" action="{{ route('courses.index') }}" class="grid grid-cols-1 gap-3 lg:grid-cols-5">
             <div class="lg:col-span-2">
-                <input type="text" name="search" value="{{ $filters['search'] }}" placeholder="ค้นหาชื่อคอร์ส" class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" />
+                <input type="text" name="search" value="{{ $filters['search'] }}" placeholder="ค้นหาชื่อวิชา" class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" />
             </div>
             <div>
                 <select name="subject_id" class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                    <option value="">ทุกวิชา</option>
+                    <option value="">ทุกชนิดวิชา</option>
                     @foreach ($subjects as $subject)
                     <option value="{{ $subject->id }}" @selected((int) $filters['subject_id']===$subject->id)>
                         {{ $subject->name }}
@@ -43,7 +43,7 @@
             </div>
             <div>
                 <select name="category_id" class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                    <option value="">ทุกหมวดหมู่</option>
+                    <option value="">ทุกระดับชั้น</option>
                     @foreach ($categories as $category)
                     <option value="{{ $category->id }}" @selected((int) $filters['category_id']===$category->id)>
                         {{ $category->name }}
@@ -55,7 +55,7 @@
                 <select name="status" class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                     <option value="">ทุกสถานะ</option>
                     @foreach (\App\Enums\ContentStatus::options(['draft', 'published', 'inactive']) as $value => $label)
-                        <option value="{{ $value }}" @selected($filters['status'] === $value)>{{ $label }}</option>
+                    <option value="{{ $value }}" @selected($filters['status']===$value)>{{ $label }}</option>
                     @endforeach
                 </select>
                 <button type="submit" class="bg-brand-500 hover:bg-brand-600 inline-flex items-center justify-center rounded-lg px-4 text-sm font-medium text-white whitespace-nowrap">
@@ -69,11 +69,11 @@
         <table class="min-w-full">
             <thead>
                 <tr class="border-b border-gray-100 dark:border-gray-800">
-                    <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">คอร์ส</th>
                     <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">วิชา</th>
-                    <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">ผู้สอน</th>
+                    <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">ชนิดวิชา</th>
+                    <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">ระดับชั้น</th>
                     <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">ราคา</th>
-                    <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">บท</th>
+                    <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">จำนวนบทเรียน</th>
                     <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">สถานะ</th>
                     <th class="px-5 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400">จัดการ</th>
                 </tr>
@@ -110,20 +110,7 @@
                         {{ $course->subject?->name ?? '-' }}
                     </td>
                     <td class="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">
-                        @if ($course->instructor)
-                        <div class="flex items-center gap-2">
-                            <div class="h-8 w-8 shrink-0 overflow-hidden rounded-full border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
-                                @if ($course->instructor->image_url)
-                                <img src="{{ $course->instructor->image_url }}" alt="{{ $course->instructor->name }}" class="h-full w-full object-cover" />
-                                @else
-                                <div class="flex h-full w-full items-center justify-center text-[10px] text-gray-400">N/A</div>
-                                @endif
-                            </div>
-                            <span>{{ $course->instructor->name }}</span>
-                        </div>
-                        @else
-                        -
-                        @endif
+                        {{ $course->category?->name ?? '-' }}
                     </td>
                     <td class="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">
                         @if ((int) $course->plans_count > 1)
@@ -163,7 +150,7 @@
                 @empty
                 <tr>
                     <td colspan="7" class="px-5 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
-                        ไม่พบคอร์ส
+                        ไม่พบวิชา
                     </td>
                 </tr>
                 @endforelse

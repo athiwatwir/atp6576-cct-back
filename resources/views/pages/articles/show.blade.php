@@ -71,7 +71,7 @@
                     <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
                         @if ($article->courses->isNotEmpty())
                             <div class="rounded-xl bg-gray-50 px-4 py-3 dark:bg-white/[0.03]">
-                                <p class="text-xs font-medium text-gray-500">คอร์ส</p>
+                                <p class="text-xs font-medium text-gray-500">วิชา</p>
                                 <ul class="mt-2 space-y-1 text-sm text-gray-800 dark:text-white/90">
                                     @foreach ($article->courses as $course)
                                         <li>{{ $course->name }}</li>

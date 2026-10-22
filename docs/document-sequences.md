@@ -8,7 +8,7 @@ Helper กลางสำหรับรันเลขเอกสารจา�
 
 | ประเภท | รูปแบบ | ตัวอย่าง | คอลัมน์ที่เก็บ |
 |--------|--------|----------|----------------|
-| คอร์ส | `C{dayOfYear}{seq2}` | `C26901` | `courses.code` |
+| วิชา | `C{dayOfYear}{seq2}` | `C26901` | `courses.code` |
 | ข้อสอบ (ขายแยก) | `E{dayOfYear}{seq2}` | `E26901` | `assessments.code` |
 | หนังสือ | `B{seq3}` | `B001` | `products.code` |
 | ออเดอร์ | `O{ymd}{seq3}` | `O260926001` | `orders.order_no` |
@@ -27,7 +27,7 @@ Helper กลางสำหรับรันเลขเอกสารจา�
 
 | ประเภท | `period_key` | พฤติกรรม |
 |--------|--------------|----------|
-| คอร์ส / ข้อสอบ | `dayOfYear` เช่น `269` | รันต่อเนื่องตามวันของปี (ไม่รีเซ็ตทุกปี เพื่อไม่ให้รหัสซ้ำข้ามปี) |
+| วิชา / ข้อสอบ | `dayOfYear` เช่น `269` | รันต่อเนื่องตามวันของปี (ไม่รีเซ็ตทุกปี เพื่อไม่ให้รหัสซ้ำข้ามปี) |
 | หนังสือ | `global` | รันเลขทั้งระบบ ไม่ผูกวันที่ |
 | ออเดอร์ | `ymd` เช่น `260926` | รีเซ็ตทุกวัน (รหัสมีวันที่อยู่แล้ว จึงไม่ชนกัน) |
 | ใบเสร็จรับเงิน | `ym` ของวันที่ชำระ เช่น `2610` | รีเซ็ตทุกเดือน ลำดับ 4 หลัก (`{seq4}` เริ่ม `0001`) |
@@ -55,7 +55,7 @@ Unique: `(doc_type, period_key)`
 
 | Method | คืนค่า |
 |--------|--------|
-| `DocumentSequence::nextCourse(?CarbonInterface $at = null)` | รหัสคอร์ส |
+| `DocumentSequence::nextCourse(?CarbonInterface $at = null)` | รหัสวิชา |
 | `DocumentSequence::nextExam(?CarbonInterface $at = null)` | รหัสข้อสอบ |
 | `DocumentSequence::nextBook()` | รหัสหนังสือ |
 | `DocumentSequence::nextOrder(?CarbonInterface $at = null)` | หมายเลขออเดอร์ |
@@ -78,12 +78,12 @@ $orderNo    = DocumentSequence::nextOrder();  // O260926001
 
 | Controller | เมื่อไหร่ |
 |------------|----------|
-| `CourseController@store` | สร้างคอร์ส → `courses.code` |
+| `CourseController@store` | สร้างวิชา → `courses.code` |
 | `ExamController@store` | สร้างข้อสอบขายแยก → `assessments.code` |
 | `BookController@store` | สร้างหนังสือ → `products.code` |
 | `OrderController` (`generateOrderNo`) | สร้างออเดอร์ → `orders.order_no` |
 
-> แบบทดสอบ/ควิซในคอร์ส (`CourseAssessmentController`) **ยังไม่ออกเลข** `E...` — ใช้เฉพาะข้อสอบขายแยก
+> แบบทดสอบ/ควิซในวิชา (`CourseAssessmentController`) **ยังไม่ออกเลข** `E...` — ใช้เฉพาะข้อสอบขายแยก
 
 ## Migration
 

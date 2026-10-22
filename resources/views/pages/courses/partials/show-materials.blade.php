@@ -1,7 +1,7 @@
 <div x-show="tab === 'materials'" x-cloak class="space-y-5">
     <div>
         <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">สื่อการสอน</h3>
-        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">รวมเอกสารทั้งหมดในคอร์สนี้</p>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">รวมเอกสารทั้งหมดในวิชานี้</p>
     </div>
 
     <div class="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800">

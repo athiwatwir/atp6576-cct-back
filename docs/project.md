@@ -10,12 +10,13 @@
 
 ## 1. ภาพรวม
 
-Click Class Tutor เป็นระบบคอร์สเรียนออนไลน์ มีหน้าบ้านสำหรับนักเรียน และหลังบ้านสำหรับ Admin / Staff ในการจัดการคอร์ส การเรียน การขาย การชำระเงิน โปรโมชัน และรายงาน
+Click Class Tutor เป็นระบบวิชาเรียนออนไลน์ มีหน้าบ้านสำหรับนักเรียน และหลังบ้านสำหรับ Admin / Staff ในการจัดการวิชา การเรียน การขาย การชำระเงิน โปรโมชัน และรายงาน
 
 repo นี้คือ **ระบบหลังบ้าน** สร้างบน Laravel 12 และ TailAdmin  
 ใช้เป็นฐานสำหรับ:
 
 - จัดการข้อมูลหลัก (Course, Curriculum, User, Order, Payment, Content)
+- คำเรียกบนหน้าจอ: Course = "วิชา", Subject = "ชนิดวิชา", Category = "ระดับชั้น", Curriculum = "หลักสูตร"
 - ออกสิทธิ์การเรียน (Enrollment)
 - ตรวจสอบการชำระเงิน
 - เตรียม REST API ให้ frontend / student portal เรียกใช้
@@ -39,7 +40,7 @@ repo นี้คือ **ระบบหลังบ้าน** สร้าง
 ระบบแบ่งผู้ใช้ตาม BRD:
 
 - **Guest** — ดูเนื้อหาสาธารณะ สมัคร / login
-- **Student** — ซื้อคอร์ส เรียน ทำข้อสอบ ดู progress
+- **Student** — ซื้อวิชา เรียน ทำข้อสอบ ดู progress
 - **Staff** — สร้าง order, ตรวจสลิป, เปิดสิทธิ์เรียน
 - **Admin** — จัดการระบบทั้งหมดตาม permission
 - **Instructor** — จัดการเนื้อหาที่ได้รับอนุญาต
@@ -383,7 +384,7 @@ composer run test
 - โครงสร้าง `promotions.rules`
 - Refund แล้ว enrollment ถูกยกเลิกทันทีหรือไม่
 - หนังสือต้องมีที่อยู่จัดส่ง / tracking หรือไม่
-- ออเดอร์หนึ่งใบเป็น `book` หรือ `enrollment` ตะกร้าหน้าร้านปนหนังสือกับคอร์สหรือหลักสูตรไม่ได้
+- ออเดอร์หนึ่งใบเป็น `book` หรือ `enrollment` ตะกร้าหน้าร้านปนหนังสือกับวิชาหรือหลักสูตรไม่ได้
 - ผู้ให้บริการ Payment Gateway
 - ผู้ให้บริการ video storage / CDN
 
@@ -395,8 +396,9 @@ composer run test
 
 | คีย์ | นับเมื่อ |
 | --- | --- |
-| `subjects` | วิชาสถานะ `active` |
-| `courses` | คอร์สสถานะ `published` |
+| `categories` | ระดับชั้นสถานะ `active` |
+| `subjects` | ชนิดวิชาสถานะ `active` |
+| `courses` | วิชาสถานะ `published` |
 | `curriculums` | หลักสูตรสถานะ `published` |
 | `exams` | ข้อสอบขายแยกที่สถานะ `published` |
 | `books` | หนังสือสถานะ `active` |
@@ -430,7 +432,7 @@ docs/deployment.md
 1. Seed roles (`admin`, `staff`, `instructor`, `student`) และ permission เริ่มต้น
 2. ทำ authentication จริง แทนหน้า TailAdmin signin
 3. วางโครงสร้าง `app/Policies` + middleware ตาม permission
-4. เปลี่ยน sidebar จาก demo เป็นเมนูจัดการคอร์ส / order / นักเรียน
+4. เปลี่ยน sidebar จาก demo เป็นเมนูจัดการวิชา / order / นักเรียน
 5. เพิ่ม `routes/api.php` ตามกลุ่มใน BRD ข้อ 56
 6. แยก service สำหรับ payment verification และ enrollment grant
 7. ล็อก video/document หลัง authorization + signed URL

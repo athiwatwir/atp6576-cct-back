@@ -65,7 +65,7 @@ class SendTestMailCommand extends Command
             [MailAudience::Customer, 'announcement'] => $mailService->sendCustomerAnnouncement(
                 to: $email,
                 subject: 'ข่าวสารทดสอบ',
-                message: "มีคอร์สใหม่เปิดให้ลงทะเบียนแล้ว\nเข้ามาดูรายละเอียดได้เลย",
+                message: "มีวิชาใหม่เปิดให้ลงทะเบียนแล้ว\nเข้ามาดูรายละเอียดได้เลย",
                 queue: $queue,
             ),
             default => $mailService->sendCustomerNotification(

@@ -114,7 +114,7 @@ class FinanceController extends Controller
                 'type' => $row->item_type,
                 'label' => match ($row->item_type) {
                     'book' => 'หนังสือ',
-                    'course' => 'คอร์ส',
+                    'course' => 'วิชา',
                     'exam' => 'ข้อสอบ',
                     'curriculum' => 'หลักสูตร',
                     default => 'อื่นๆ',

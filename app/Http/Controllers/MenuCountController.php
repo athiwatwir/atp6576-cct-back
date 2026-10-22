@@ -13,6 +13,7 @@ class MenuCountController extends Controller
         $counts = Cache::remember('menu.teaching.active-counts', now()->addSeconds(20), function () {
             $row = DB::selectOne(<<<'SQL'
                 SELECT
+                    (SELECT COUNT(*) FROM categories WHERE status = 'active' AND deleted_at IS NULL) AS categories,
                     (SELECT COUNT(*) FROM subjects WHERE status = 'active' AND deleted_at IS NULL) AS subjects,
                     (SELECT COUNT(*) FROM courses WHERE status = 'published' AND deleted_at IS NULL) AS courses,
                     (SELECT COUNT(*) FROM curriculums WHERE status = 'published' AND deleted_at IS NULL) AS curriculums,
@@ -21,6 +22,7 @@ class MenuCountController extends Controller
             SQL);
 
             return [
+                'categories' => (int) $row->categories,
                 'subjects' => (int) $row->subjects,
                 'courses' => (int) $row->courses,
                 'curriculums' => (int) $row->curriculums,

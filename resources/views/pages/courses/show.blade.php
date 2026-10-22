@@ -221,7 +221,7 @@ $btn = [
                                 </div>
                                 <p class="mt-1 font-mono text-xs text-gray-400 dark:text-gray-500">{{ $course->slug }}</p>
                                 <p class="mt-3 max-w-3xl text-sm leading-6 text-gray-600 dark:text-gray-400">
-                                    {{ $course->short_description ?: ($course->description ?: 'ยังไม่มีคำอธิบายคอร์ส') }}
+                                    {{ $course->short_description ?: ($course->description ?: 'ยังไม่มีคำอธิบายวิชา') }}
                                 </p>
                                 <div class="mt-4 flex flex-wrap gap-2">
                                     <span class="inline-flex items-center gap-1.5 rounded-lg bg-white/80 px-2.5 py-1.5 text-xs text-gray-600 shadow-theme-xs dark:bg-white/5 dark:text-gray-300">
@@ -242,11 +242,11 @@ $btn = [
                                         @endif
                                     </span>
                                     <span class="inline-flex items-center gap-1.5 rounded-lg bg-white/80 px-2.5 py-1.5 text-xs text-gray-600 shadow-theme-xs dark:bg-white/5 dark:text-gray-300">
-                                        <span class="text-gray-400">หมวด</span>
+                                        <span class="text-gray-400">ระดับชั้น</span>
                                         <strong class="font-medium text-gray-800 dark:text-white/90">{{ $course->category?->name ?? '-' }}</strong>
                                     </span>
                                     <span class="inline-flex items-center gap-1.5 rounded-lg bg-white/80 px-2.5 py-1.5 text-xs text-gray-600 shadow-theme-xs dark:bg-white/5 dark:text-gray-300">
-                                        <span class="text-gray-400">วิชา</span>
+                                        <span class="text-gray-400">ชนิดวิชา</span>
                                         <strong class="font-medium text-gray-800 dark:text-white/90">{{ $course->subject?->name ?? '-' }}</strong>
                                     </span>
                                 </div>
@@ -264,7 +264,7 @@ $btn = [
                                                 {{ $course->is_trial_available ? 'เปิดอยู่' : 'ปิดอยู่' }}
                                             </div>
                                             <p class="mt-0.5 text-xs leading-5 {{ $course->is_trial_available ? 'text-brand-700/80 dark:text-brand-300/80' : 'text-gray-500 dark:text-gray-400' }}">
-                                                {{ $course->is_trial_available ? 'ผู้เรียนดูเนื้อหาทดลองได้ก่อนตัดสินใจซื้อ' : 'ต้องลงทะเบียนคอร์สก่อนจึงจะเข้าเรียนได้' }}
+                                                {{ $course->is_trial_available ? 'ผู้เรียนดูเนื้อหาทดลองได้ก่อนตัดสินใจซื้อ' : 'ต้องลงทะเบียนวิชาก่อนจึงจะเข้าเรียนได้' }}
                                             </p>
                                         </div>
                                     </div>
@@ -275,12 +275,12 @@ $btn = [
                                             </svg>
                                         </span>
                                         <div class="min-w-0">
-                                            <div class="text-xs font-medium {{ $course->is_featured ? 'text-warning-700 dark:text-warning-400' : 'text-gray-400 dark:text-gray-500' }}">คอร์สแนะนำ</div>
+                                            <div class="text-xs font-medium {{ $course->is_featured ? 'text-warning-700 dark:text-warning-400' : 'text-gray-400 dark:text-gray-500' }}">วิชาแนะนำ</div>
                                             <div class="text-sm font-semibold {{ $course->is_featured ? 'text-warning-700 dark:text-warning-300' : 'text-gray-700 dark:text-gray-300' }}">
                                                 {{ $course->is_featured ? 'แสดงในรายการแนะนำ' : 'ไม่ได้ตั้งเป็นแนะนำ' }}
                                             </div>
                                             <p class="mt-0.5 text-xs leading-5 {{ $course->is_featured ? 'text-warning-700/80 dark:text-warning-300/80' : 'text-gray-500 dark:text-gray-400' }}">
-                                                {{ $course->is_featured ? 'คอร์สนี้ถูกไฮไลต์ให้ผู้เรียนเห็นก่อน' : 'ไม่แสดงคอร์สนี้ในส่วนคอร์สแนะนำ' }}
+                                                {{ $course->is_featured ? 'วิชานี้ถูกไฮไลต์ให้ผู้เรียนเห็นก่อน' : 'ไม่แสดงวิชานี้ในส่วนวิชาแนะนำ' }}
                                             </p>
                                         </div>
                                     </div>
@@ -289,7 +289,7 @@ $btn = [
                         </div>
                         <div class="flex shrink-0 flex-wrap gap-2">
                             <a href="{{ route('courses.index') }}" class="{{ $btn['secondary'] }}">กลับ</a>
-                            <a href="{{ route('courses.edit', $course) }}" class="{{ $btn['primary'] }}">แก้ไขคอร์ส</a>
+                            <a href="{{ route('courses.edit', $course) }}" class="{{ $btn['primary'] }}">แก้ไขวิชา</a>
                         </div>
                     </div>
                 </div>
@@ -333,7 +333,7 @@ $btn = [
         {{-- Right sidebar --}}
         <div class="space-y-6 xl:col-span-3">
             <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03]">
-                <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">ข้อมูลคอร์ส</h3>
+                <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">ข้อมูลวิชา</h3>
                 <form method="POST" action="{{ route('courses.status', $course) }}" class="mt-4 space-y-4">
                     @csrf
                     @method('PUT')
@@ -368,22 +368,22 @@ $btn = [
             <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03]">
                 <h3 class="mb-4 text-sm font-semibold text-gray-800 dark:text-white/90">การจัดการด่วน</h3>
                 <div class="space-y-2">
-                    <a href="{{ route('courses.edit', $course) }}" class="{{ $btn['viewMd'] }} w-full">แก้ไขข้อมูลคอร์ส</a>
+                    <a href="{{ route('courses.edit', $course) }}" class="{{ $btn['viewMd'] }} w-full">แก้ไขข้อมูลวิชา</a>
                     <form method="POST" action="{{ route('courses.status', $course) }}">
                         @csrf
                         @method('PUT')
                         <input type="hidden" name="status" value="{{ $course->status === 'published' ? 'inactive' : 'published' }}">
                         <button type="submit" class="{{ $btn['warning'] }} w-full">
-                            {{ $course->status === 'published' ? 'ปิดใช้งานคอร์ส' : 'เปิดใช้งานคอร์ส' }}
+                            {{ $course->status === 'published' ? 'ปิดใช้งานวิชา' : 'เปิดใช้งานวิชา' }}
                         </button>
                     </form>
                     <button type="button" data-no-loading @click="$dispatch('open-course-delete-modal', { id: {{ $course->id }}, name: @js($course->name), code: @js($course->code) })" class="{{ $btn['dangerMd'] }} w-full">
-                        ลบคอร์ส
+                        ลบวิชา
                     </button>
                 </div>
             </div>
 
-            <x-common.activity-logs :entity="$course" :limit="8" title="ประวัติการแก้ไขคอร์ส" />
+            <x-common.activity-logs :entity="$course" :limit="8" title="ประวัติการแก้ไขวิชา" />
         </div>
     </div>
 </div>

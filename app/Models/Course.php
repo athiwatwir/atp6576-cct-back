@@ -23,7 +23,7 @@ class Course extends Model
 
     public function getAuditLabel(): string
     {
-        return 'คอร์ส '.($this->code ?: '#'.$this->id).' '.$this->name;
+        return 'วิชา '.($this->code ?: '#'.$this->id).' '.$this->name;
     }
 
     protected $fillable = [

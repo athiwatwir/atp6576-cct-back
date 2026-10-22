@@ -75,7 +75,7 @@
                 <template x-for="(row, index) in rows" :key="index">
                     <div class="grid grid-cols-1 gap-3 md:grid-cols-12">
                         <select class="dark:bg-dark-900 h-11 rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 md:col-span-2" x-model="row.type" @change="row.id = ''; row.plan_id = ''" :name="'items[' + index + '][type]'">
-                            <option value="course">คอร์ส</option>
+                            <option value="course">วิชา</option>
                             <option value="curriculum">หลักสูตร</option>
                             <option value="exam">ข้อสอบ</option>
                         </select>

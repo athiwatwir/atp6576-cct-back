@@ -104,5 +104,5 @@
 </div>
 
 <p class="mt-4 rounded-xl border border-blue-light-200 bg-blue-light-50 px-4 py-3 text-sm text-blue-light-700 dark:border-blue-light-500/30 dark:bg-blue-light-500/10 dark:text-blue-light-400">
-    ข้อสอบชุดนี้เป็นรายการขายแยก ไม่ผูกกับคอร์สเรียน (`is_independent`)
+    ข้อสอบชุดนี้เป็นรายการขายแยก ไม่ผูกกับวิชาเรียน (`is_independent`)
 </p>

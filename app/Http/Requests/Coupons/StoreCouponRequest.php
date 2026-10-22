@@ -87,7 +87,7 @@ class StoreCouponRequest extends FormRequest
             'start_at' => 'วันเริ่ม',
             'end_at' => 'วันสิ้นสุด',
             'status' => 'สถานะ',
-            'course_ids' => 'คอร์ส',
+            'course_ids' => 'วิชา',
             'curriculum_ids' => 'หลักสูตร',
             'assessment_ids' => 'ข้อสอบ',
             'product_ids' => 'หนังสือ',

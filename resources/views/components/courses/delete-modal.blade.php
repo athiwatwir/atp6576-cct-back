@@ -30,7 +30,7 @@
         x-transition:leave-end="opacity-0"
     >
         <div class="pr-8">
-            <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">ลบคอร์ส</h3>
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">ลบวิชา</h3>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400" x-show="courseName">
                 <span x-text="courseName"></span>
                 <span class="font-mono text-gray-400" x-show="courseCode" x-text="' · ' + courseCode"></span>
@@ -174,7 +174,7 @@
                     data-no-loading
                     class="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600"
                 >
-                    กลับหน้ารายการคอร์ส
+                    กลับหน้ารายการวิชา
                 </a>
                 <button
                     type="button"
@@ -276,7 +276,7 @@ window.courseDeleteModal = function courseDeleteModal() {
             });
 
             if (!selected.includes('course')) {
-                this.errorMessage = 'ต้องลบตัวคอร์สด้วย';
+                this.errorMessage = 'ต้องลบตัววิชาด้วย';
                 return;
             }
 

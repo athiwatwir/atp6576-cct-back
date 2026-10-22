@@ -24,6 +24,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PromotionController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\SubjectController;
+use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\TestimonialController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\OrderPaymentController;
@@ -69,6 +70,7 @@ Route::middleware(['auth', 'backend'])->group(function () {
     Route::get('students/{student}/orders/{order}/payment', [StudentController::class, 'payment'])->name('students.orders.payment');
     Route::post('students/{student}/orders/{order}/payment', [StudentController::class, 'pay'])->name('students.orders.pay');
     Route::resource('instructors', InstructorController::class)->except(['show']);
+    Route::resource('categories', CategoryController::class)->except(['show']);
     Route::resource('subjects', SubjectController::class)->except(['show']);
     Route::resource('courses', CourseController::class);
     Route::put('courses/{course}/status', [CourseController::class, 'updateStatus'])->name('courses.status');

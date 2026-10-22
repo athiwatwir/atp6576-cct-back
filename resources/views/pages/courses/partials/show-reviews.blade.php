@@ -1,7 +1,7 @@
 <div x-show="tab === 'reviews'" x-cloak class="space-y-5">
     <div>
         <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">รีวิว</h3>
-        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">รีวิวจากผู้เรียนของคอร์สนี้</p>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">รีวิวจากผู้เรียนของวิชานี้</p>
     </div>
 
     <div class="rounded-xl border border-dashed border-gray-300 px-6 py-16 text-center dark:border-gray-700">

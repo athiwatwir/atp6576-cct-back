@@ -19,7 +19,7 @@
     <div class="flex flex-col gap-4 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
         <div>
             <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">รายการข้อสอบขายแยก</h3>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">จัดการข้อสอบที่ไม่ผูกกับคอร์ส สำหรับขายเป็นรายการเดี่ยว</p>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">จัดการข้อสอบที่ไม่ผูกกับวิชา สำหรับขายเป็นรายการเดี่ยว</p>
         </div>
         <a href="{{ route('exams.create') }}" class="bg-brand-500 shadow-theme-xs hover:bg-brand-600 inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium text-white">
             + เพิ่มข้อสอบ

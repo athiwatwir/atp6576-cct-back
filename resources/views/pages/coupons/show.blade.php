@@ -75,7 +75,7 @@
                     <div><dt class="text-gray-500">วันเริ่ม</dt><dd class="font-medium text-gray-800 dark:text-white/90">{{ $coupon->start_at?->format('d/m/Y H:i') ?? 'ไม่กำหนด' }}</dd></div>
                     <div><dt class="text-gray-500">วันสิ้นสุด</dt><dd class="font-medium text-gray-800 dark:text-white/90">{{ $coupon->end_at?->format('d/m/Y H:i') ?? 'ไม่กำหนด' }}</dd></div>
                     <div><dt class="text-gray-500">ขอบเขต</dt><dd class="font-medium text-gray-800 dark:text-white/90">{{ $coupon->isRestricted() ? 'เฉพาะสินค้าที่เลือก' : 'ทุกรายการในออเดอร์' }}</dd></div>
-                    <div><dt class="text-gray-500">คอร์ส</dt><dd class="font-medium text-gray-800 dark:text-white/90">{{ $coupon->courses->pluck('name')->join(', ') ?: '-' }}</dd></div>
+                    <div><dt class="text-gray-500">วิชา</dt><dd class="font-medium text-gray-800 dark:text-white/90">{{ $coupon->courses->pluck('name')->join(', ') ?: '-' }}</dd></div>
                     <div><dt class="text-gray-500">หลักสูตร</dt><dd class="font-medium text-gray-800 dark:text-white/90">{{ $coupon->curriculums->pluck('name')->join(', ') ?: '-' }}</dd></div>
                     <div><dt class="text-gray-500">ข้อสอบ</dt><dd class="font-medium text-gray-800 dark:text-white/90">{{ $coupon->assessments->pluck('title')->join(', ') ?: '-' }}</dd></div>
                     <div><dt class="text-gray-500">หนังสือ</dt><dd class="font-medium text-gray-800 dark:text-white/90">{{ $coupon->products->pluck('name')->join(', ') ?: '-' }}</dd></div>

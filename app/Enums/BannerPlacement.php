@@ -12,7 +12,7 @@ enum BannerPlacement: string
     {
         return match ($this) {
             self::Home => 'หน้าแรก',
-            self::Courses => 'หน้าคอร์ส',
+            self::Courses => 'หน้าวิชา',
             self::Books => 'หน้าหนังสือ',
         };
     }

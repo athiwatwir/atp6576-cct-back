@@ -69,7 +69,7 @@ class ArticleRequest extends FormRequest
             'content' => 'เนื้อหา',
             'status' => 'สถานะ',
             'image' => 'รูปปก',
-            'course_ids' => 'คอร์สที่เกี่ยวข้อง',
+            'course_ids' => 'วิชาที่เกี่ยวข้อง',
             'curriculum_ids' => 'หลักสูตรที่เกี่ยวข้อง',
             'assessment_ids' => 'ข้อสอบที่เกี่ยวข้อง',
         ];

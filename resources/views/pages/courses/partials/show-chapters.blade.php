@@ -297,7 +297,7 @@
                                     <span class="min-w-0">
                                         <span class="block text-xs font-medium" :class="trialOpen ? 'text-brand-600 dark:text-brand-400' : 'text-gray-400 dark:text-gray-500'">เปิดทดลองเรียน</span>
                                         <span class="block text-sm font-semibold" :class="trialOpen ? 'text-brand-700 dark:text-brand-300' : 'text-gray-700 dark:text-gray-300'" x-text="trialOpen ? 'เปิดอยู่' : 'ปิดอยู่'"></span>
-                                        <span class="mt-0.5 block text-xs leading-5" :class="trialOpen ? 'text-brand-700/80 dark:text-brand-300/80' : 'text-gray-500 dark:text-gray-400'" x-text="trialOpen ? 'ผู้เรียนดูวิดีโอนี้ได้ก่อนซื้อคอร์ส' : 'ต้องลงทะเบียนคอร์สก่อนจึงจะดูวิดีโอนี้ได้'"></span>
+                                        <span class="mt-0.5 block text-xs leading-5" :class="trialOpen ? 'text-brand-700/80 dark:text-brand-300/80' : 'text-gray-500 dark:text-gray-400'" x-text="trialOpen ? 'ผู้เรียนดูวิดีโอนี้ได้ก่อนซื้อวิชา' : 'ต้องลงทะเบียนวิชาก่อนจึงจะดูวิดีโอนี้ได้'"></span>
                                     </span>
                                 </label>
                                 <div class="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">

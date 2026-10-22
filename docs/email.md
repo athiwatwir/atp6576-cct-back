@@ -90,7 +90,7 @@ $this->mail->sendCustomerPaymentStatus(
 
 $this->mail->sendCustomerAnnouncement(
     to: $user,
-    subject: 'คอร์สใหม่เปิดแล้ว',
+    subject: 'วิชาใหม่เปิดแล้ว',
     message: 'คณิตศาสตร์ ป.6 พร้อมเรียน',
 );
 ```

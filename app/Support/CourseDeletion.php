@@ -65,26 +65,26 @@ class CourseDeletion
             'items' => [
                 self::item('videos', 'วิดีโอบทเรียน', 'ลบบันทึกวิดีโอและไฟล์บน storage', $videoCount, true),
                 self::item('documents', 'เอกสารประกอบ', 'ลบบันทึกเอกสารและไฟล์ที่อัปโหลด', $documentCount, true),
-                self::item('assessments', 'แบบทดสอบในคอร์ส', 'ลบแบบฝึกหัด/ข้อสอบในคอร์ส รวมคำถาม', $assessmentCount, true),
-                self::item('chapters', 'บทเรียน', 'ลบบทเรียนทั้งหมดของคอร์ส', $chapterCount, true),
+                self::item('assessments', 'แบบทดสอบในวิชา', 'ลบแบบฝึกหัด/ข้อสอบในวิชา รวมคำถาม', $assessmentCount, true),
+                self::item('chapters', 'บทเรียน', 'ลบบทเรียนทั้งหมดของวิชา', $chapterCount, true),
                 self::item('learning_progress', 'ความคืบหน้าการเรียน', 'ลบประวัติความคืบหน้าของผู้เรียน', $progressCount, true),
-                self::item('reviews', 'รีวิว', 'ลบรีวิวของคอร์สนี้', $reviewCount, true),
-                self::item('trial_access', 'สิทธิ์ทดลองเรียน', 'ลบสิทธิ์ทดลองเรียนที่ผูกกับคอร์ส', $trialCount, true),
-                self::item('cart_items', 'รายการในตะกร้า', 'ลบคอร์สนี้ออกจากตะกร้าผู้ใช้', $cartCount, true),
+                self::item('reviews', 'รีวิว', 'ลบรีวิวของวิชานี้', $reviewCount, true),
+                self::item('trial_access', 'สิทธิ์ทดลองเรียน', 'ลบสิทธิ์ทดลองเรียนที่ผูกกับวิชา', $trialCount, true),
+                self::item('cart_items', 'รายการในตะกร้า', 'ลบวิชานี้ออกจากตะกร้าผู้ใช้', $cartCount, true),
                 self::item('relations', 'ความสัมพันธ์อื่น', 'ถอดออกจากหลักสูตร / โปรโมชัน / เนื้อหา', $relationCount, true),
                 self::item(
                     'enrollments',
                     'การลงทะเบียนผู้เรียน',
-                    'ลบข้อมูลการลงทะเบียนของคอร์สนี้',
+                    'ลบข้อมูลการลงทะเบียนของวิชานี้',
                     $enrollmentCount,
                     $enrollmentCount === 0,
                     false,
                     $enrollmentCount > 0
-                        ? 'มีผู้เรียนลงทะเบียนอยู่ ต้องเลือกลบรายการนี้ก่อนจึงจะลบคอร์สได้'
+                        ? 'มีผู้เรียนลงทะเบียนอยู่ ต้องเลือกลบรายการนี้ก่อนจึงจะลบวิชาได้'
                         : null
                 ),
-                self::item('thumbnail', 'ไฟล์ปกคอร์ส', 'ลบรูปปกออกจาก storage', $hasThumbnail ? 1 : 0, true),
-                self::item('course', 'ลบคอร์ส', 'Soft delete ตัวคอร์ส (บังคับ)', 1, true, true),
+                self::item('thumbnail', 'ไฟล์ปกวิชา', 'ลบรูปปกออกจาก storage', $hasThumbnail ? 1 : 0, true),
+                self::item('course', 'ลบวิชา', 'Soft delete ตัววิชา (บังคับ)', 1, true, true),
             ],
         ];
     }
@@ -99,7 +99,7 @@ class CourseDeletion
         }
 
         if ($step === 'course' && $course->enrollments()->exists()) {
-            throw new InvalidArgumentException('ไม่สามารถลบคอร์สที่มีผู้เรียนลงทะเบียนอยู่ได้ กรุณาเลือกลบการลงทะเบียนก่อน');
+            throw new InvalidArgumentException('ไม่สามารถลบวิชาที่มีผู้เรียนลงทะเบียนอยู่ได้ กรุณาเลือกลบการลงทะเบียนก่อน');
         }
 
         return match ($step) {
@@ -243,7 +243,7 @@ class CourseDeletion
             }
         });
 
-        return self::result('assessments', 'แบบทดสอบในคอร์ส', $deleted, "ลบแบบทดสอบ {$deleted} รายการ");
+        return self::result('assessments', 'แบบทดสอบในวิชา', $deleted, "ลบแบบทดสอบ {$deleted} รายการ");
     }
 
     private static function deleteChapters(Course $course): array
@@ -330,13 +330,13 @@ class CourseDeletion
             $deleted = 1;
         }
 
-        return self::result('thumbnail', 'ไฟล์ปกคอร์ส', $deleted, $deleted ? 'ลบไฟล์ปกคอร์สแล้ว' : 'ไม่มีไฟล์ปก');
+        return self::result('thumbnail', 'ไฟล์ปกวิชา', $deleted, $deleted ? 'ลบไฟล์ปกวิชาแล้ว' : 'ไม่มีไฟล์ปก');
     }
 
     private static function deleteCourse(Course $course): array
     {
         $course->delete();
 
-        return self::result('course', 'ลบคอร์ส', 1, 'ลบคอร์สเรียบร้อยแล้ว');
+        return self::result('course', 'ลบวิชา', 1, 'ลบวิชาเรียบร้อยแล้ว');
     }
 }

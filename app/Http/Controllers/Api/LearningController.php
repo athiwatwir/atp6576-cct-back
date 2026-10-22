@@ -28,7 +28,7 @@ class LearningController extends Controller
             ->first();
 
         if (! $course) {
-            abort(404, 'ไม่พบคอร์สนี้');
+            abort(404, 'ไม่พบวิชานี้');
         }
 
         $belongs = $course->chapters()
@@ -36,7 +36,7 @@ class LearningController extends Controller
             ->exists();
 
         if (! $belongs) {
-            abort(404, 'ไม่พบวิดีโอนี้ในคอร์ส');
+            abort(404, 'ไม่พบวิดีโอนี้ในวิชา');
         }
 
         /** @var User $user */

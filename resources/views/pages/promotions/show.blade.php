@@ -54,7 +54,7 @@
             <div class="rounded-2xl border border-gray-200 bg-white p-5 text-sm dark:border-gray-800 dark:bg-white/[0.03]">
                 <h3 class="font-semibold text-gray-800 dark:text-white/90">สินค้าที่เลือก</h3>
                 <div class="mt-3 space-y-3 text-gray-600 dark:text-gray-400">
-                    <div><span class="text-gray-500">คอร์ส</span><div>{{ $promotion->courses->pluck('name')->join(', ') ?: '-' }}</div></div>
+                    <div><span class="text-gray-500">วิชา</span><div>{{ $promotion->courses->pluck('name')->join(', ') ?: '-' }}</div></div>
                     <div><span class="text-gray-500">หลักสูตร</span><div>{{ $promotion->curriculums->pluck('name')->join(', ') ?: '-' }}</div></div>
                     <div><span class="text-gray-500">ข้อสอบ</span><div>{{ $promotion->assessments->pluck('title')->join(', ') ?: '-' }}</div></div>
                     <div><span class="text-gray-500">หนังสือ</span><div>{{ $promotion->products->pluck('name')->join(', ') ?: '-' }}</div></div>

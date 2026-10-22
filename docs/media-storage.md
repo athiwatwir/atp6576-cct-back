@@ -48,7 +48,7 @@ documents/{course_id}/{chapter_id}/...   # เอกสารยังใช้ 
 | `MediaStorage::disk()` | คืน `'r2'` หรือ `'public'` |
 | `MediaStorage::convertImageToWebp($file, $quality = 82)` | แปลงรูปเป็น binary WebP |
 | `MediaStorage::store($file, $directory)` | อัปโหลดไฟล์ทั่วไป (ชื่อเป็น UUID) |
-| `MediaStorage::storeCourseThumbnail($file, $courseId)` | แปลง WebP + อัปโหลดปกคอร์ส |
+| `MediaStorage::storeCourseThumbnail($file, $courseId)` | แปลง WebP + อัปโหลดปกวิชา |
 | `MediaStorage::storeInstructorImage($file, $instructorId)` | แปลง WebP + อัปโหลดรูปครู |
 | `MediaStorage::storeExamThumbnail($file, $examId)` | แปลง WebP + อัปโหลดปกข้อสอบขายแยก |
 | `MediaStorage::storeQuestionImage($file, $examId, $questionId)` | แปลง WebP + อัปโหลดรูปประกอบคำถามข้อสอบ |
@@ -65,7 +65,7 @@ documents/{course_id}/{chapter_id}/...   # เอกสารยังใช้ 
 
 ## ตัวอย่างการใช้งาน
 
-### ปกคอร์ส (มีอยู่แล้วใน `CourseController`)
+### ปกวิชา (มีอยู่แล้วใน `CourseController`)
 
 ```php
 use App\Support\MediaStorage;
@@ -116,7 +116,7 @@ $path = MediaStorage::storeExamThumbnail(
 
 ### รูปประกอบคำถามข้อสอบ
 
-หนึ่งคำถามมีได้หนึ่งรูป เก็บที่ `questions.image` ฟอร์มเพิ่มและแก้ไขคำถามของข้อสอบขายแยก ข้อสอบในคอร์ส และแบบฝึกหัดในคอร์สอัปโหลดไฟล์นี้ รับ JPG/PNG/WebP/GIF สูงสุด 4MB แล้วแปลงเป็น WebP อัปโหลดใหม่ทับ path เดิม ลบคำถาม ลบข้อสอบ หรือลบแบบทดสอบในคอร์สจะลบไฟล์ด้วย
+หนึ่งคำถามมีได้หนึ่งรูป เก็บที่ `questions.image` ฟอร์มเพิ่มและแก้ไขคำถามของข้อสอบขายแยก ข้อสอบในวิชา และแบบฝึกหัดในวิชาอัปโหลดไฟล์นี้ รับ JPG/PNG/WebP/GIF สูงสุด 4MB แล้วแปลงเป็น WebP อัปโหลดใหม่ทับ path เดิม ลบคำถาม ลบข้อสอบ หรือลบแบบทดสอบในวิชาจะลบไฟล์ด้วย
 
 ```php
 $path = MediaStorage::storeQuestionImage(
@@ -151,7 +151,7 @@ URL จาก model เช่น `thumbnail_url` ใส่ `?v={updated_at}` ใ
 ## หมายเหตุ
 
 - ต้องมี PHP GD พร้อม `imagewebp`
-- ปกคอร์ส / ปกข้อสอบ / ปกหนังสือ / รูปครู: รับ JPG/PNG/WebP/GIF สูงสุด 2MB แล้วแปลงเป็น WebP เสมอ
+- ปกวิชา / ปกข้อสอบ / ปกหนังสือ / รูปครู: รับ JPG/PNG/WebP/GIF สูงสุด 2MB แล้วแปลงเป็น WebP เสมอ
 - รูปคำถามข้อสอบและรูปเพิ่มเติมของหนังสือ: สูงสุด 4MB แล้วแปลงเป็น WebP
 - อัปเดตรูปปกจะทับไฟล์เดิมที่ path เดิม (`{id}.webp`)
 - ถ้า R2 ยังไม่ครบ จะใช้ disk `public` แทนอัตโนมัติ
@@ -160,4 +160,6 @@ URL จาก model เช่น `thumbnail_url` ใส่ `?v={updated_at}` ใ
 - วิดีโอ: validation สูงสุด 500MB — ต้องตั้ง PHP ให้รองรับด้วย เช่น
   - `upload_max_filesize=512M`
   - `post_max_size=520M`
-  - หรือรันด้วย `composer run serve`
+  - หรือรันด้วย `composer run serve` (ส่ง `-d` ค่าข้างบนให้) ถ้ารัน `php artisan serve` ตรง ๆ จะใช้ค่าใน `php.ini` (ค่าตั้งต้นของ PHP คือ 2M / 8M ทำให้อัปโหลดวิดีโอเกิน 2MB ไม่ได้)
+  - ไฟล์เกิน `post_max_size` PHP จะทิ้งข้อมูลทั้งคำขอก่อนถึง Laravel จึงไม่มีอะไรใน `laravel.log` ระบบตอบ 413 พร้อมข้อความภาษาไทยที่บอกค่าขีดจำกัด และ log ของ `php artisan serve` จะมี `POST Content-Length of ... exceeds the limit`
+  - แก้ `php.ini` แล้วต้องปิดและเปิด `php artisan serve` ใหม่

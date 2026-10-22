@@ -171,7 +171,7 @@ class CurriculumController extends Controller
         if ($video->chapters()->exists()) {
             return redirect()
                 ->route('curriculums.show', ['curriculum' => $curriculum, 'tab' => 'video'])
-                ->with('error', 'ลบได้เฉพาะวิดีโอเดี่ยว วิดีโอที่อยู่ในคอร์สให้ใช้ปุ่มนำออก');
+                ->with('error', 'ลบได้เฉพาะวิดีโอเดี่ยว วิดีโอที่อยู่ในวิชาให้ใช้ปุ่มนำออก');
         }
 
         MediaStorage::delete($video->storage_key);
@@ -249,7 +249,7 @@ class CurriculumController extends Controller
         return view('pages.curriculums.edit', [
             'title' => 'แก้ไขหลักสูตร',
             'curriculum' => $curriculum,
-            'categories' => $this->categories(),
+            'categories' => $this->categories($curriculum->category_id),
         ]);
     }
 
@@ -428,7 +428,7 @@ class CurriculumController extends Controller
             'statuses' => ContentStatus::filterOptions(['draft', 'published', 'inactive']),
             'exam_types' => [
                 ['value' => 'primary_exam', 'label' => 'ข้อสอบขายแยก'],
-                ['value' => 'exam', 'label' => 'ข้อสอบในคอร์ส'],
+                ['value' => 'exam', 'label' => 'ข้อสอบในวิชา'],
             ],
         ];
     }
@@ -552,7 +552,7 @@ class CurriculumController extends Controller
             'url' => $video->url,
             'standalone' => $video->chapters->isEmpty(),
             'badges' => array_values(array_filter([
-                $video->chapters->isEmpty() ? 'วิดีโอเดี่ยว' : 'มาจากคอร์ส',
+                $video->chapters->isEmpty() ? 'วิดีโอเดี่ยว' : 'มาจากวิชา',
                 $this->durationLabel($video->duration_seconds),
                 $video->is_free ? 'ดูฟรี' : null,
             ])),
@@ -678,7 +678,7 @@ class CurriculumController extends Controller
         $kind = match ($item->type) {
             'primary_exam' => 'ข้อสอบขายแยก',
             'quiz' => 'แบบฝึกหัด',
-            default => 'ข้อสอบในคอร์ส',
+            default => 'ข้อสอบในวิชา',
         };
 
         return [
@@ -727,7 +727,7 @@ class CurriculumController extends Controller
     private function typeLabel(string $type): string
     {
         return match ($type) {
-            'course' => 'คอร์ส',
+            'course' => 'วิชา',
             'chapter' => 'บทเรียน',
             'video' => 'วิดีโอ',
             'exam' => 'ข้อสอบ',
@@ -758,8 +758,14 @@ class CurriculumController extends Controller
     /**
      * @return \Illuminate\Support\Collection<int, Category>
      */
-    private function categories()
+    private function categories(?int $currentId = null)
     {
-        return Category::query()->orderBy('name')->get(['id', 'name']);
+        return Category::query()
+            ->where(fn ($query) => $query
+                ->where('status', 'active')
+                ->when($currentId, fn ($inner) => $inner->orWhere('id', $currentId)))
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get(['id', 'name']);
     }
 }

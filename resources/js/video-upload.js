@@ -44,7 +44,12 @@ export function uploadVideoForm(component, event) {
         try {
             payload = JSON.parse(xhr.responseText || '{}');
         } catch (error) {
-            payload = null;
+            const json = (xhr.responseText || '').match(/\{[\s\S]*\}\s*$/);
+            try {
+                payload = json ? JSON.parse(json[0]) : null;
+            } catch (innerError) {
+                payload = null;
+            }
         }
 
         if (xhr.status >= 200 && xhr.status < 300) {
@@ -56,8 +61,12 @@ export function uploadVideoForm(component, event) {
             return;
         }
 
-        let message = 'อัปโหลดวิดีโอไม่สำเร็จ';
-        if (payload?.message) {
+        let message = `อัปโหลดวิดีโอไม่สำเร็จ (HTTP ${xhr.status})`;
+        if (xhr.status === 413 && !payload?.message) {
+            message = 'ไฟล์ใหญ่เกินขีดจำกัดของเซิร์ฟเวอร์ ตรวจสอบ upload_max_filesize และ post_max_size ของ PHP';
+        } else if (xhr.status === 419) {
+            message = 'หน้าเว็บหมดอายุ กรุณารีเฟรชหน้าแล้วลองใหม่';
+        } else if (payload?.message) {
             message = payload.message;
         } else if (payload?.errors) {
             message = Object.values(payload.errors).flat().join(' ');

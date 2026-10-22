@@ -126,7 +126,7 @@ class DashboardController extends Controller
                     [
                         'label' => 'กำลังเรียน',
                         'value' => number_format($activeEnrollments),
-                        'hint' => 'คอร์สที่เผยแพร่ '.number_format($publishedCourses).' รายการ',
+                        'hint' => 'วิชาที่เผยแพร่ '.number_format($publishedCourses).' รายการ',
                         'change' => null,
                         'href' => route('courses.index'),
                     ],
@@ -145,7 +145,7 @@ class DashboardController extends Controller
             ],
             'breakdown' => $breakdown->map(fn ($row) => [
                     'label' => match ($row->item_type) {
-                        'course' => 'คอร์ส',
+                        'course' => 'วิชา',
                         'curriculum' => 'หลักสูตร',
                         'exam' => 'ข้อสอบ',
                         'book' => 'หนังสือ',

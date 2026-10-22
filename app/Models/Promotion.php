@@ -117,7 +117,7 @@ class Promotion extends Model
     public function requiredPurchaseLabel(): string
     {
         $items = $this->requiredCourses->pluck('name')
-            ->map(fn (string $name) => 'คอร์ส '.$name)
+            ->map(fn (string $name) => 'วิชา '.$name)
             ->merge($this->requiredProducts->pluck('name')->map(fn (string $name) => 'หนังสือ '.$name));
 
         return $items->isEmpty() ? 'ไม่ต้องเคยซื้อ' : 'ต้องเคยซื้อ '.$items->join(', ');

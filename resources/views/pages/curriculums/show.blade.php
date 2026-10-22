@@ -2,7 +2,7 @@
 
 @php
 $tabs = [
-'course' => 'คอร์ส',
+'course' => 'วิชา',
 'chapter' => 'บทเรียน',
 'video' => 'วิดีโอ',
 'exam' => 'ข้อสอบ',
@@ -55,7 +55,7 @@ $activeTab = 'course';
                     <span class="inline-flex rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-medium text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">แนะนำ</span>
                     @endif
                 </div>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $curriculum->category?->name ?? 'ไม่มีหมวดหมู่' }}</p>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $curriculum->category?->name ?? 'ไม่มีระดับชั้น' }}</p>
                 @if ($curriculum->short_description)
                 <p class="mt-2 max-w-2xl text-sm text-gray-600 dark:text-gray-300">{{ $curriculum->short_description }}</p>
                 @endif
@@ -377,23 +377,23 @@ $activeTab = 'course';
                 <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
                     <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">เพิ่ม<span x-text="tabs[tab]"></span></h3>
                     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400" x-show="isRich() && !needsCourse()" x-cloak>ค้นหา กรอง และเลือกได้หลายรายการ รายการที่อยู่ในหลักสูตรแล้วจะไม่แสดง</p>
-                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400" x-show="needsCourse()" x-cloak>เลือกคอร์สก่อน แล้วจึงค้นหารายการในคอร์สนั้น</p>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400" x-show="needsCourse()" x-cloak>เลือกวิชาก่อน แล้วจึงค้นหารายการในวิชานั้น</p>
                     <div class="mt-3 grid grid-cols-1 gap-3" :class="tab === 'exam' ? 'md:grid-cols-2 xl:grid-cols-4' : ((tab === 'exercise' || tab === 'course') ? 'md:grid-cols-3' : (isRich() ? 'md:grid-cols-2' : ''))">
                         <select x-show="needsCourse()" x-cloak x-model="courseId" @change="query = ''; load(1)" class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                            <option value="">เลือกคอร์ส</option>
+                            <option value="">เลือกวิชา</option>
                             <template x-for="course in filterOptions.courses" :key="'need-' + course.id">
                                 <option :value="course.id" x-text="course.name"></option>
                             </template>
                         </select>
                         <select x-show="tab === 'video'" x-cloak x-model="courseId" @change="load(1)" class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                            <option value="">ทุกคอร์ส</option>
+                            <option value="">ทุกวิชา</option>
                             <template x-for="course in filterOptions.courses" :key="'video-' + course.id">
                                 <option :value="course.id" x-text="course.name"></option>
                             </template>
                         </select>
-                        <input type="text" x-model="query" @input="isRich() ? scheduleLoad() : null" :disabled="needsCourse() && !courseId" :placeholder="needsCourse() && !courseId ? 'เลือกคอร์สก่อน' : 'ค้นหาชื่อหรือรายละเอียด'" class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" />
+                        <input type="text" x-model="query" @input="isRich() ? scheduleLoad() : null" :disabled="needsCourse() && !courseId" :placeholder="needsCourse() && !courseId ? 'เลือกวิชาก่อน' : 'ค้นหาชื่อหรือรายละเอียด'" class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" />
                         <select x-show="isRich() && tab === 'course'" x-cloak x-model="subjectId" @change="load(1)" class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                            <option value="">ทุกวิชา</option>
+                            <option value="">ทุกชนิดวิชา</option>
                             <template x-for="subject in filterOptions.subjects" :key="subject.id">
                                 <option :value="subject.id" x-text="subject.name"></option>
                             </template>
@@ -422,7 +422,7 @@ $activeTab = 'course';
                         <div x-show="isRich()" x-cloak>
                             <p x-show="loading" class="px-5 py-10 text-center text-sm text-gray-500 dark:text-gray-400">กำลังโหลด...</p>
                             <p x-show="!loading && error" class="px-5 py-10 text-center text-sm text-error-500" x-text="error"></p>
-                            <p x-show="!loading && !error && needsCourse() && !courseId" class="px-5 py-10 text-center text-sm text-gray-500 dark:text-gray-400">เลือกคอร์สก่อน เพื่อแสดงรายการ</p>
+                            <p x-show="!loading && !error && needsCourse() && !courseId" class="px-5 py-10 text-center text-sm text-gray-500 dark:text-gray-400">เลือกวิชาก่อน เพื่อแสดงรายการ</p>
                             <p x-show="!loading && !error && !(needsCourse() && !courseId) && items.length === 0" class="px-5 py-10 text-center text-sm text-gray-500 dark:text-gray-400">ไม่มีรายการให้เลือก</p>
                             <div x-show="!loading && !error && items.length > 0" class="grid grid-cols-1 gap-3 p-4 lg:grid-cols-2">
                                 <template x-for="item in items" :key="item.id">
@@ -499,7 +499,7 @@ $activeTab = 'course';
                 </button>
                 <div class="pr-10">
                     <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90">อัปโหลดวิดีโอ</h4>
-                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">วิดีโอนี้เป็นไฟล์เดี่ยวของหลักสูตร ไม่ผูกกับคอร์สหรือบทเรียน</p>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">วิดีโอนี้เป็นไฟล์เดี่ยวของหลักสูตร ไม่ผูกกับวิชาหรือบทเรียน</p>
                 </div>
                 <form data-no-loading @submit="uploadVideo($event)" action="{{ route('curriculums.videos.store', $curriculum) }}" enctype="multipart/form-data" class="mt-6 space-y-4">
                     @csrf

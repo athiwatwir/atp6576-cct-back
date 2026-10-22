@@ -16,6 +16,25 @@
     </div>
 
     <div>
+        <label for="category_id" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+            ระดับชั้น
+        </label>
+        <select id="category_id" name="category_id"
+            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+            <option value="">ไม่ระบุ</option>
+            @foreach ($categories as $category)
+                <option value="{{ $category->id }}" @selected((int) old('category_id', $subject?->category_id) === $category->id)>
+                    {{ $category->name }}{{ $category->status !== 'active' ? ' (ปิดใช้งาน)' : '' }}
+                </option>
+            @endforeach
+        </select>
+        <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">วิชาที่เลือกชนิดวิชานี้แต่ไม่ได้เลือกระดับชั้น จะใช้ระดับชั้นนี้</p>
+        @error('category_id')
+            <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p>
+        @enderror
+    </div>
+
+    <div>
         <label for="status" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
             สถานะ<span class="text-error-500">*</span>
         </label>
