@@ -139,10 +139,21 @@
             <label for="required_video_ids" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">ต้องดูวิดีโอก่อนใช้โปรโมชัน</label>
             <select id="required_video_ids" name="required_video_ids[]" multiple class="{{ $inputClass }} h-36">
                 @foreach ($videos as $video)
-                    <option value="{{ $video->id }}" @selected(in_array((string) $video->id, $selectedRequiredVideos, true))>{{ $video->title }}</option>
+                    <option value="{{ $video->id }}" @selected(in_array((string) $video->id, $selectedRequiredVideos, true))>{{ $video->title }}{{ $video->duration_seconds > 0 ? ' ('.gmdate($video->duration_seconds >= 3600 ? 'G:i:s' : 'i:s', $video->duration_seconds).')' : '' }}</option>
                 @endforeach
             </select>
             <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">ไม่เลือก เท่ากับใช้โปรโมชันได้โดยไม่ต้องดูวิดีโอ</p>
+            @error('required_video_ids')<p class="mt-1.5 text-sm text-error-500">{{ $message }}</p>@enderror
+        </div>
+        <div x-data="{ seconds: @js((string) old('required_video_seconds', $promotion?->requiredVideoSeconds() ?? '')) }">
+            <label for="required_video_seconds" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">ต้องดูอย่างน้อย (วินาที)</label>
+            <input type="number" id="required_video_seconds" name="required_video_seconds" min="1" max="86400" step="1" x-model="seconds"
+                placeholder="เว้นว่าง = ต้องดูจนจบ" class="{{ $inputClass }}" />
+            <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                ใช้กับทุกวิดีโอที่เลือก เว้นว่างเท่ากับต้องดูจนจบ
+                <span x-show="Number(seconds) > 0" x-cloak x-text="'(' + Math.floor(Number(seconds) / 60) + ' นาที ' + (Number(seconds) % 60) + ' วินาที)'"></span>
+            </p>
+            @error('required_video_seconds')<p class="mt-1.5 text-sm text-error-500">{{ $message }}</p>@enderror
         </div>
     </div>
 </div>

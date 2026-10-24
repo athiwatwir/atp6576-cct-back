@@ -145,11 +145,42 @@ class Promotion extends Model
         return 'ซื้อ '.$triggers->join(', ').' แถม '.$gifts->join(', ');
     }
 
+    /**
+     * จำนวนวินาทีขั้นต่ำที่ต้องดูแต่ละวิดีโอ null = ต้องดูจนจบ
+     */
+    public function requiredVideoSeconds(): ?int
+    {
+        $seconds = (int) ($this->rules['required_video_seconds'] ?? 0);
+
+        return $seconds > 0 ? $seconds : null;
+    }
+
     public function requiredVideoLabel(): string
     {
         $titles = $this->requiredVideos->pluck('title');
 
-        return $titles->isEmpty() ? 'ไม่ต้องดูวิดีโอก่อน' : 'ต้องดู '.$titles->join(', ').' ก่อน';
+        if ($titles->isEmpty()) {
+            return 'ไม่ต้องดูวิดีโอก่อน';
+        }
+
+        $seconds = $this->requiredVideoSeconds();
+        $amount = $seconds === null
+            ? 'จนจบ'
+            : 'อย่างน้อย '.self::durationLabel($seconds);
+
+        return 'ต้องดู '.$titles->join(', ').' '.$amount.' ก่อน';
+    }
+
+    private static function durationLabel(int $seconds): string
+    {
+        $minutes = intdiv($seconds, 60);
+        $rest = $seconds % 60;
+
+        return match (true) {
+            $minutes === 0 => $rest.' วินาที',
+            $rest === 0 => $minutes.' นาที',
+            default => $minutes.' นาที '.$rest.' วินาที',
+        };
     }
 
     public function contents(): BelongsToMany

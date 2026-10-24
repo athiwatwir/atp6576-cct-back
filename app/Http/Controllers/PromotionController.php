@@ -155,7 +155,7 @@ class PromotionController extends Controller
             'curriculums' => Curriculum::query()->orderBy('name')->get(['id', 'name']),
             'exams' => Assessment::query()->where('type', 'primary_exam')->orderBy('title')->get(['id', 'title']),
             'books' => Product::query()->books()->orderBy('name')->get(['id', 'name']),
-            'videos' => Video::query()->orderBy('title')->get(['id', 'title']),
+            'videos' => Video::query()->orderBy('title')->get(['id', 'title', 'duration_seconds']),
         ];
     }
 
@@ -186,6 +186,9 @@ class PromotionController extends Controller
             'rules' => [
                 'applies_to' => $selected ? 'selected' : 'all',
                 'student_group' => $data['student_group'] ?? 'all',
+                'required_video_seconds' => ($data['required_video_ids'] ?? []) !== [] && ! empty($data['required_video_seconds'])
+                    ? (int) $data['required_video_seconds']
+                    : null,
             ],
         ];
     }

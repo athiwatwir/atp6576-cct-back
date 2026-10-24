@@ -3,8 +3,10 @@
 namespace App\Http\Requests\Promotions;
 
 use App\Enums\DiscountType;
+use App\Models\Video;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StorePromotionRequest extends FormRequest
 {
@@ -17,7 +19,7 @@ class StorePromotionRequest extends FormRequest
     {
         $payload = [];
 
-        foreach (['description', 'max_discount_amount', 'min_purchase_amount', 'usage_limit', 'start_at', 'end_at'] as $field) {
+        foreach (['description', 'max_discount_amount', 'min_purchase_amount', 'usage_limit', 'start_at', 'end_at', 'required_video_seconds'] as $field) {
             if ($this->input($field) === '') {
                 $payload[$field] = null;
             }
@@ -64,6 +66,7 @@ class StorePromotionRequest extends FormRequest
             'required_product_ids.*' => ['integer', 'exists:products,id'],
             'required_video_ids' => ['nullable', 'array'],
             'required_video_ids.*' => ['integer', 'exists:videos,id'],
+            'required_video_seconds' => ['nullable', 'integer', 'min:1', 'max:86400'],
             'gift_course_ids' => ['nullable', 'array'],
             'gift_course_ids.*' => ['integer', 'exists:courses,id'],
             'gift_assessment_ids' => ['nullable', 'array'],
@@ -97,9 +100,40 @@ class StorePromotionRequest extends FormRequest
             'required_course_ids' => 'วิชาที่ต้องเคยซื้อ',
             'required_product_ids' => 'หนังสือที่ต้องเคยซื้อ',
             'required_video_ids' => 'วิดีโอที่ต้องดู',
+            'required_video_seconds' => 'จำนวนวินาทีที่ต้องดู',
             'gift_course_ids' => 'วิชาที่ซื้อแล้วได้ของแถม',
             'gift_assessment_ids' => 'ข้อสอบแถม',
             'gift_product_ids' => 'หนังสือแถม',
+        ];
+    }
+
+    public function after(): array
+    {
+        return [
+            function (Validator $validator) {
+                $seconds = (int) $this->input('required_video_seconds');
+                $ids = array_filter((array) $this->input('required_video_ids', []));
+
+                if ($seconds <= 0 || $validator->errors()->hasAny(['required_video_ids', 'required_video_ids.*', 'required_video_seconds'])) {
+                    return;
+                }
+
+                if ($ids === []) {
+                    $validator->errors()->add('required_video_seconds', 'เลือกวิดีโอที่ต้องดูก่อน แล้วจึงกำหนดจำนวนวินาที');
+
+                    return;
+                }
+
+                $tooShort = Video::query()
+                    ->whereIn('id', $ids)
+                    ->where('duration_seconds', '>', 0)
+                    ->where('duration_seconds', '<', $seconds)
+                    ->pluck('title');
+
+                if ($tooShort->isNotEmpty()) {
+                    $validator->errors()->add('required_video_seconds', 'จำนวนวินาทีเกินความยาวของวิดีโอ '.$tooShort->join(', '));
+                }
+            },
         ];
     }
 }
