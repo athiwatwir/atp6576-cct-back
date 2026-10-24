@@ -11,6 +11,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class CourseVideoUpload
 {
@@ -24,7 +25,8 @@ class CourseVideoUpload
             'description' => ['nullable', 'string'],
             'duration_seconds' => ['nullable', 'integer', 'min:0'],
             'is_free' => ['nullable', 'boolean'],
-            'video_file' => array_merge(['required'], array_slice(MediaType::CourseVideo->rules(), 1)),
+            'video_file' => array_merge(['required_without:upload_token'], array_slice(MediaType::CourseVideo->rules(), 1)),
+            'upload_token' => ['nullable', 'string', 'size:40'],
         ];
     }
 
@@ -34,7 +36,9 @@ class CourseVideoUpload
     public static function messages(): array
     {
         return [
+            'title.required' => 'กรุณากรอกชื่อวิดีโอ',
             'video_file.required' => 'กรุณาเลือกไฟล์วิดีโอ',
+            'video_file.required_without' => 'กรุณาเลือกไฟล์วิดีโอ',
             'video_file.uploaded' => 'อัปโหลดไฟล์วิดีโอไม่สำเร็จ (ไฟล์อาจใหญ่เกินขีดจำกัดของเซิร์ฟเวอร์ หรือไฟล์เสียหาย)',
             'video_file.mimetypes' => 'รองรับเฉพาะไฟล์ mp4, webm, mov',
             'video_file.max' => 'ขนาดไฟล์วิดีโอต้องไม่เกิน 500MB',
@@ -44,12 +48,21 @@ class CourseVideoUpload
     /**
      * @param  array<string, mixed>  $data
      */
-    public static function store(Course $course, Chapter $chapter, array $data, UploadedFile $file): Video
+    public static function store(Course $course, Chapter $chapter, array $data, ?UploadedFile $file): Video
     {
-        $video = self::create($data);
-        $video->update([
-            'storage_key' => MediaStorage::storeCourseVideo($file, $course->id, $chapter->id, $video->id),
-        ]);
+        if (filled($data['upload_token'] ?? null)) {
+            $upload = VideoDirectUpload::consume($data['upload_token'], (int) auth()->id(), [
+                'scope' => 'course',
+                'course_id' => $course->id,
+                'chapter_id' => $chapter->id,
+            ]);
+            $video = self::create(self::withDuration($data, $upload['duration']), $upload['key']);
+        } else {
+            $video = self::create(self::withDuration($data, self::assertPlayable($file)));
+            $video->update([
+                'storage_key' => MediaStorage::storeCourseVideo($file, $course->id, $chapter->id, $video->id),
+            ]);
+        }
 
         $sortOrder = ((int) $chapter->videos()->max('chapter_videos.sort_order')) + 1;
         $chapter->videos()->attach($video->id, [
@@ -63,9 +76,15 @@ class CourseVideoUpload
     /**
      * @param  array<string, mixed>  $data
      */
-    public static function storeStandalone(array $data, UploadedFile $file): Video
+    public static function storeStandalone(array $data, ?UploadedFile $file): Video
     {
-        $video = self::create($data);
+        if (filled($data['upload_token'] ?? null)) {
+            $upload = VideoDirectUpload::consume($data['upload_token'], (int) auth()->id(), ['scope' => 'standalone']);
+
+            return self::create(self::withDuration($data, $upload['duration']), $upload['key']);
+        }
+
+        $video = self::create(self::withDuration($data, self::assertPlayable($file)));
         $video->update([
             'storage_key' => MediaStorage::storeStandaloneVideo($file, $video->id),
         ]);
@@ -74,9 +93,37 @@ class CourseVideoUpload
     }
 
     /**
+     * ตรวจไฟล์ที่อัปโหลดผ่าน PHP ว่าเบราว์เซอร์เล่นได้ คืนค่าความยาว (วินาที) ที่อ่านได้จากไฟล์
+     */
+    public static function assertPlayable(UploadedFile $file): ?int
+    {
+        $extension = strtolower($file->getClientOriginalExtension() ?: (string) $file->extension());
+        $info = VideoInspector::inspectLocalFile($file->getRealPath(), $extension === 'qt' ? 'mov' : $extension);
+
+        if (! $info['ok']) {
+            throw ValidationException::withMessages(['video_file' => $info['message']]);
+        }
+
+        return $info['duration'];
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public static function withDuration(array $data, ?int $detected): array
+    {
+        if ($detected !== null && $detected > 0 && empty($data['duration_seconds'])) {
+            $data['duration_seconds'] = $detected;
+        }
+
+        return $data;
+    }
+
+    /**
      * @param  array<string, mixed>  $data
      */
-    private static function create(array $data): Video
+    private static function create(array $data, ?string $storageKey = null): Video
     {
         return Video::query()->create([
             'title' => $data['title'],
@@ -85,6 +132,7 @@ class CourseVideoUpload
             'duration_seconds' => $data['duration_seconds'] ?? 0,
             'is_free' => (bool) ($data['is_free'] ?? false),
             'storage_provider' => MediaStorage::disk(),
+            'storage_key' => $storageKey,
         ]);
     }
 

@@ -501,7 +501,8 @@ $activeTab = 'course';
                     <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90">อัปโหลดวิดีโอ</h4>
                     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">วิดีโอนี้เป็นไฟล์เดี่ยวของหลักสูตร ไม่ผูกกับวิชาหรือบทเรียน</p>
                 </div>
-                <form data-no-loading @submit="uploadVideo($event)" action="{{ route('curriculums.videos.store', $curriculum) }}" enctype="multipart/form-data" class="mt-6 space-y-4">
+                <form data-no-loading @submit="uploadVideo($event)" action="{{ route('curriculums.videos.store', $curriculum) }}" enctype="multipart/form-data" class="mt-6 space-y-4"
+                    data-direct-upload-url="{{ route('video-uploads.start') }}" data-upload-scope="standalone">
                     @csrf
                     <x-videos.upload-fields cancel="closeVideoUpload()" />
                 </form>

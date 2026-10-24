@@ -8,6 +8,7 @@ use App\Models\Course;
 use App\Models\Video;
 use App\Support\CourseVideoUpload;
 use App\Support\MediaStorage;
+use App\Support\VideoDirectUpload;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -48,7 +49,8 @@ class CourseChapterVideoController extends Controller
             'duration_seconds' => ['nullable', 'integer', 'min:0'],
             'is_free' => ['nullable', 'boolean'],
             'video_file' => MediaType::CourseVideo->rules(),
-        ]);
+            'upload_token' => ['nullable', 'string', 'size:40'],
+        ], CourseVideoUpload::messages());
 
         $payload = [
             'title' => $data['title'],
@@ -57,25 +59,42 @@ class CourseChapterVideoController extends Controller
             'is_free' => (bool) ($data['is_free'] ?? false),
         ];
 
-        if ($request->hasFile('video_file')) {
-            $oldPath = $video->storage_key;
+        $oldPath = $video->storage_key;
+        $path = null;
+        $detected = null;
 
+        if (filled($data['upload_token'] ?? null)) {
+            $upload = VideoDirectUpload::consume($data['upload_token'], (int) $request->user()->id, [
+                'scope' => 'course',
+                'course_id' => $course->id,
+                'chapter_id' => $chapter->id,
+            ]);
+            $path = $upload['key'];
+            $detected = $upload['duration'];
+        } elseif ($request->hasFile('video_file')) {
+            $detected = CourseVideoUpload::assertPlayable($request->file('video_file'));
             $path = MediaStorage::storeCourseVideo(
                 $request->file('video_file'),
                 $course->id,
                 $chapter->id,
                 $video->id
             );
+        }
 
-            if ($oldPath && $oldPath !== $path) {
-                MediaStorage::delete($oldPath);
-            }
-
+        if ($path !== null) {
             $payload['storage_provider'] = MediaStorage::disk();
             $payload['storage_key'] = $path;
+
+            if ($detected && (int) $payload['duration_seconds'] === (int) $video->duration_seconds) {
+                $payload['duration_seconds'] = $detected;
+            }
         }
 
         $video->update($payload);
+
+        if ($path !== null && $oldPath && $oldPath !== $path) {
+            MediaStorage::delete($oldPath);
+        }
 
         return redirect()
             ->route('courses.show', ['course' => $course, 'tab' => 'chapters', 'chapter' => $chapter->id])

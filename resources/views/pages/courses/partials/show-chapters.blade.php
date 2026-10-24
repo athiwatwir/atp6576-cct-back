@@ -121,7 +121,8 @@
                                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $chapter->title }} · อัปโหลดขึ้น Cloudflare R2</p>
                             </div>
 
-                            <form data-no-loading @submit="uploadVideo($event)" action="{{ route('courses.chapters.videos.store', [$course, $chapter]) }}" enctype="multipart/form-data" class="mt-6 space-y-4">
+                            <form data-no-loading @submit="uploadVideo($event)" action="{{ route('courses.chapters.videos.store', [$course, $chapter]) }}" enctype="multipart/form-data" class="mt-6 space-y-4"
+                                data-direct-upload-url="{{ route('video-uploads.start') }}" data-upload-scope="course" data-course-id="{{ $course->id }}" data-chapter-id="{{ $chapter->id }}">
                                 @csrf
                                 <x-videos.upload-fields />
                             </form>
@@ -239,13 +240,13 @@
                     <div
                         x-show="editingVideoId === {{ $video->id }}"
                         x-cloak
-                        @keydown.escape.window="if (playingVideo) return; if (editingVideoId === {{ $video->id }}) editingVideoId = null"
+                        @keydown.escape.window="if (playingVideo || uploadingVideo) return; if (editingVideoId === {{ $video->id }}) editingVideoId = null"
                         class="modal fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-5"
                         data-modal
                     >
-                        <div class="fixed inset-0 h-full w-full bg-gray-900/40" @click="editingVideoId = null"></div>
+                        <div class="fixed inset-0 h-full w-full bg-gray-900/40" @click="if (!uploadingVideo) editingVideoId = null"></div>
                         <div @click.stop class="relative w-full max-w-[700px] rounded-3xl bg-white p-5 shadow-theme-lg dark:bg-gray-900 sm:p-8">
-                            <button type="button" @click="editingVideoId = null" class="{{ $btn['icon'] }} absolute right-3 top-3 z-10 sm:right-6 sm:top-6">
+                            <button type="button" @click="editingVideoId = null" :disabled="uploadingVideo" class="{{ $btn['icon'] }} absolute right-3 top-3 z-10 sm:right-6 sm:top-6">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                     <path fill-rule="evenodd" clip-rule="evenodd" d="M6.043 16.541a1 1 0 0 0 1.414 1.415L12 13.413l4.543 4.543a1 1 0 0 0 1.414-1.415L13.414 12l4.543-4.543a1 1 0 0 0-1.414-1.414L12 10.586 7.457 6.043A1 1 0 0 0 6.043 7.457L10.586 12l-4.543 4.541Z" fill="currentColor"/>
                                 </svg>
@@ -256,7 +257,9 @@
                                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $chapter->title }}</p>
                             </div>
 
-                            <form method="POST" action="{{ route('courses.chapters.videos.update', [$course, $chapter, $video]) }}" enctype="multipart/form-data" class="mt-6 space-y-4">
+                            <form method="POST" action="{{ route('courses.chapters.videos.update', [$course, $chapter, $video]) }}" enctype="multipart/form-data" class="mt-6 space-y-4"
+                                @submit="window.submitVideoEditForm($data, $event)"
+                                data-direct-upload-url="{{ route('video-uploads.start') }}" data-upload-scope="course" data-course-id="{{ $course->id }}" data-chapter-id="{{ $chapter->id }}">
                                 @csrf
                                 @method('PUT')
                                 <div>
@@ -271,8 +274,7 @@
                                     <label class="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">เปลี่ยนไฟล์วิดีโอ (ถ้าต้องการ)</label>
                                     <input type="file" name="video_file" accept="video/mp4,video/webm,video/quicktime" class="dark:bg-dark-900 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm shadow-theme-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                                     <p class="mt-1.5 text-[11px] text-gray-500 dark:text-gray-400">
-                                        อัปโหลดใหม่จะทับชื่อไฟล์
-                                        <code class="rounded bg-gray-100 px-1 dark:bg-white/10">courses/{{ $course->id }}/chapters/{{ $chapter->id }}/videos/{{ $video->id }}.ext</code>
+                                        รองรับ mp4, webm, mov · สูงสุด {{ \App\Support\VideoDirectUpload::available() ? \App\Support\VideoDirectUpload::maxLabel() : '500MB' }} · ไฟล์ใหม่จะแทนไฟล์เดิม และลบไฟล์เดิมหลังบันทึก
                                     </p>
                                     @if ($video->url)
                                     <p class="mt-1 text-[11px] text-gray-500">ไฟล์ปัจจุบัน: <a href="{{ $video->url }}" target="_blank" class="text-brand-500 hover:underline">เปิดดู</a>
@@ -300,9 +302,21 @@
                                         <span class="mt-0.5 block text-xs leading-5" :class="trialOpen ? 'text-brand-700/80 dark:text-brand-300/80' : 'text-gray-500 dark:text-gray-400'" x-text="trialOpen ? 'ผู้เรียนดูวิดีโอนี้ได้ก่อนซื้อวิชา' : 'ต้องลงทะเบียนวิชาก่อนจึงจะดูวิดีโอนี้ได้'"></span>
                                     </span>
                                 </label>
+                                <div x-show="uploadingVideo" x-cloak class="space-y-2 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-white/[0.03]">
+                                    <div class="flex items-center justify-between text-xs text-gray-600 dark:text-gray-300">
+                                        <span x-text="uploadStage === 'saving' ? 'กำลังบันทึก...' : 'กำลังอัปโหลดไฟล์ขึ้น R2...'"></span>
+                                        <span x-text="uploadProgress + '%'"></span>
+                                    </div>
+                                    <div class="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                                        <div class="bg-brand-500 h-full rounded-full transition-all duration-200" :style="'width: ' + uploadProgress + '%'"></div>
+                                    </div>
+                                </div>
+                                <template x-if="uploadVideoError">
+                                    <p class="text-sm text-error-600" x-text="uploadVideoError"></p>
+                                </template>
                                 <div class="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
-                                    <button type="button" @click="editingVideoId = null" class="{{ $btn['secondary'] }}">ยกเลิก</button>
-                                    <button type="submit" class="{{ $btn['primary'] }}">บันทึก</button>
+                                    <button type="button" @click="editingVideoId = null" :disabled="uploadingVideo" class="{{ $btn['secondary'] }}">ยกเลิก</button>
+                                    <button type="submit" :disabled="uploadingVideo" class="{{ $btn['primary'] }}">บันทึก</button>
                                 </div>
                             </form>
                         </div>

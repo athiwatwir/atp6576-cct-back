@@ -14,11 +14,11 @@
     <label class="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">ไฟล์วิดีโอ</label>
     <input type="file" name="video_file" required accept="video/mp4,video/webm,video/quicktime" :disabled="uploadingVideo"
         class="dark:bg-dark-900 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm shadow-theme-xs disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
-    <p class="mt-1.5 text-[11px] text-gray-500 dark:text-gray-400">รองรับ mp4, webm, mov · สูงสุด 500MB</p>
+    <p class="mt-1.5 text-[11px] text-gray-500 dark:text-gray-400">รองรับ mp4, webm, mov · สูงสุด {{ \App\Support\VideoDirectUpload::available() ? \App\Support\VideoDirectUpload::maxLabel() : '500MB' }} · ภาพต้องเป็น H.264 (8-bit) เสียง AAC ไฟล์ H.265/HEVC หรือ ProRes จะถูกปฏิเสธเพราะเบราว์เซอร์แสดงเป็นจอดำ</p>
 </div>
 <div>
     <label class="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">ความยาว (วินาที)</label>
-    <input type="number" name="duration_seconds" min="0" placeholder="เช่น 600" :disabled="uploadingVideo"
+    <input type="number" name="duration_seconds" min="0" placeholder="เว้นว่างให้ระบบอ่านจากไฟล์" :disabled="uploadingVideo"
         class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm shadow-theme-xs disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
 </div>
 <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">

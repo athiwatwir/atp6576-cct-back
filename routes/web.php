@@ -25,6 +25,7 @@ use App\Http\Controllers\PromotionController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\VideoUploadController;
 use App\Http\Controllers\TestimonialController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\OrderPaymentController;
@@ -116,6 +117,10 @@ Route::middleware(['auth', 'backend'])->group(function () {
     Route::put('courses/{course}/chapters/{chapter}', [CourseChapterController::class, 'update'])->name('courses.chapters.update');
     Route::delete('courses/{course}/chapters/{chapter}', [CourseChapterController::class, 'destroy'])->name('courses.chapters.destroy');
 
+    Route::post('video-uploads', [VideoUploadController::class, 'start'])->middleware('throttle:30,1,video-upload-start')->name('video-uploads.start');
+    Route::post('video-uploads/{token}/sign', [VideoUploadController::class, 'sign'])->where('token', '[A-Za-z0-9]{40}')->name('video-uploads.sign');
+    Route::post('video-uploads/{token}/complete', [VideoUploadController::class, 'complete'])->where('token', '[A-Za-z0-9]{40}')->name('video-uploads.complete');
+    Route::delete('video-uploads/{token}', [VideoUploadController::class, 'abort'])->where('token', '[A-Za-z0-9]{40}')->name('video-uploads.abort');
     Route::post('courses/{course}/chapters/{chapter}/videos', [CourseChapterVideoController::class, 'store'])->name('courses.chapters.videos.store');
     Route::put('courses/{course}/chapters/{chapter}/videos/{video}', [CourseChapterVideoController::class, 'update'])->name('courses.chapters.videos.update');
     Route::delete('courses/{course}/chapters/{chapter}/videos/{video}', [CourseChapterVideoController::class, 'destroy'])->name('courses.chapters.videos.destroy');

@@ -21,7 +21,10 @@ Disk config: `config/filesystems.php` → `disks.r2`
 
 ```text
 courses/{course_id}/thumbnails/{course_id}.webp
-courses/{course_id}/chapters/{chapter_id}/videos/{video_id}.{ext}
+courses/{course_id}/chapters/{chapter_id}/videos/{uuid}.{ext}      # อัปโหลดตรงขึ้น R2 (ปัจจุบัน)
+courses/{course_id}/chapters/{chapter_id}/videos/{video_id}.{ext}  # อัปโหลดผ่าน PHP (เมื่อไม่ได้ใช้ R2 และไฟล์เก่า)
+videos/{uuid}.{ext}                                                # วิดีโอเดี่ยวของหลักสูตร (อัปโหลดตรง)
+videos/{video_id}.{ext}                                            # วิดีโอเดี่ยวผ่าน PHP
 instructors/{instructor_id}/{instructor_id}.webp
 exams/{exam_id}/{exam_id}.webp
 exams/{exam_id}/questions/{question_id}.webp
@@ -92,7 +95,69 @@ Storage::disk(MediaStorage::disk())->put($path, $webp, [
 ]);
 ```
 
-### อัปโหลดวิดีโอบทเรียน
+### อัปโหลดวิดีโอบทเรียนและวิดีโอเดี่ยวของหลักสูตร (อัปโหลดตรงขึ้น R2)
+
+เมื่อใช้ R2 หน้าเพิ่มวิดีโอในบทเรียน หน้าแก้ไขวิดีโอ (เปลี่ยนไฟล์) และหน้าอัปโหลดวิดีโอในหลักสูตร ส่งไฟล์จากเบราว์เซอร์ขึ้น R2 โดยตรงแบบ multipart ไฟล์ไม่ผ่าน PHP จึงไม่ติด `upload_max_filesize` / `post_max_size` และขีดจำกัดขนาดคำขอของ Cloudflare/nginx รองรับสูงสุด 5GB
+
+ขั้นตอน (`resources/js/video-upload.js`, `App\Support\VideoDirectUpload`, `VideoUploadController`):
+
+1. `POST /video-uploads` ส่ง `scope` (`course` หรือ `standalone`), `course_id`, `chapter_id`, `filename`, `size` ระบบตรวจนามสกุล (mp4, webm, mov) และขนาด สร้าง multipart upload บน R2 ที่ key `.../{uuid}.{ext}` แล้วคืน `token`, `part_size`, `part_count` ถ้าไม่ได้ใช้ R2 คืน `{"direct": false}` และหน้าเว็บส่งไฟล์ผ่าน PHP แบบเดิม (สูงสุด 500MB)
+2. `POST /video-uploads/{token}/sign` ขอ presigned URL ทีละไม่เกิน 50 part (อายุ 60 นาที ถ้าหมดอายุ R2 ตอบ 403 แล้วหน้าเว็บขอ URL ใหม่ให้เอง)
+3. เบราว์เซอร์ `PUT` แต่ละ part ขึ้น R2 พร้อมกัน 4 part part ที่ล้มเหลวลองใหม่ได้ 8 ครั้ง (รอ 1, 2, 4 ... สูงสุด 30 วินาที และรอให้กลับมาออนไลน์ก่อน) ไม่ต้องเริ่มทั้งไฟล์ใหม่
+4. `POST /video-uploads/{token}/complete` ส่ง ETag ทุก part ระบบรวมไฟล์ ตรวจขนาด และตรวจว่าเบราว์เซอร์เล่นได้ (ดูหัวข้อตรวจไฟล์วิดีโอด้านล่าง) ถ้าไม่ผ่าน ลบไฟล์ทิ้งและตอบ 422 พร้อมเหตุผล
+5. หน้าเว็บส่งฟอร์มเดิม (`courses.chapters.videos.store`, `courses.chapters.videos.update`, `curriculums.videos.store`) พร้อม `upload_token` แทน `video_file` ระบบสร้างหรืออัปเดตวิดีโอด้วย key นั้น token ใช้ได้ครั้งเดียว เฉพาะผู้ใช้ที่เริ่มอัปโหลด และเฉพาะบทเรียน (หรือหลักสูตร) เดียวกับตอนเริ่ม เปลี่ยนไฟล์แล้วลบไฟล์เดิมบน R2 หลังบันทึก
+6. ล้มเหลวหรือบันทึกไม่สำเร็จ หน้าเว็บเรียก `DELETE /video-uploads/{token}` เพื่อยกเลิก multipart หรือลบไฟล์ที่รวมแล้ว ระหว่างอัปโหลดถ้าปิดหน้า เบราว์เซอร์จะเตือนก่อน
+
+ข้อมูล session ของการอัปโหลดเก็บใน cache 24 ชั่วโมง multipart ที่ค้างโดยไม่ได้ยกเลิก R2 ลบให้เองหลัง 7 วัน (ค่าตั้งต้นของ R2)
+
+ตั้งค่าใน `.env` (ดู `config/media.php`):
+
+```env
+MEDIA_VIDEO_MAX_MB=5120          # ขนาดสูงสุด (5GB)
+MEDIA_VIDEO_PART_MB=32           # ขนาดต่อ part (R2 ต้องการ part เท่ากันยกเว้น part สุดท้าย ขั้นต่ำ 5MB)
+MEDIA_VIDEO_UPLOAD_TTL_HOURS=24  # อายุ token อัปโหลด
+```
+
+#### ตรวจไฟล์วิดีโอ (จอดำ / ไฟล์ไม่สมบูรณ์)
+
+`App\Support\VideoInspector` อ่านโครงสร้าง MP4/MOV (ส่วนหัวของแต่ละ atom และ `moov` เท่านั้น ไม่ดาวน์โหลดทั้งไฟล์) ใช้ทั้งการอัปโหลดตรงขึ้น R2 และอัปโหลดผ่าน PHP ปฏิเสธไฟล์ที่เบราว์เซอร์จะแสดงเป็นจอดำหรือเล่นไม่ได้:
+
+| กรณี | ข้อความ |
+|------|--------|
+| ไม่มี `moov` (บันทึกหรือ export ไม่จบ ไฟล์เสีย) | ไฟล์วิดีโอไม่สมบูรณ์ |
+| ไม่มี track ภาพ (มีแต่เสียง) | ไฟล์นี้ไม่มีภาพวิดีโอ |
+| H.265/HEVC (`hvc1`, `hev1`, Dolby Vision) | codec H.265 (HEVC) |
+| Apple ProRes (`apcn`, `apch`, `ap4h` ...) | codec Apple ProRes |
+| MPEG-4 Part 2 (`mp4v`) | codec MPEG-4 Part 2 |
+| H.264 High 10 / 4:2:2 / 4:4:4 | H.264 แบบ ... |
+
+ผ่านได้: H.264 Baseline/Main/High (8-bit), AV1, VP9 และ WebM (ตรวจเฉพาะหัวไฟล์ EBML) ถ้าไม่ได้กรอกความยาว ระบบใช้ความยาวจากไฟล์ (`mvhd`) ตอนแก้ไขวิดีโอแล้วเปลี่ยนไฟล์ ถ้าไม่ได้แก้ช่องความยาว ระบบใช้ความยาวของไฟล์ใหม่
+
+แปลงไฟล์ด้วย HandBrake (preset "Fast 1080p30") หรือ ffmpeg:
+
+```bash
+ffmpeg -i input.mov -c:v libx264 -pix_fmt yuv420p -profile:v high -crf 20 -c:a aac -b:a 160k -movflags +faststart output.mp4
+```
+
+#### ต้องตั้ง CORS ของ bucket R2
+
+ต้องตั้งครั้งเดียวใน Cloudflare Dashboard → R2 → bucket `clickclass` → Settings → CORS Policy ใส่ทุก origin ที่เปิดหลังบ้าน (key R2 ของระบบไม่มีสิทธิ์ตั้ง CORS เอง)
+
+```json
+[
+  {
+    "AllowedOrigins": ["http://localhost:8000", "http://127.0.0.1:8000", "https://ADMIN_DOMAIN"],
+    "AllowedMethods": ["PUT", "GET", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+ถ้าไม่ได้ตั้ง หรือไม่มี origin ของหน้าเว็บ เบราว์เซอร์จะส่ง part ไม่ได้ ไฟล์ไม่เกิน 500MB หน้าเว็บส่งผ่าน PHP แบบเดิมให้แทน ไฟล์ใหญ่กว่านั้นหน้าเว็บแจ้ง "อัปโหลดขึ้น R2 ไม่ได้ ตรวจสอบอินเทอร์เน็ต หรือการตั้ง CORS" ถ้าไม่มี `ETag` ใน `ExposeHeaders` หน้าเว็บแจ้งว่า R2 ไม่ส่ง ETag
+
+### อัปโหลดวิดีโอบทเรียนผ่าน PHP (เมื่อไม่ได้ใช้ R2)
 
 ```php
 $path = MediaStorage::storeCourseVideo(
@@ -157,7 +222,8 @@ URL จาก model เช่น `thumbnail_url` ใส่ `?v={updated_at}` ใ
 - ถ้า R2 ยังไม่ครบ จะใช้ disk `public` แทนอัตโนมัติ
 - บน Windows ต้องตั้ง `curl.cainfo` / `openssl.cafile` ใน `php.ini` ไม่เช่นนั้นอัปโหลด R2 จะล้มเหลวด้วย SSL และต้องรีสตาร์ท `php artisan serve` หลังแก้ `php.ini`
 - อัปโหลดขึ้น R2 ไม่ส่ง S3 ACL เพราะ R2 ไม่รองรับ การเปิดสาธารณะใช้ custom domain (`R2_URL`)
-- วิดีโอ: validation สูงสุด 500MB — ต้องตั้ง PHP ให้รองรับด้วย เช่น
+- วิดีโอบทเรียนและวิดีโอในหลักสูตรบน R2 อัปโหลดตรง สูงสุด 5GB ไม่ใช้ค่า PHP ด้านล่าง (ดูหัวข้ออัปโหลดตรงขึ้น R2)
+- วิดีโอที่อัปโหลดผ่าน PHP (ไม่ได้ใช้ R2 และวิดีโอหนังสือ): validation สูงสุด 500MB — ต้องตั้ง PHP ให้รองรับด้วย เช่น
   - `upload_max_filesize=512M`
   - `post_max_size=520M`
   - หรือรันด้วย `composer run serve` (ส่ง `-d` ค่าข้างบนให้) ถ้ารัน `php artisan serve` ตรง ๆ จะใช้ค่าใน `php.ini` (ค่าตั้งต้นของ PHP คือ 2M / 8M ทำให้อัปโหลดวิดีโอเกิน 2MB ไม่ได้)

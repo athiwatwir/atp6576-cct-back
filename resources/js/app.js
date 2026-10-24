@@ -10,7 +10,7 @@ import 'flatpickr/dist/flatpickr.min.css';
 import { Calendar } from '@fullcalendar/core';
 
 import { registerPageLoading } from './loading';
-import { uploadVideoForm } from './video-upload';
+import { submitVideoEditForm, uploadVideoForm } from './video-upload';
 
 window.Alpine = Alpine;
 window.ApexCharts = ApexCharts;
@@ -18,6 +18,7 @@ window.flatpickr = flatpickr;
 window.FullCalendar = Calendar;
 window.Sortable = Sortable;
 window.uploadVideoForm = uploadVideoForm;
+window.submitVideoEditForm = submitVideoEditForm;
 
 document.addEventListener('alpine:init', () => {
     registerPageLoading(Alpine);
