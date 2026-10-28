@@ -64,6 +64,16 @@ documents/{course_id}/{chapter_id}/...   # เอกสารยังใช้ 
 | `MediaStorage::storeAvatar($file, $userId)` | แปลง WebP + อัปโหลดรูปโปรไฟล์ |
 | `MediaStorage::storeImage($file, $directory)` | รูปทั่วไปชื่อ UUID แปลง WebP ยกเว้น GIF |
 | `MediaStorage::url($path, $version = null)` | สร้าง public URL ใส่ `$version` (เช่น timestamp ของ `updated_at`) เพื่อต่อท้าย `?v=` |
+| `MediaStorage::temporaryUrl($path, $minutes = 240)` | presigned URL ของ R2 ที่หมดอายุตามเวลา ไฟล์บน disk `public` หรือ URL ภายนอกคืนลิงก์ปกติ |
+
+### วิดีโอบทเรียนใน Student API
+
+วิดีโอบทเรียนไม่ส่งลิงก์ R2 หรือ CDN ให้เว็บนักเรียน `Video::streamUrl($courseId, $userId)` สร้างลิงก์ลงลายเซ็นไปที่ `GET /api/v1/stream/videos/{video}` (`VideoStreamController`) ซึ่งตรวจสิทธิ์ (`App\Support\VideoAccess`) และ `Sec-Fetch-Dest: video` ทุกคำขอ แล้วอ่านไฟล์จาก R2 ทีละช่วงไม่เกิน 2 MB ส่งต่อให้ตัวเล่น รายละเอียดดู `docs/student-api.md`
+
+- ข้อมูลวิดีโอวิ่งผ่านเซิร์ฟเวอร์ Laravel ทุกไบต์ ต้องมี PHP-FPM worker พอสำหรับคนดูพร้อมกัน (แต่ละคนเปิดคำขอสั้นๆ ทีละ 2 MB) และคิดแบนด์วิดท์ขาออกของเซิร์ฟเวอร์ด้วย
+- `php artisan serve` รับทีละคำขอ ตอนดูวิดีโอใน dev คำขอ API อื่นจะรอคิว
+- ลายเซ็นผูกกับ URL เต็ม `APP_URL` ต้องตรงกับโดเมนและพอร์ตที่เรียกจริง ไม่อย่างนั้นได้ `403`
+- ถ้า bucket R2 ยังเปิดสาธารณะผ่าน custom domain (`R2_URL`) ให้ปิด path วิดีโอ (`courses/*/chapters/*/videos/*`, `videos/*`) ที่ Cloudflare ไม่อย่างนั้นคนที่รู้ path ยังโหลดตรงจาก CDN ได้
 | `MediaStorage::delete($path)` | ลบไฟล์ |
 
 ## ตัวอย่างการใช้งาน

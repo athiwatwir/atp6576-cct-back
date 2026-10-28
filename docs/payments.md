@@ -66,12 +66,20 @@ OMISE_SECRET_KEY=
 
 ค่าทั้งหมดอ่านผ่าน `config/payment.php` หลังแก้ `.env` ให้รัน `php artisan config:clear`
 
+## ชำระในเว็บนักเรียน (Nuxt)
+
+หน้าออเดอร์ของ Nuxt สร้าง QR ตัดบัตร และถามสถานะผ่าน Student API เอง ไม่ redirect มาหน้า Laravel (นอกจากหน้า 3-D Secure ของธนาคาร) endpoint อยู่ใต้ `/api/v1/orders/{id}/payment/...` สำหรับนักเรียนที่ล็อกอิน และ `/api/v1/guest/orders/{guest_token}/payment/...` สำหรับสั่งซื้อแบบไม่สมัครสมาชิก ดู `docs/student-api.md`
+
+- บัตร: `return_uri` ที่ส่งให้ Omise คือหน้าออเดอร์ของ Nuxt (`OnlinePayment::cardReturnUrl()` = `PAYMENT_RETURN_URL` หรือ `{STUDENT_APP_URL}/orders/{order_id}` ต่อท้าย `payment_return=card`) หน้านั้นเรียก `payment/status` ซึ่งดึง charge จาก Omise ใหม่ ส่วนหน้า `/pay/{token}` ยังกลับผ่าน `/pay/return/{payment}` เหมือนเดิม
+- โหมดทดสอบ: `POST .../payment/simulate` (`OnlinePayment::simulateLatest()`) แทนปุ่มจำลองในหน้า Laravel
+- `GET /api/v1/payment-methods` ไม่ต้องล็อกอิน เพื่อให้ลูกค้าแบบไม่สมัครสมาชิกได้ `omise_public_key`
+
 ## หน้าชำระเงิน (`/pay/{token}`)
 
-หน้าเว็บของ Laravel ที่ลูกค้าเปิดเพื่อจ่าย ไม่ต้องล็อกอิน ใช้ token จากตาราง `payment_links` (อายุตาม `PAYMENT_LINK_TTL_MINUTES`) เปิดได้สองทาง
+หน้าเว็บของ Laravel ที่ลูกค้าเปิดเพื่อจ่าย ไม่ต้องล็อกอิน ใช้ token จากตาราง `payment_links` (อายุตาม `PAYMENT_LINK_TTL_MINUTES`) เว็บนักเรียนไม่ใช้หน้านี้แล้ว ยังเปิดได้จาก
 
-1. เว็บนักเรียน (Nuxt) เรียก `POST /api/v1/orders/{id}/payment-link` แล้ว redirect ไปที่ `url`
-2. แอดมินกด **สร้างลิงก์ชำระเงินออนไลน์** ในหน้าออเดอร์ แล้วคัดลอกลิงก์ส่งให้ลูกค้า
+1. แอดมินกด **สร้างลิงก์ชำระเงินออนไลน์** ในหน้าออเดอร์ แล้วคัดลอกลิงก์ส่งให้ลูกค้า
+2. `POST /api/v1/orders/{id}/payment-link` หรือ `payment_url` ของ `POST /api/v1/guest/orders` (ถ้าต้องการส่งลิงก์ให้จ่ายนอกเว็บ)
 
 ในหน้ามีสรุปรายการ ให้เลือกวิธีชำระ แสดง QR หรือฟอร์มบัตร พอชำระสำเร็จจะมีปุ่มกลับไปที่ `PAYMENT_RETURN_URL` เมื่อออเดอร์ชำระแล้ว ลิงก์จะเปลี่ยนเป็น `used` แต่ยังเปิดดูหน้าชำระสำเร็จได้ ลิงก์ที่หมดอายุจะแสดงหน้าแจ้งให้กลับไปขอลิงก์ใหม่
 

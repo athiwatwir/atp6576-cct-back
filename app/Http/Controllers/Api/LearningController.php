@@ -4,11 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Course;
-use App\Models\Enrollment;
 use App\Models\LearningProgress;
 use App\Models\User;
 use App\Models\Video;
 use App\Models\VideoProgress;
+use App\Support\VideoAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -31,18 +31,14 @@ class LearningController extends Controller
             abort(404, 'ไม่พบวิชานี้');
         }
 
-        $belongs = $course->chapters()
-            ->whereHas('videos', fn ($query) => $query->where('videos.id', $video->id))
-            ->exists();
-
-        if (! $belongs) {
+        if (! VideoAccess::belongsToCourse($course, $video)) {
             abort(404, 'ไม่พบวิดีโอนี้ในวิชา');
         }
 
         /** @var User $user */
         $user = $request->user();
 
-        if (! $this->canWatch($user, $course, $video)) {
+        if (! VideoAccess::canWatch($user->id, $course, $video)) {
             abort(403, 'ยังไม่มีสิทธิ์ดูวิดีโอนี้');
         }
 
@@ -83,20 +79,6 @@ class LearningController extends Controller
                 ...$progress->toStudentArray(),
             ],
         ]);
-    }
-
-    private function canWatch(User $user, Course $course, Video $video): bool
-    {
-        $purchased = Enrollment::query()
-            ->where('user_id', $user->id)
-            ->where('course_id', $course->id)
-            ->where('status', 'active')
-            ->where(function ($query) {
-                $query->whereNull('expires_at')->orWhere('expires_at', '>', now());
-            })
-            ->exists();
-
-        return $purchased || ($course->is_trial_available && $video->is_free);
     }
 
     private function refreshCourseProgress(User $user, Course $course): void

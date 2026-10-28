@@ -59,12 +59,14 @@ class CourseResource extends JsonResource
                 $stored = $request->attributes->get('video_progress');
                 $progress = $stored instanceof Collection ? $stored : collect();
 
-                return $this->chapters->map(function ($chapter) use ($purchased, $trialOpen, $progress) {
+                $viewerId = auth('sanctum')->id();
+
+                return $this->chapters->map(function ($chapter) use ($purchased, $trialOpen, $progress, $viewerId) {
                     return [
                         'id' => $chapter->id,
                         'title' => $chapter->title,
                         'description' => $chapter->description,
-                        'videos' => $chapter->videos->map(function ($video) use ($purchased, $trialOpen, $progress) {
+                        'videos' => $chapter->videos->map(function ($video) use ($purchased, $trialOpen, $progress, $viewerId) {
                             $isTrial = (bool) $video->is_free;
                             $canWatch = $purchased || ($trialOpen && $isTrial);
                             $record = $progress->get($video->id);
@@ -75,7 +77,7 @@ class CourseResource extends JsonResource
                                 'description' => $video->description,
                                 'duration_seconds' => (int) $video->duration_seconds,
                                 'is_trial' => $isTrial,
-                                'video_url' => $canWatch ? $video->url : null,
+                                'video_url' => $canWatch ? $video->streamUrl($this->id, $viewerId ? (int) $viewerId : null) : null,
                                 'progress' => $record instanceof VideoProgress
                                     ? $record->toStudentArray()
                                     : VideoProgress::unwatchedPayload(),

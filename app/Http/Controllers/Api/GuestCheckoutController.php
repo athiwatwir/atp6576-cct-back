@@ -15,6 +15,7 @@ use App\Support\Payments\OnlinePayment;
 use App\Support\Payments\PaymentFees;
 use App\Support\StorefrontCheckout;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
 class GuestCheckoutController extends Controller
@@ -102,6 +103,49 @@ class GuestCheckoutController extends Controller
                 'order' => OrderResource::make($order)->resolve($request),
             ],
         ]);
+    }
+
+    public function thaiQr(string $token): JsonResponse
+    {
+        $order = $this->order($token);
+        $payment = $this->payments->startThaiQr($order);
+
+        return response()->json(['data' => $this->payments->payload($payment, $order)]);
+    }
+
+    public function card(Request $request, string $token): JsonResponse
+    {
+        $order = $this->order($token);
+        $data = $request->validate(['token' => ['required', 'string', 'max:100']]);
+
+        $payment = $this->payments->chargeCard(
+            $order,
+            $data['token'],
+            fn () => $this->payments->cardReturnUrl($order),
+        );
+
+        return response()->json(['data' => $this->payments->payload($payment, $order)]);
+    }
+
+    public function paymentStatus(string $token): JsonResponse
+    {
+        $order = $this->order($token);
+        $payment = $order->payments()->latest('id')->first();
+
+        if ($payment) {
+            $payment = $this->payments->refresh($payment);
+        }
+
+        return response()->json(['data' => $this->payments->payload($payment, $order)]);
+    }
+
+    public function simulate(Request $request, string $token): JsonResponse
+    {
+        $order = $this->order($token);
+        $state = $request->validate(['state' => ['required', 'in:paid,failed']])['state'];
+        $payment = $this->payments->simulateLatest($order, $state);
+
+        return response()->json(['data' => $this->payments->payload($payment, $order)]);
     }
 
     public function receipt(string $token, ReceiptController $receipts): Response

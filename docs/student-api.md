@@ -90,9 +90,15 @@ export function useApi() {
 
 ไม่ต้องใช้ token ต้องส่ง `X-Api-Key` สร้างบัญชีบทบาทนักเรียนแล้วเข้าสู่ระบบได้ทันที แม้ยังไม่กดลิงก์ยืนยันอีเมล
 
-ระบบส่งอีเมลหัวข้อ `ยืนยันอีเมล` ปุ่มในอีเมลเปิดลิงก์ของ API ซึ่งมีลายเซ็นและหมดอายุใน 60 นาที ลิงก์นี้ไม่ใช้ `X-Api-Key` เพราะเปิดจากอีเมล เมื่อยืนยันสำเร็จ ระบบพาไปที่ `{STUDENT_APP_URL}/verify-email?status=success` ลิงก์หมดอายุหรือไม่ถูกต้องพาไปที่ `?status=invalid`
+ระบบส่งอีเมลหัวข้อ `ยืนยันอีเมล` ปุ่มในอีเมลเปิดหน้าเว็บนักเรียน ไม่ใช่ API
 
-`STUDENT_APP_URL` คือที่อยู่เว็บ Nuxt ถ้าไม่ตั้ง ระบบใช้ค่าแรกของ `FRONTEND_URL` ที่ไม่ใช่ `*` หน้า `/verify-email` เป็นหน้าที่ Nuxt ต้องมีไว้แสดงผลหลังกดลิงก์ ลิงก์ในอีเมลใช้ `APP_URL` ของ Laravel
+```text
+{STUDENT_APP_URL}/verify-email?id=12&hash={sha1 ของอีเมล}&expires={unix timestamp}&signature={HMAC-SHA256}
+```
+
+ลิงก์หมดอายุใน 60 นาที `signature` ลงด้วย `APP_KEY` ของ Laravel แก้ค่าใดในลิงก์ไม่ได้ หน้า `/verify-email` ของ Nuxt อ่าน query ทั้งสี่ค่าแล้วเรียก `POST /auth/email/verify` (ดูด้านล่าง) จากนั้นแสดงผลในหน้าเดียวกัน
+
+`STUDENT_APP_URL` คือที่อยู่เว็บ Nuxt ถ้าไม่ตั้ง ระบบใช้ค่าแรกของ `FRONTEND_URL` ที่ไม่ใช่ `*`
 
 อีเมลยืนยันส่งทันที ไม่รอคิว
 
@@ -139,9 +145,31 @@ export function useApi() {
 
 ระบบส่งอีเมลใหม่เฉพาะบัญชีนักเรียนที่ยังไม่ยืนยันและยังเปิดใช้งาน
 
-### GET `/auth/email/verify/{id}/{hash}`
+### POST `/auth/email/verify`
 
-เปิดจากลิงก์ในอีเมล ไม่ต้องส่ง `X-Api-Key` และไม่ต้องส่ง token ต้องมี query `expires` และ `signature` ที่ระบบออกให้ ยืนยันแล้วเปลี่ยนเส้นทางไปหน้า Nuxt ไม่ตอบ JSON
+เรียกจากหน้า `/verify-email` ของ Nuxt ไม่ต้องใช้ token ต้องส่ง `X-Api-Key` ถูกจำกัด 10 ครั้งต่อนาที ส่งค่าจาก query ของลิงก์ในอีเมล
+
+```json
+{ "id": 12, "hash": "3192ba24...", "expires": 1793000358, "signature": "0d9f1d71..." }
+```
+
+ตอบกลับ `200`
+
+```json
+{ "message": "ยืนยันอีเมลเรียบร้อยแล้ว", "status": "verified", "email": "new@example.com" }
+```
+
+`status` เป็น `already_verified` (ข้อความ `อีเมลนี้ยืนยันไว้แล้ว`) เมื่อกดลิงก์ซ้ำ ลิงก์หมดอายุ ลายเซ็นไม่ตรง หรือบัญชีไม่ใช่นักเรียน ตอบ `422`
+
+```json
+{ "message": "ลิงก์ยืนยันหมดอายุหรือไม่ถูกต้อง กรุณาขอลิงก์ใหม่", "status": "invalid" }
+```
+
+ถ้าผู้ใช้ล็อกอินอยู่ ให้เรียก `GET /profile` ใหม่หลังยืนยัน เพื่อให้ `email_verified` เป็น `true`
+
+### GET `/auth/email/verify/{id}/{hash}` (ลิงก์รูปแบบเดิม)
+
+ใช้กับอีเมลที่ส่งออกไปก่อนเปลี่ยนเป็นลิงก์หน้าเว็บเท่านั้น ระบบไม่สร้างลิงก์แบบนี้แล้ว เปิดจากลิงก์ในอีเมล ไม่ต้องส่ง `X-Api-Key` ต้องมี query `expires` และ `signature` ยืนยันแล้วเปลี่ยนเส้นทางไปที่ `{STUDENT_APP_URL}/verify-email?status=success` หรือ `?status=invalid`
 
 ### POST `/auth/login`
 
@@ -443,11 +471,108 @@ await api('/profile', { method: 'POST', body: form })
   "access_expires_at": "2026-11-16T10:00:00+07:00",
   "category": { "id": 1, "name": "มัธยม", "slug": "secondary" },
   "subject": { "id": 2, "name": "ฟิสิกส์", "slug": "physics" },
-  "instructor": { "id": 1, "name": "ครูเอ", "slug": "teacher-a" }
+  "instructor": { "id": 1, "name": "ครูเอ", "slug": "teacher-a" },
+  "chapters": [
+    {
+      "id": 1,
+      "title": "บทที่ 1",
+      "description": "แนะนำเนื้อหา",
+      "videos": [
+        {
+          "id": 4,
+          "title": "คลิปทดลอง",
+          "description": null,
+          "duration_seconds": 180,
+          "is_trial": true,
+          "video_url": "https://api.example.com/api/v1/stream/videos/4?c=3&expires=1792986704&u=12&signature=...",
+          "progress": {
+            "status": "in_progress",
+            "position_seconds": 75,
+            "progress_percent": 41.67,
+            "last_watched_at": "2026-10-10T13:00:00+07:00"
+          }
+        }
+      ],
+      "documents": [
+        {
+          "id": 2,
+          "title": "ใบงานบทที่ 1",
+          "description": null,
+          "file_name": "worksheet.pdf",
+          "file_size": 120000,
+          "is_trial": false,
+          "file_url": null
+        }
+      ],
+      "exams": []
+    }
+  ],
+  "exams": [
+    {
+      "id": 9,
+      "name": "ข้อสอบท้ายวิชา",
+      "slug": "physics-quiz",
+      "description": null,
+      "duration_minutes": 30,
+      "question_count": 10,
+      "chapter_id": null
+    }
+  ]
 }
 ```
 
 ราคาที่ต้องจ่ายคือ `effective_price` ของแพ็กเกจที่เลือกใน `price_plans` ถ้าแพ็กเกจมี `sale_price` มากกว่า 0 ระบบใช้ราคานั้น ไม่เช่นนั้นใช้ `price` ส่วน `effective_price` ระดับวิชาคือราคาเริ่มต้น
+
+`chapters` และ `exams` มีเฉพาะหน้ารายละเอียด `video_url` ส่งเมื่อซื้อวิชาแล้วและสิทธิ์ยังไม่หมดอายุ หรือเมื่อ `is_trial_available` เป็นจริงและคลิปนั้นเปิดทดลองเรียน มิฉะนั้นเป็น `null`
+
+`video_url` เป็นลิงก์สตรีมผ่าน Laravel (`GET /api/v1/stream/videos/{video}`) ที่ลงลายเซ็นแล้ว ผูกกับวิชา (`c`) และผู้ใช้ที่เรียก API (`u`, เป็น 0 เมื่อไม่ได้ล็อกอินและดูคลิปทดลอง) ใช้ได้ 4 ชั่วโมงนับจากเวลาที่เรียก API ไม่ใช่ลิงก์ไฟล์บน R2 หรือ CDN อย่าเก็บไว้ใช้ภายหลัง
+
+ใช้ได้เฉพาะเป็น `src` ของแท็ก `<video>` (ไม่ต้องใส่ `crossorigin`) ระบบตรวจทุกคำขอดังนี้
+
+| ตรวจ | ไม่ผ่าน |
+|------|---------|
+| ลายเซ็นและเวลาหมดอายุ (แก้ `u`, `c` หรือ `expires` ไม่ได้) | `403` |
+| ผู้ใช้ยังมีสิทธิ์ดู (ซื้อแล้วและไม่หมดอายุ หรือคลิปทดลองของวิชาที่เปิดทดลองเรียน) | `403` |
+| header `Sec-Fetch-Dest` เป็น `video` (เบราว์เซอร์ใส่เองเมื่อโหลดจาก `<video>`) ถ้าเบราว์เซอร์ไม่ส่ง header นี้ ต้องมี `Referer` จาก `STUDENT_APP_URL` หรือ `FRONTEND_URL` | `403` เช่น เปิดลิงก์ในแท็บใหม่ (`document`) หรือดาวน์โหลดตรง |
+| ต้องมี header `Range` | `416` |
+
+ตอบ `206` ครั้งละไม่เกิน 2 MB (`Content-Range` บอกช่วงจริง) ตัวเล่นขอช่วงถัดไปเอง และส่ง `Cache-Control: private, no-store` ถ้าตัวเล่นแจ้ง error เพราะลิงก์หมดอายุหรือถูกปฏิเสธ ให้เรียก `GET /courses/{slug}` ใหม่แล้วเล่นต่อจากเวลาเดิม
+
+ข้อจำกัด: ป้องกันการเปิดลิงก์จากแท็บ Network และการโหลดไฟล์ทั้งก้อนได้ แต่คนที่คัดลอก request พร้อม header ทั้งหมดไปใช้ในโปรแกรมอื่นยังดึงทีละช่วงได้จนกว่าลิงก์จะหมดอายุ และกันการอัดหน้าจอไม่ได้ ถ้าต้องการป้องกันจริงต้องใช้ HLS แบบเข้ารหัสหรือ DRM
+
+แต่ละบทมี `documents` และ `exams` ข้อสอบที่ไม่ได้ผูกกับบทใดบทหนึ่งอยู่ที่ `exams` ระดับวิชา `file_url` ของเอกสารส่งเมื่อซื้อวิชาแล้ว หรือเมื่อวิชาเปิดทดลองเรียนและเอกสารนั้นเป็นเอกสารทดลอง มิฉะนั้นเป็น `null`
+
+`progress` ของแต่ละคลิปเป็นของผู้ใช้ที่ส่ง token ถ้ายังไม่ล็อกอินหรือยังไม่เคยกดดู `status` เป็น `unwatched` และ `position_seconds` เป็น 0
+
+| status | ความหมาย |
+|--------|----------|
+| `unwatched` | ยังไม่ได้ดู |
+| `in_progress` | ดูแล้ว แต่ยังไม่จบ ใช้ `position_seconds` เปิดต่อจากนาทีเดิม |
+| `completed` | ผ่านแล้ว ดูจบหรือดูอย่างน้อย 90% |
+
+### PUT `/courses/{slug}/videos/{video}/progress`
+
+ต้องใช้ token เรียกระหว่างดูวิดีโอ เป็นระยะ ตอนกดหยุด และตอนคลิปจบ เพื่อให้กลับมาแล้วเล่นต่อจากจุดเดิมได้
+
+| ฟิลด์ | บังคับ | หมายเหตุ |
+|------|--------|----------|
+| position_seconds | ใช่ | วินาทีที่ดูถึง เป็นจำนวนเต็ม 0 ถึง 86400 |
+| duration_seconds | ไม่ | ความยาวจริงจากตัวเล่น ถ้าไม่ส่ง ระบบใช้ความยาวที่บันทึกไว้กับคลิป |
+| completed | ไม่ | ส่ง `true` เมื่อคลิปเล่นจบ ระบบนับว่าผ่านแล้วเมื่อค่านี้เป็นจริง หรือเมื่อดูถึง 90% |
+
+ตอบ `404` เมื่อไม่พบวิชาหรือคลิปไม่ได้อยู่ในวิชานั้น ตอบ `403` เมื่อยังไม่มีสิทธิ์ดูคลิปนั้น
+
+```json
+{
+  "data": {
+    "video_id": 4,
+    "status": "in_progress",
+    "position_seconds": 75,
+    "progress_percent": 41.67,
+    "last_watched_at": "2026-10-10T13:00:00+07:00"
+  }
+}
+```
 
 ### GET `/curriculums/{slug}`
 
@@ -902,12 +1027,12 @@ window.open(url)
 
 | ฟิลด์ | ความหมาย |
 |------|----------|
-| `guest_token` | รหัสลับ 48 ตัวของออเดอร์นี้ เก็บไว้ในเบราว์เซอร์ (เช่น localStorage) ใช้กับ `GET /guest/orders/{guest_token}` และส่งสลิป ห้ามแสดงในหน้าเว็บหรือใส่ใน log |
+| `guest_token` | รหัสลับ 48 ตัวของออเดอร์นี้ เก็บไว้ในเบราว์เซอร์ (เช่น localStorage) ใช้กับ `GET /guest/orders/{guest_token}` ชำระออนไลน์ (`/guest/orders/{guest_token}/payment/...` ดูหัวข้อชำระเงินออนไลน์) และส่งสลิป ห้ามแสดงในหน้าเว็บหรือใส่ใน log |
 | `account_created` | `true` เมื่อสร้างบัญชีใหม่ `false` เมื่อใช้บัญชีเดิม |
 | `account_email_sent` | ส่งอีเมลสำเร็จหรือไม่ ถ้า `false` ออเดอร์ยังถูกสร้าง ให้บอกลูกค้าว่าใช้เมนูลืมรหัสผ่านได้ |
-| `payment_url` | ลิงก์หน้าชำระเงิน QR / บัตร redirect ไปได้เลย `null` เมื่อออเดอร์ไม่มียอดต้องจ่าย (ยอด 0 ระบบตัดเป็นชำระแล้วทันที) |
+| `payment_url` | ลิงก์หน้าชำระเงินของ Laravel `null` เมื่อออเดอร์ไม่มียอดต้องจ่าย (ยอด 0 ระบบตัดเป็นชำระแล้วทันที) เว็บนักเรียนไม่ใช้แล้ว ชำระในหน้าออเดอร์ของ Nuxt ผ่าน `/guest/orders/{guest_token}/payment/...` แทน |
 
-หลังจ่ายผ่านหน้าชำระเงิน ปุ่มกลับไปเว็บพาไปที่ `{STUDENT_APP_URL}/orders/{order_id}?guest_token=...` ถ้าตั้ง `PAYMENT_RETURN_URL` เองใส่ `{guest_token}` ในรูปแบบ URL ได้ หน้านั้นใน Nuxt ถ้าไม่ได้เข้าสู่ระบบให้ใช้ `guest_token` เรียก `GET /guest/orders/{guest_token}`
+หลังยืนยัน 3-D Secure ธนาคารพากลับไปที่ `{STUDENT_APP_URL}/orders/{order_id}?guest_token=...&payment_return=card` ถ้าตั้ง `PAYMENT_RETURN_URL` เองใส่ `{guest_token}` ในรูปแบบ URL ได้ หน้านั้นใน Nuxt ถ้าไม่ได้เข้าสู่ระบบให้ใช้ `guest_token` เรียก `GET /guest/orders/{guest_token}`
 
 ### GET `/guest/orders/{guest_token}`
 
@@ -934,16 +1059,29 @@ window.open(url)
 
 ## ชำระเงินออนไลน์ (QR พร้อมเพย์ และบัตร)
 
-ทุก endpoint ต้องล็อกอิน และใช้ได้กับออเดอร์ของนักเรียนคนนั้นเท่านั้น ออเดอร์ที่ชำระแล้ว คืนเงินแล้ว ยกเลิก หรือยอดเป็น 0 ตอบ `422` ที่ฟิลด์ `order` รายละเอียดฝั่งระบบดู `docs/payments.md`
+ออเดอร์ที่ชำระแล้ว คืนเงินแล้ว ยกเลิก หรือยอดเป็น 0 ตอบ `422` ที่ฟิลด์ `order` รายละเอียดฝั่งระบบดู `docs/payments.md`
 
-มีสองแบบให้เลือก
+เว็บนักเรียนชำระเงินในหน้าออเดอร์ของ Nuxt เอง ไม่ redirect ไปหน้า Laravel หน้า QR ทำตามคู่มือ KGP (`docs/omise/attachments/KGP QR UXUI_Instruction_Guideline _v2_SA_20260713.pdf`) และบัตรสร้าง token ด้วย Omise.js ในเบราว์เซอร์ ทุก endpoint มีสองชุด path ต่างกัน แต่ body และ response เหมือนกัน
 
-1. **ใช้หน้าชำระเงินของ Laravel (แนะนำ)** Nuxt ไม่ต้องทำหน้า QR หรือฟอร์มบัตรเอง แค่ขอลิงก์แล้ว redirect หน้านี้ทำตามคู่มือ UX/UI ของ KGP ไว้แล้ว
-2. **ทำหน้าเองใน Nuxt** เรียก endpoint สร้าง QR, ตัดบัตร และถามสถานะเอง ต้องทำหน้า QR ตามคู่มือ KGP (`docs/omise/attachments/KGP QR UXUI_Instruction_Guideline _v2_SA_20260713.pdf`) และสร้าง token บัตรด้วย Omise.js
+| ใช้กับ | path ฐาน | ต้องใช้ |
+|------|------|------|
+| นักเรียนที่ล็อกอิน | `/orders/{id}/payment` | token ของเจ้าของออเดอร์ |
+| สั่งซื้อแบบไม่สมัครสมาชิก | `/guest/orders/{guest_token}/payment` | `guest_token` ไม่ต้องใช้ token |
 
-ตอนนี้ QR อยู่ในโหมดจำลอง (`test_mode.thai_qr: true`) สแกนไม่ได้ หน้าชำระเงินมีปุ่มจำลองผลให้กด ส่วนบัตรใช้ Omise test mode แล้ว (`test_mode.credit_card: false` แต่ `omise_public_key` ขึ้นต้น `pkey_test_`) ใช้บัตรทดสอบ `4242 4242 4242 4242` = สำเร็จ, `4111 1111 1114 0011` = ไม่ผ่าน ไม่มีเงินจริง
+| endpoint ต่อจาก path ฐาน | ใช้ทำอะไร |
+|------|------|
+| `POST .../thai-qr` | สร้าง QR พร้อมเพย์ |
+| `POST .../card` | ตัดบัตรด้วย token จาก Omise.js |
+| `GET .../status` | ถามสถานะรายการล่าสุด (เช็กกับ gateway ให้ด้วย) |
+| `POST .../simulate` | จำลองผล เฉพาะโหมดทดสอบ (ดูด้านล่าง) |
+
+ตอนนี้ QR อยู่ในโหมดจำลอง (`test_mode.thai_qr: true`) สแกนไม่ได้ ใช้ `POST .../simulate` แทนการสแกน ส่วนบัตรใช้ Omise test mode แล้ว (`test_mode.credit_card: false` แต่ `omise_public_key` ขึ้นต้น `pkey_test_`) ใช้บัตรทดสอบ `4242 4242 4242 4242` = สำเร็จ, `4111 1111 1114 0011` = ไม่ผ่าน ไม่มีเงินจริง
+
+`POST /orders/{id}/payment-link` (หน้าชำระเงินของ Laravel `/pay/{token}`) ยังใช้ได้ สำหรับลิงก์ที่แอดมินส่งให้ลูกค้าเอง เว็บนักเรียนไม่ใช้แล้ว
 
 ### GET `/payment-methods`
+
+ไม่ต้องใช้ token (ลูกค้าแบบไม่สมัครสมาชิกต้องใช้ `omise_public_key` ด้วย) ต้องส่ง `X-Api-Key`
 
 ```json
 {
@@ -984,7 +1122,7 @@ window.open(url)
 
 ### POST `/orders/{id}/payment-link`
 
-แบบที่ 1 ขอลิงก์หน้าชำระเงิน แล้วพาลูกค้าไปที่ `url` ลิงก์เดิมที่ยังไม่หมดอายุจะถูกใช้ซ้ำ
+ขอลิงก์หน้าชำระเงินของ Laravel ลิงก์เดิมที่ยังไม่หมดอายุจะถูกใช้ซ้ำ เว็บนักเรียนไม่ใช้แล้ว เหลือไว้สำหรับกรณีที่ต้องการส่งลิงก์ให้ลูกค้าจ่ายนอกเว็บ
 
 ```json
 {
@@ -1002,9 +1140,9 @@ window.location.href = data.url
 
 เมื่อจ่ายเสร็จ หน้าชำระเงินมีปุ่มพากลับมาที่ `PAYMENT_RETURN_URL` ของ Laravel ค่าเริ่มต้นคือ `{STUDENT_APP_URL}/orders/{order_id}` หน้านั้นใน Nuxt ควรเรียก `GET /orders/{id}` ใหม่เพื่อดูสถานะล่าสุด
 
-### POST `/orders/{id}/payment/thai-qr`
+### POST `/orders/{id}/payment/thai-qr` และ POST `/guest/orders/{guest_token}/payment/thai-qr`
 
-แบบที่ 2 สร้าง QR พร้อมเพย์ ถ้ามี QR ที่ยังไม่หมดอายุจะได้ QR เดิมกลับมา
+สร้าง QR พร้อมเพย์ ถ้ามี QR ที่ยังไม่หมดอายุและยอดเท่าเดิมจะได้ QR เดิมกลับมา
 
 ```json
 {
@@ -1038,11 +1176,13 @@ window.location.href = data.url
 }
 ```
 
-แสดง `qr_image` ใน `<img :src>` ได้ทันที ในโหมดทดสอบเป็น SVG จำลอง ระหว่างรอ ให้เรียก `GET /orders/{id}/payment/status` ทุก 3–5 วินาที จนกว่า `paid` เป็นจริง หรือ `payment.status` ไม่ใช่ `pending` สร้าง QR ได้ 10 ครั้งต่อนาที
+แสดง `qr_image` ใน `<img :src>` ได้ทันที ในโหมดทดสอบเป็น SVG จำลอง ระหว่างรอ ให้เรียก `GET .../payment/status` ทุก 3–5 วินาที จนกว่า `paid` เป็นจริง หรือ `payment.status` ไม่ใช่ `pending` สร้าง QR ได้ 10 ครั้งต่อนาที
 
-### POST `/orders/{id}/payment/card`
+ส่วน QR บนหน้าเว็บต้องมีตามคู่มือ KGP: หัวสีน้ำเงิน `#00427A` ข้อความ THAI QR PAYMENT, โลโก้ PromptPay, "Powered by KGP", รูป QR, ชื่อร้าน (`merchant_name`), ยอดแบบ `799.00 THB`, นับถอยหลัง mm:ss และเวลาหมดอายุ, ปุ่มบันทึก QR, ขั้นตอนการชำระ และคำเตือนมิจฉาชีพภาษาไทยและอังกฤษ
 
-แบบที่ 2 ตัดบัตรด้วย token จาก Omise.js ห้ามส่งเลขบัตรมาที่ API นี้
+### POST `/orders/{id}/payment/card` และ POST `/guest/orders/{guest_token}/payment/card`
+
+ตัดบัตรด้วย token จาก Omise.js ห้ามส่งเลขบัตรมาที่ API นี้
 
 | ฟิลด์ | บังคับ | หมายเหตุ |
 |------|--------|----------|
@@ -1069,21 +1209,32 @@ Omise.createToken('card', {
 | ผล | ความหมาย |
 |----|----------|
 | `paid: true` | ตัดบัตรสำเร็จ |
-| `payment.authorize_uri` มีค่า | ต้องยืนยัน 3-D Secure พาลูกค้าไปที่ลิงก์นี้ เมื่อเสร็จระบบจะพากลับมาที่ `PAYMENT_RETURN_URL` |
+| `payment.authorize_uri` มีค่า | ต้องยืนยัน 3-D Secure พาลูกค้าไปที่ลิงก์นี้ (หน้าธนาคาร) เมื่อเสร็จธนาคารพากลับมาที่หน้าออเดอร์ของ Nuxt ตรง `{STUDENT_APP_URL}/orders/{order_id}?payment_return=card` (ออเดอร์แบบไม่สมัครสมาชิกมี `guest_token` ด้วย) หน้านั้นเรียก `GET .../payment/status` เพื่อตรวจผลกับ Omise |
 | `payment.status: failed` | ไม่ผ่าน แสดง `payment.failure_message` ให้ลองใหม่ |
 
 เมื่อ `test_mode.credit_card` เป็นจริง API นี้รับเฉพาะ token จำลอง `tokn_fake_success`, `tokn_fake_fail`, `tokn_fake_3ds` ส่งค่าอื่นจะตอบ `failed` เมื่อเป็นเท็จ ต้องใช้ token จริงจาก Omise.js `failure_message` ของบัตรเป็นภาษาไทยสำหรับรหัสที่พบบ่อย เช่น `insufficient_fund` = "วงเงินในบัตรไม่พอ กรุณาใช้บัตรอื่น"
 
-### GET `/orders/{id}/payment/status`
+### GET `/orders/{id}/payment/status` และ GET `/guest/orders/{guest_token}/payment/status`
 
-ถามสถานะรายการชำระล่าสุดของออเดอร์ ถ้ายังรอชำระ ระบบจะเช็กกับ KGP หรือ Omise ให้ด้วย ตอบกลับรูปแบบเดียวกับข้างบน `qr_image` และ `authorize_uri` เป็น `null` เมื่อรายการไม่ได้รออยู่แล้ว
+ถามสถานะรายการชำระล่าสุดของออเดอร์ ถ้ายังรอชำระ ระบบจะเช็กกับ KGP หรือ Omise ให้ด้วย ตอบกลับรูปแบบเดียวกับข้างบน `qr_image` และ `authorize_uri` เป็น `null` เมื่อรายการไม่ได้รออยู่แล้ว ถ้ายังไม่เคยเริ่มชำระ `payment` เป็นรายการโอนเงินที่สร้างตอนสั่งซื้อหรือ `null`
+
+### POST `/orders/{id}/payment/simulate` และ POST `/guest/orders/{guest_token}/payment/simulate`
+
+ใช้ได้เฉพาะเมื่อมีวิธีชำระที่อยู่ในโหมดทดสอบ (`test_mode`) จำลองผลของรายการล่าสุดที่ยังรอชำระและ `provider` เป็น `fake` โหมด live ตอบ `404` จำกัด 20 ครั้งต่อนาที
+
+```json
+{ "state": "paid" }
+```
+
+`state` เป็น `paid` หรือ `failed` ตอบกลับรูปแบบเดียวกับ `status` ถ้า `paid` ระบบเปิดสิทธิ์เรียนเหมือนชำระจริง
 
 ## ลำดับที่แนะนำใน Nuxt
 
 1. เปิดร้านด้วย `GET /catalog` และ `GET /books` โดยยังไม่ล็อกอิน การ์ดที่ `price_plans` มีหลายรายการแสดงเป็น "เริ่มต้น ฿..."
-2. ให้สมัครหรือเข้าสู่ระบบ แล้วเก็บ token หรือถ้าลูกค้าไม่อยากสมัคร ใช้ [สั่งซื้อโดยไม่ต้องสมัครสมาชิก](#สั่งซื้อโดยไม่ต้องสมัครสมาชิก-guest) (`POST /guest/orders` แล้ว redirect ไปที่ `payment_url`)
+2. ให้สมัครหรือเข้าสู่ระบบ แล้วเก็บ token หรือถ้าลูกค้าไม่อยากสมัคร ใช้ [สั่งซื้อโดยไม่ต้องสมัครสมาชิก](#สั่งซื้อโดยไม่ต้องสมัครสมาชิก-guest) (`POST /guest/orders` แล้วเปิดหน้าออเดอร์ของ Nuxt ที่ใช้ `guest_token`)
 3. หน้ารายละเอียดให้เลือกแพ็กเกจจาก `price_plans` แล้วเก็บ `plan_id` ไว้กับรายการในตะกร้า หน้าตะกร้าเรียก `POST /checkout/quote` ทุกครั้งที่รายการ แพ็กเกจ หรือคูปองเปลี่ยน
 4. ถ้า `requires_shipping` เป็นจริง ให้แสดงฟอร์มที่อยู่
 5. `POST /orders` แล้วให้เลือกวิธีชำระ
-6. ชำระออนไลน์: `POST /orders/{id}/payment-link` แล้ว redirect ไปที่ `url` / โอนเงิน: `POST /orders/{id}/payment` พร้อมสลิป
+6. ชำระในหน้าออเดอร์ของ Nuxt: QR `POST .../payment/thai-qr` แล้วถาม `GET .../payment/status` ทุก 4 วินาที / บัตร สร้าง token ด้วย Omise.js แล้ว `POST .../payment/card` / โอนเงิน `POST /orders/{id}/payment` พร้อมสลิป
 7. หน้าโปรไฟล์และประวัติใช้ `GET /profile` กับ `GET /orders`
+8. ตอนดูวิดีโอในวิชา เรียก `PUT /courses/{slug}/videos/{video}/progress` เป็นระยะและตอนหยุด เพื่อเปิดต่อจาก `position_seconds` ได้ ถ้า `video_url` หมดอายุ (4 ชั่วโมง) หรือตัวเล่นแจ้ง error ให้เรียก `GET /courses/{slug}` ใหม่

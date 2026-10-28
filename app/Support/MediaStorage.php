@@ -350,6 +350,31 @@ class MediaStorage
         return self::withVersion(Storage::disk('r2')->url($path), $version);
     }
 
+    /**
+     * Short-lived signed URL for private files such as lesson videos.
+     * Falls back to the public URL when the file is not on R2 (local public disk or external URL).
+     */
+    public static function temporaryUrl(?string $path, int $minutes = 240): ?string
+    {
+        if (blank($path)) {
+            return null;
+        }
+
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            return $path;
+        }
+
+        if (self::disk() !== 'r2' && Storage::disk('public')->exists($path)) {
+            return Storage::disk('public')->url($path);
+        }
+
+        try {
+            return Storage::disk('r2')->temporaryUrl($path, now()->addMinutes($minutes));
+        } catch (\Throwable) {
+            return self::url($path);
+        }
+    }
+
     private static function withVersion(?string $url, int|string|null $version): ?string
     {
         if (blank($url) || $version === null || $version === '') {

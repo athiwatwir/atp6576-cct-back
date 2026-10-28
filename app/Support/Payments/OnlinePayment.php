@@ -368,6 +368,33 @@ class OnlinePayment
         return $this->refresh($payment->refresh());
     }
 
+    /**
+     * จำลองผลชำระของรายการล่าสุดที่ยังรอ (เฉพาะโหมดทดสอบ) ใช้กับหน้าชำระเงินใน Nuxt
+     */
+    public function simulateLatest(Order $order, string $state): Payment
+    {
+        abort_unless($this->isFake(), 404);
+
+        $payment = $order->payments()
+            ->where('status', PaymentStatus::Pending->value)
+            ->where('provider', 'fake')
+            ->latest('id')
+            ->firstOrFail();
+
+        return $this->simulate($payment, $state);
+    }
+
+    /**
+     * ปลายทางหลังยืนยัน 3-D Secure เมื่อตัดบัตรผ่าน API ของเว็บนักเรียน ธนาคารพากลับไปหน้าออเดอร์ของ Nuxt ตรง
+     * หน้านั้นเรียก payment/status ซึ่งตรวจผลกับผู้ให้บริการอีกครั้ง
+     */
+    public function cardReturnUrl(Order $order): string
+    {
+        $url = $this->appReturnUrl($order);
+
+        return $url.(str_contains($url, '?') ? '&' : '?').'payment_return=card';
+    }
+
     public function returnUri(Payment $payment, string $next): string
     {
         return URL::temporarySignedRoute('payment.return', now()->addHours(2), [

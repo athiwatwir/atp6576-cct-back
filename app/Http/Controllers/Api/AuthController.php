@@ -14,7 +14,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\URL;
 
 class AuthController extends Controller
 {
@@ -77,6 +76,48 @@ class AuthController extends Controller
         return $this->tokenResponse($user);
     }
 
+    /**
+     * ยืนยันอีเมลจากหน้า /verify-email ของเว็บนักเรียน (ลิงก์ในอีเมลชี้ไปที่ Nuxt ไม่ใช่ API)
+     */
+    public function confirmEmail(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'id' => ['required', 'integer'],
+            'hash' => ['required', 'string', 'size:40'],
+            'expires' => ['required', 'integer'],
+            'signature' => ['required', 'string', 'size:64'],
+        ]);
+
+        $invalid = response()->json([
+            'message' => 'ลิงก์ยืนยันหมดอายุหรือไม่ถูกต้อง กรุณาขอลิงก์ใหม่',
+            'status' => 'invalid',
+        ], 422);
+
+        $expected = $this->verificationSignature((int) $data['id'], $data['hash'], (int) $data['expires']);
+        if (! hash_equals($expected, $data['signature']) || (int) $data['expires'] < now()->getTimestamp()) {
+            return $invalid;
+        }
+
+        $user = User::query()->find((int) $data['id']);
+        if (! $user || ! $user->hasRole('student') || ! hash_equals(sha1((string) $user->email), $data['hash'])) {
+            return $invalid;
+        }
+
+        $already = $user->email_verified_at !== null;
+        if (! $already) {
+            $user->forceFill(['email_verified_at' => now()])->save();
+        }
+
+        return response()->json([
+            'message' => $already ? 'อีเมลนี้ยืนยันไว้แล้ว' : 'ยืนยันอีเมลเรียบร้อยแล้ว',
+            'status' => $already ? 'already_verified' : 'verified',
+            'email' => $user->email,
+        ]);
+    }
+
+    /**
+     * ลิงก์รูปแบบเดิมที่ชี้มาที่ API ยังใช้ได้กับอีเมลที่ส่งออกไปก่อนเปลี่ยนเป็นลิงก์หน้าเว็บ
+     */
     public function verifyEmail(Request $request, string $id, string $hash): RedirectResponse
     {
         $user = User::query()->find($id);
@@ -153,14 +194,20 @@ class AuthController extends Controller
 
     private function verificationUrl(User $user): string
     {
-        return URL::temporarySignedRoute(
-            'api.auth.email.verify',
-            now()->addMinutes(self::VERIFICATION_MINUTES),
-            [
-                'id' => $user->id,
-                'hash' => sha1((string) $user->email),
-            ],
-        );
+        $hash = sha1((string) $user->email);
+        $expires = now()->addMinutes(self::VERIFICATION_MINUTES)->getTimestamp();
+
+        return $this->studentAppUrl().'/verify-email?'.http_build_query([
+            'id' => $user->id,
+            'hash' => $hash,
+            'expires' => $expires,
+            'signature' => $this->verificationSignature($user->id, $hash, $expires),
+        ]);
+    }
+
+    private function verificationSignature(int $id, string $hash, int $expires): string
+    {
+        return hash_hmac('sha256', "email-verify|{$id}|{$hash}|{$expires}", (string) config('app.key'));
     }
 
     private function verificationRedirect(string $status): RedirectResponse

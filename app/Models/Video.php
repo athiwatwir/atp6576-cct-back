@@ -63,6 +63,22 @@ class Video extends Model
         return \App\Support\MediaStorage::url($this->storage_key);
     }
 
+    /**
+     * ลิงก์สตรีมผ่าน Laravel ที่ลงลายเซ็นและหมดอายุ ผูกกับวิชาและผู้ใช้ ตรวจสิทธิ์ทุกครั้งที่ตัวเล่นขอข้อมูล
+     */
+    public function streamUrl(int $courseId, ?int $userId, int $minutes = 240): ?string
+    {
+        if (blank($this->storage_key)) {
+            return null;
+        }
+
+        return \Illuminate\Support\Facades\URL::temporarySignedRoute(
+            'api.videos.stream',
+            now()->addMinutes($minutes),
+            ['video' => $this->id, 'c' => $courseId, 'u' => $userId ?? 0],
+        );
+    }
+
     public function getThumbnailUrlAttribute(): ?string
     {
         return \App\Support\MediaStorage::url($this->thumbnail);

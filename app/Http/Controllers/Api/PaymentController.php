@@ -76,8 +76,18 @@ class PaymentController extends Controller
         $payment = $this->payments->chargeCard(
             $order,
             $data['token'],
-            fn (Payment $payment) => $this->payments->returnUri($payment, $this->payments->appReturnUrl($order)),
+            fn (Payment $payment) => $this->payments->cardReturnUrl($order),
         );
+
+        return response()->json(['data' => $this->payments->payload($payment, $order)]);
+    }
+
+    public function simulate(Request $request, Order $order): JsonResponse
+    {
+        $this->owned($request, $order);
+
+        $state = $request->validate(['state' => ['required', 'in:paid,failed']])['state'];
+        $payment = $this->payments->simulateLatest($order, $state);
 
         return response()->json(['data' => $this->payments->payload($payment, $order)]);
     }
