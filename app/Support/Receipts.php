@@ -6,8 +6,11 @@ use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
 use App\Models\Order;
 use App\Models\Receipt;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\URL;
+use Mpdf\Config\ConfigVariables;
+use Mpdf\Config\FontVariables;
 use Mpdf\Mpdf;
 
 /**
@@ -64,6 +67,13 @@ class Receipts
                     'quantity' => (int) $item->quantity,
                     'unit_price' => (float) $item->unit_price,
                     'total_price' => (float) $item->total_price,
+                    // ช่วงสิทธิ์เรียนจาก StudentPurchase::grantAccess() null = ไม่ใช่สินค้าการเรียน (เช่น หนังสือ)
+                    'access' => isset($item->metadata['access']['starts_at'])
+                        ? [
+                            'starts_at' => $item->metadata['access']['starts_at'],
+                            'expires_at' => $item->metadata['access']['expires_at'] ?? null,
+                        ]
+                        : null,
                 ])->values()->all(),
                 'subtotal' => $locked->subtotal,
                 'discount_amount' => $locked->discount_amount,
@@ -96,10 +106,22 @@ class Receipts
             mkdir($tempDir, 0775, true);
         }
 
+        $config = (new ConfigVariables)->getDefaults();
+        $fonts = (new FontVariables)->getDefaults();
+
         $mpdf = new Mpdf([
             'mode' => 'utf-8',
             'format' => 'A4',
-            'default_font' => 'garuda',
+            // Noto Sans Thai จาก Google Fonts ที่ตัด MarkGlyphSets ออกแล้ว (mPDF ไม่รองรับ) ดู resources/fonts/README.md
+            'fontDir' => [...$config['fontDir'], resource_path('fonts')],
+            'fontdata' => $fonts['fontdata'] + [
+                'notosansthai' => [
+                    'R' => 'NotoSansThai-Regular.ttf',
+                    'B' => 'NotoSansThai-Bold.ttf',
+                    'useOTL' => 0xFF,
+                ],
+            ],
+            'default_font' => 'notosansthai',
             'default_font_size' => 11,
             'margin_left' => 14,
             'margin_right' => 14,
@@ -164,7 +186,34 @@ class Receipts
             'methodLabel' => PaymentMethod::tryFrom((string) $receipt->payment_method)?->label() ?? $receipt->payment_method,
             'issuedAtText' => $this->thaiDate($receipt->issued_at),
             'amountText' => self::bahtText((float) $receipt->total_amount),
+            'accessText' => fn (array $item) => $this->accessText($item['access'] ?? null),
         ];
+    }
+
+    /**
+     * ข้อความช่วงสิทธิ์เรียนใต้ชื่อรายการ เช่น "เริ่มเรียนได้ 31 ต.ค. 2569 ถึง 30 พ.ย. 2569"
+     *
+     * @param  array{starts_at?: ?string, expires_at?: ?string}|null  $access
+     */
+    private function accessText(?array $access): ?string
+    {
+        if (empty($access['starts_at'])) {
+            return null;
+        }
+
+        $start = $this->thaiShortDate(Carbon::parse($access['starts_at']));
+
+        return empty($access['expires_at'])
+            ? 'เริ่มเรียนได้ '.$start.' ไม่มีวันหมดอายุ'
+            : 'เริ่มเรียนได้ '.$start.' ถึง '.$this->thaiShortDate(Carbon::parse($access['expires_at']));
+    }
+
+    private function thaiShortDate(\DateTimeInterface $date): string
+    {
+        $months = ['', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+        $local = Carbon::instance($date)->timezone((string) config('receipt.timezone', 'Asia/Bangkok'));
+
+        return $local->day.' '.$months[$local->month].' '.($local->year + 543);
     }
 
     private function address(Order $order): ?string

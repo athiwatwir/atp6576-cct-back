@@ -114,6 +114,7 @@ function putPart(url, blob, onProgress, xhrs) {
  */
 async function directUpload(form, file, onProgress) {
     const init = await api(form.dataset.directUploadUrl, 'POST', {
+        kind: form.dataset.uploadKind || 'video',
         scope: form.dataset.uploadScope,
         course_id: form.dataset.courseId ? Number(form.dataset.courseId) : null,
         chapter_id: form.dataset.chapterId ? Number(form.dataset.chapterId) : null,
@@ -251,8 +252,10 @@ function fail(component, message, flash) {
     flash('error', message);
 }
 
+const fileInputOf = (form) => form.querySelector(`input[type=file][name="${form.dataset.fileInput || 'video_file'}"]`);
+
 async function uploadFileFirst(component, form) {
-    const file = form.querySelector('input[type=file][name=video_file]')?.files?.[0];
+    const file = fileInputOf(form)?.files?.[0];
     if (!file || !form.dataset.directUploadUrl) {
         return null;
     }
@@ -299,7 +302,7 @@ export async function uploadVideoForm(component, event) {
     }
 
     if (direct) {
-        formData.delete('video_file');
+        formData.delete(fileInputOf(form)?.name || 'video_file');
         formData.set('upload_token', direct.token);
         component.uploadProgress = 100;
         component.uploadStage = 'saving';
@@ -354,11 +357,12 @@ export async function uploadVideoForm(component, event) {
 }
 
 /**
- * ฟอร์มแก้ไขวิดีโอ (submit ปกติ): ถ้าเลือกไฟล์ใหม่ อัปโหลดตรงขึ้น R2 ก่อน แล้วส่งฟอร์มพร้อม upload_token
+ * ฟอร์มที่ submit ปกติ (แก้ไขวิดีโอ เพิ่มเอกสาร): ถ้าเลือกไฟล์ อัปโหลดตรงขึ้น R2 ก่อน แล้วส่งฟอร์มพร้อม upload_token
+ * ชื่อช่องไฟล์มาจาก data-file-input (ค่าเริ่มต้น video_file) ชนิดไฟล์มาจาก data-upload-kind (video / document)
  */
 export async function submitVideoEditForm(component, event) {
     const form = event.target;
-    const fileInput = form.querySelector('input[type=file][name=video_file]');
+    const fileInput = fileInputOf(form);
     if (!fileInput?.files?.[0] || !form.dataset.directUploadUrl) {
         return;
     }

@@ -10,15 +10,37 @@ use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
- * อัปโหลดวิดีโอจากเบราว์เซอร์ขึ้น R2 โดยตรงแบบ multipart
+ * อัปโหลดไฟล์ใหญ่ (วิดีโอ เอกสาร) จากเบราว์เซอร์ขึ้น R2 โดยตรงแบบ multipart
  * เซิร์ฟเวอร์ออก presigned URL ให้ทีละ part แล้วรวมไฟล์เมื่อครบ ไฟล์ไม่ผ่าน PHP
  */
-class VideoDirectUpload
+class DirectUpload
 {
-    public const MIME_TYPES = [
+    public const VIDEO_TYPES = [
         'mp4' => 'video/mp4',
         'webm' => 'video/webm',
         'mov' => 'video/quicktime',
+    ];
+
+    public const DOCUMENT_TYPES = [
+        'pdf' => 'application/pdf',
+        'doc' => 'application/msword',
+        'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'xls' => 'application/vnd.ms-excel',
+        'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'ppt' => 'application/vnd.ms-powerpoint',
+        'pptx' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'txt' => 'text/plain',
+        'csv' => 'text/csv',
+        'zip' => 'application/zip',
+        'rar' => 'application/vnd.rar',
+        '7z' => 'application/x-7z-compressed',
+        'jpg' => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'png' => 'image/png',
+        'webp' => 'image/webp',
+        'mp3' => 'audio/mpeg',
+        'm4a' => 'audio/mp4',
+        'wav' => 'audio/wav',
     ];
 
     private const SIGN_TTL = '+60 minutes';
@@ -28,16 +50,29 @@ class VideoDirectUpload
         return MediaStorage::disk() === 'r2';
     }
 
-    public static function maxBytes(): int
+    /**
+     * @return array<string, string>
+     */
+    public static function types(string $kind): array
     {
-        return max(1, (int) config('media.video_max_mb')) * 1024 * 1024;
+        return $kind === 'document' ? self::DOCUMENT_TYPES : self::VIDEO_TYPES;
     }
 
-    public static function maxLabel(): string
+    public static function maxBytes(string $kind = 'video'): int
     {
-        $mb = (int) config('media.video_max_mb');
+        return max(1, self::maxMb($kind)) * 1024 * 1024;
+    }
+
+    public static function maxLabel(string $kind = 'video'): string
+    {
+        $mb = self::maxMb($kind);
 
         return $mb % 1024 === 0 ? ($mb / 1024).'GB' : $mb.'MB';
+    }
+
+    public static function extensionsLabel(string $kind): string
+    {
+        return implode(', ', array_keys(self::types($kind)));
     }
 
     public static function partSize(int $size): int
@@ -51,37 +86,50 @@ class VideoDirectUpload
      * @param  array{scope: string, course_id?: int|null, chapter_id?: int|null}  $target
      * @return array{token: string, part_size: int, part_count: int}
      */
-    public static function start(int $userId, array $target, string $filename, int $size): array
+    public static function start(int $userId, string $kind, array $target, string $filename, int $size): array
     {
+        $field = self::field($kind);
+        $types = self::types($kind);
         $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-        if (! isset(self::MIME_TYPES[$extension])) {
-            throw ValidationException::withMessages(['video_file' => 'รองรับเฉพาะไฟล์ mp4, webm, mov']);
+
+        if (! isset($types[$extension])) {
+            throw ValidationException::withMessages([$field => 'รองรับเฉพาะไฟล์ '.self::extensionsLabel($kind)]);
         }
 
-        if ($size < 1 || $size > self::maxBytes()) {
-            throw ValidationException::withMessages(['video_file' => 'ขนาดไฟล์วิดีโอต้องไม่เกิน '.self::maxLabel()]);
+        if ($size < 1 || $size > self::maxBytes($kind)) {
+            throw ValidationException::withMessages([$field => 'ขนาดไฟล์ต้องไม่เกิน '.self::maxLabel($kind)]);
         }
 
-        $directory = $target['scope'] === 'course'
-            ? MediaStorage::courseVideoDirectory((int) $target['course_id'], (int) $target['chapter_id'])
-            : MediaStorage::standaloneVideoDirectory();
+        $directory = match (true) {
+            $kind === 'document' => MediaStorage::documentDirectory((int) $target['course_id'], (int) $target['chapter_id']),
+            $target['scope'] === 'course' => MediaStorage::courseVideoDirectory((int) $target['course_id'], (int) $target['chapter_id']),
+            default => MediaStorage::standaloneVideoDirectory(),
+        };
         $key = $directory.'/'.Str::uuid()->toString().'.'.$extension;
 
-        $result = self::client()->createMultipartUpload([
+        $options = [
             'Bucket' => self::bucket(),
             'Key' => $key,
-            'ContentType' => self::MIME_TYPES[$extension],
-        ]);
+            'ContentType' => $types[$extension],
+        ];
+        if ($kind === 'document') {
+            $options['ContentDisposition'] = MediaStorage::contentDisposition($filename);
+        }
+
+        $result = self::client()->createMultipartUpload($options);
 
         $partSize = self::partSize($size);
         $token = Str::random(40);
 
         self::put($token, [
             'user_id' => $userId,
+            'kind' => $kind,
             'target' => $target,
             'key' => $key,
             'upload_id' => (string) $result['UploadId'],
             'size' => $size,
+            'filename' => Str::limit(basename($filename), 250, ''),
+            'mime' => $types[$extension],
             'extension' => $extension,
             'part_size' => $partSize,
             'part_count' => (int) ceil($size / $partSize),
@@ -133,6 +181,7 @@ class VideoDirectUpload
             return;
         }
 
+        $field = self::field($session['kind'] ?? 'video');
         $list = collect($parts)
             ->map(fn (array $part) => ['PartNumber' => (int) $part['part_number'], 'ETag' => (string) $part['etag']])
             ->unique('PartNumber')
@@ -140,7 +189,7 @@ class VideoDirectUpload
             ->values();
 
         if ($list->count() !== $session['part_count'] || $list->last()['PartNumber'] !== $session['part_count']) {
-            throw ValidationException::withMessages(['video_file' => 'อัปโหลดไฟล์ไม่ครบ กรุณาลองใหม่']);
+            throw ValidationException::withMessages([$field => 'อัปโหลดไฟล์ไม่ครบ กรุณาลองใหม่']);
         }
 
         $client = self::client();
@@ -152,15 +201,17 @@ class VideoDirectUpload
         ]);
 
         $head = $client->headObject(['Bucket' => self::bucket(), 'Key' => $session['key']]);
-        $info = (int) $head['ContentLength'] === $session['size']
-            ? self::inspect($session['key'], $session['size'], $session['extension'])
-            : ['ok' => false, 'message' => 'ขนาดไฟล์บน R2 ไม่ตรงกับไฟล์ต้นฉบับ กรุณาอัปโหลดใหม่'];
+        $info = match (true) {
+            (int) $head['ContentLength'] !== $session['size'] => ['ok' => false, 'message' => 'ขนาดไฟล์บน R2 ไม่ตรงกับไฟล์ต้นฉบับ กรุณาอัปโหลดใหม่'],
+            ($session['kind'] ?? 'video') === 'video' => self::inspect($session['key'], $session['size'], $session['extension']),
+            default => ['ok' => true, 'message' => null],
+        };
 
         if (! $info['ok']) {
             self::deleteObject($session['key']);
             Cache::forget(self::cacheKey($token));
 
-            throw ValidationException::withMessages(['video_file' => $info['message']]);
+            throw ValidationException::withMessages([$field => $info['message']]);
         }
 
         $session['completed'] = true;
@@ -193,17 +244,18 @@ class VideoDirectUpload
     }
 
     /**
-     * ใช้ไฟล์ที่อัปโหลดเสร็จแล้วกับวิดีโอ ใช้ได้ครั้งเดียว
+     * ใช้ไฟล์ที่อัปโหลดเสร็จแล้ว ใช้ได้ครั้งเดียว
      *
      * @param  array{scope: string, course_id?: int|null, chapter_id?: int|null}  $target
-     * @return array{key: string, duration: ?int}
+     * @return array{key: string, duration: ?int, size: int, filename: string, mime: string}
      */
-    public static function consume(string $token, int $userId, array $target): array
+    public static function consume(string $token, int $userId, string $kind, array $target): array
     {
+        $field = self::field($kind);
         $session = Cache::get(self::cacheKey($token));
 
-        if (! is_array($session) || $session['user_id'] !== $userId || ! $session['completed']) {
-            throw ValidationException::withMessages(['video_file' => 'ไม่พบไฟล์วิดีโอที่อัปโหลด หรืออัปโหลดยังไม่เสร็จ กรุณาอัปโหลดใหม่']);
+        if (! is_array($session) || $session['user_id'] !== $userId || ! $session['completed'] || ($session['kind'] ?? 'video') !== $kind) {
+            throw ValidationException::withMessages([$field => 'ไม่พบไฟล์ที่อัปโหลด หรืออัปโหลดยังไม่เสร็จ กรุณาอัปโหลดใหม่']);
         }
 
         $sameTarget = $session['target']['scope'] === $target['scope']
@@ -211,12 +263,28 @@ class VideoDirectUpload
             && (int) ($session['target']['chapter_id'] ?? 0) === (int) ($target['chapter_id'] ?? 0);
 
         if (! $sameTarget) {
-            throw ValidationException::withMessages(['video_file' => 'ไฟล์วิดีโอนี้อัปโหลดไว้สำหรับรายการอื่น']);
+            throw ValidationException::withMessages([$field => 'ไฟล์นี้อัปโหลดไว้สำหรับรายการอื่น']);
         }
 
         Cache::forget(self::cacheKey($token));
 
-        return ['key' => $session['key'], 'duration' => $session['duration'] ?? null];
+        return [
+            'key' => $session['key'],
+            'duration' => $session['duration'] ?? null,
+            'size' => (int) $session['size'],
+            'filename' => (string) ($session['filename'] ?? basename($session['key'])),
+            'mime' => (string) ($session['mime'] ?? 'application/octet-stream'),
+        ];
+    }
+
+    private static function field(string $kind): string
+    {
+        return $kind === 'document' ? 'file' : 'video_file';
+    }
+
+    private static function maxMb(string $kind): int
+    {
+        return (int) config($kind === 'document' ? 'media.document_max_mb' : 'media.video_max_mb');
     }
 
     /**

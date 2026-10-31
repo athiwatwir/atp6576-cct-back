@@ -29,6 +29,7 @@ class User extends Authenticatable
         'created_at',
         'last_login_at',
         'email_verified_at',
+        'credentials_pending_at',
     ];
 
     public function getAuditLabel(): string
@@ -66,6 +67,7 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'credentials_pending_at',
     ];
 
     /**
@@ -78,8 +80,19 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'last_login_at' => 'datetime',
+            'credentials_pending_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        // บัญชีที่สร้างตอนสั่งซื้อแบบ guest จะได้รหัสผ่านทางอีเมลหลังชำระเงิน ถ้ารหัสผ่านถูกตั้งทางอื่นก่อน ห้ามทับ
+        static::updating(function (User $user) {
+            if ($user->isDirty('password') && ! $user->isDirty('credentials_pending_at')) {
+                $user->credentials_pending_at = null;
+            }
+        });
     }
 
     /**

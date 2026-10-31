@@ -42,4 +42,9 @@ class Document extends Model
             ->withPivot('sort_order')
             ->orderByPivot('sort_order');
     }
+
+    public function getUrlAttribute(): ?string
+    {
+        return \App\Support\MediaStorage::url($this->file_path);
+    }
 }

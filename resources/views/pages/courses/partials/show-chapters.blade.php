@@ -130,18 +130,43 @@
                     </div>
 
                     <div x-show="showDocumentForm" x-cloak class="border-b border-gray-100 bg-success-50/40 p-4 dark:border-gray-800 dark:bg-success-500/5">
-                        <form method="POST" action="{{ route('courses.chapters.documents.store', [$course, $chapter]) }}" enctype="multipart/form-data" class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <form method="POST" action="{{ route('courses.chapters.documents.store', [$course, $chapter]) }}" enctype="multipart/form-data" class="grid grid-cols-1 gap-3 md:grid-cols-2"
+                            @submit="window.submitVideoEditForm($data, $event)"
+                            data-direct-upload-url="{{ route('video-uploads.start') }}" data-upload-kind="document" data-file-input="file"
+                            data-upload-scope="course" data-course-id="{{ $course->id }}" data-chapter-id="{{ $chapter->id }}">
                             @csrf
-                            <input type="text" name="title" required placeholder="ชื่อเอกสาร" class="dark:bg-dark-900 h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm shadow-theme-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 md:col-span-2" />
-                            <textarea name="description" rows="2" placeholder="รายละเอียด" class="dark:bg-dark-900 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-theme-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 md:col-span-2"></textarea>
-                            <input type="file" name="file" required class="dark:bg-dark-900 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-theme-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 md:col-span-2" />
+                            <input type="hidden" name="_form" value="document" />
+                            <input type="text" name="title" required value="{{ old('_form') === 'document' ? old('title') : '' }}" placeholder="ชื่อเอกสาร" class="dark:bg-dark-900 h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm shadow-theme-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 md:col-span-2" />
+                            <textarea name="description" rows="2" placeholder="รายละเอียด" class="dark:bg-dark-900 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-theme-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 md:col-span-2">{{ old('_form') === 'document' ? old('description') : '' }}</textarea>
+                            <div class="md:col-span-2">
+                                <input type="file" name="file" required accept=".{{ implode(',.', array_keys(\App\Support\DirectUpload::DOCUMENT_TYPES)) }}" class="dark:bg-dark-900 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-theme-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                                <p class="mt-1.5 text-[11px] text-gray-500 dark:text-gray-400">
+                                    {{ \App\Support\DirectUpload::extensionsLabel('document') }} · สูงสุด {{ \App\Support\DirectUpload::maxLabel('document') }}
+                                </p>
+                                @if (old('_form') === 'document')
+                                    @error('file')<p class="mt-1.5 text-sm text-error-500">{{ $message }}</p>@enderror
+                                    @error('title')<p class="mt-1.5 text-sm text-error-500">{{ $message }}</p>@enderror
+                                @endif
+                            </div>
                             <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 md:col-span-2">
                                 <input type="checkbox" name="is_free" value="1" class="rounded border-gray-300" />
                                 เปิดให้ดาวน์โหลดฟรี
                             </label>
+                            <div x-show="uploadingVideo" x-cloak class="space-y-2 rounded-xl border border-gray-200 bg-white p-3 md:col-span-2 dark:border-gray-700 dark:bg-white/[0.03]">
+                                <div class="flex items-center justify-between text-xs text-gray-600 dark:text-gray-300">
+                                    <span x-text="uploadStage === 'saving' ? 'กำลังบันทึก...' : 'กำลังอัปโหลดไฟล์ขึ้น R2...'"></span>
+                                    <span x-text="uploadProgress + '%'"></span>
+                                </div>
+                                <div class="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                                    <div class="bg-brand-500 h-full rounded-full transition-all duration-200" :style="'width: ' + uploadProgress + '%'"></div>
+                                </div>
+                            </div>
+                            <template x-if="uploadVideoError && showDocumentForm">
+                                <p class="text-sm text-error-600 md:col-span-2" x-text="uploadVideoError"></p>
+                            </template>
                             <div class="flex gap-2 md:col-span-2">
-                                <button type="submit" class="{{ $btn['successActive'] }}">บันทึกเอกสาร</button>
-                                <button type="button" @click="showDocumentForm = false" class="{{ $btn['secondarySm'] }}">ยกเลิก</button>
+                                <button type="submit" :disabled="uploadingVideo" class="{{ $btn['successActive'] }}">บันทึกเอกสาร</button>
+                                <button type="button" @click="showDocumentForm = false" :disabled="uploadingVideo" class="{{ $btn['secondarySm'] }}">ยกเลิก</button>
                             </div>
                         </form>
                     </div>
@@ -214,7 +239,7 @@
                                     </td>
                                     <td class="px-4 py-3">
                                         <div class="flex justify-end gap-2">
-                                            <a href="{{ Storage::url($document->file_path) }}" target="_blank" class="{{ $btn['view'] }}">เปิดไฟล์</a>
+                                            <a href="{{ $document->url }}" target="_blank" rel="noopener" class="{{ $btn['view'] }}">เปิดไฟล์</a>
                                             <form method="POST" action="{{ route('courses.chapters.documents.destroy', [$course, $chapter, $document]) }}" onsubmit="return confirm('ลบเอกสารนี้หรือไม่?')">
                                                 @csrf
                                                 @method('DELETE')
@@ -274,7 +299,7 @@
                                     <label class="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">เปลี่ยนไฟล์วิดีโอ (ถ้าต้องการ)</label>
                                     <input type="file" name="video_file" accept="video/mp4,video/webm,video/quicktime" class="dark:bg-dark-900 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm shadow-theme-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                                     <p class="mt-1.5 text-[11px] text-gray-500 dark:text-gray-400">
-                                        รองรับ mp4, webm, mov · สูงสุด {{ \App\Support\VideoDirectUpload::available() ? \App\Support\VideoDirectUpload::maxLabel() : '500MB' }} · ไฟล์ใหม่จะแทนไฟล์เดิม และลบไฟล์เดิมหลังบันทึก
+                                        รองรับ mp4, webm, mov · สูงสุด {{ \App\Support\DirectUpload::available() ? \App\Support\DirectUpload::maxLabel() : '500MB' }} · ไฟล์ใหม่จะแทนไฟล์เดิม และลบไฟล์เดิมหลังบันทึก
                                     </p>
                                     @if ($video->url)
                                     <p class="mt-1 text-[11px] text-gray-500">ไฟล์ปัจจุบัน: <a href="{{ $video->url }}" target="_blank" class="text-brand-500 hover:underline">เปิดดู</a>

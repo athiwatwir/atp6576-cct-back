@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CatalogController;
 use App\Http\Controllers\Api\LearningController;
 use App\Http\Controllers\Api\ContentController;
+use App\Http\Controllers\Api\ExamAttemptController;
 use App\Http\Controllers\Api\GuestCheckoutController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PaymentController;
@@ -67,6 +68,13 @@ Route::prefix('v1')->middleware(['storefront', 'throttle:60,1'])->group(function
 
         Route::put('courses/{slug}/videos/{video}/progress', [LearningController::class, 'updateVideoProgress'])
             ->whereNumber('video');
+
+        Route::get('learning/exams/{slug}', [ExamAttemptController::class, 'show']);
+        Route::post('learning/exams/{slug}/attempts', [ExamAttemptController::class, 'start'])->middleware('throttle:20,1,exam-start');
+        Route::get('learning/exams/{slug}/attempts/{attempt}', [ExamAttemptController::class, 'result'])->whereNumber('attempt');
+        Route::post('learning/exams/{slug}/attempts/{attempt}/submit', [ExamAttemptController::class, 'submit'])
+            ->whereNumber('attempt')
+            ->middleware('throttle:20,1,exam-submit');
 
         Route::get('profile', [ProfileController::class, 'show']);
         Route::match(['put', 'post'], 'profile', [ProfileController::class, 'update']);

@@ -53,7 +53,7 @@ $btn = [
         selectedAssessment: {{ $selectedAssessment?->id ?? 'null' }},
         showChapterForm: false,
         showVideoForm: false,
-        showDocumentForm: false,
+        showDocumentForm: {{ old('_form') === 'document' && $errors->any() ? 'true' : 'false' }},
         showQuizForm: false,
         showExamForm: false,
         showQuestionForm: {{ ($errors->hasAny(['question_text', 'choices', 'correct_index', 'image', 'points', 'explanation']) && ! old('_question_id')) ? 'true' : 'false' }},

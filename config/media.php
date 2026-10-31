@@ -10,6 +10,9 @@ return [
 
     'video_part_mb' => (int) env('MEDIA_VIDEO_PART_MB', 32),
 
+    // เอกสารบทเรียน (PDF, Office, zip ฯลฯ) อัปโหลดตรงขึ้น R2 แบบเดียวกับวิดีโอ
+    'document_max_mb' => (int) env('MEDIA_DOCUMENT_MAX_MB', 500),
+
     'video_upload_ttl_hours' => (int) env('MEDIA_VIDEO_UPLOAD_TTL_HOURS', 24),
 
 ];

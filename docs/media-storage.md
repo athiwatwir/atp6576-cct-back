@@ -37,7 +37,7 @@ articles/{content_id}/{content_id}.webp     # รูปปกบทความ
 articles/body/{uuid}.webp                   # รูปในเนื้อหาบทความ (GIF เก็บไฟล์เดิม .gif)
 avatars/{user_id}/{user_id}.webp            # รูปโปรไฟล์นักเรียนจาก API
 payments/{order_id}/slips/{uuid}.{ext}      # สลิปโอนเงิน เก็บไฟล์เดิม (รองรับ PDF)
-documents/{course_id}/{chapter_id}/...   # เอกสารยังใช้ local public ตามเดิม
+documents/{course_id}/{chapter_id}/{uuid}.{ext}   # เอกสารบทเรียน (อัปโหลดตรงขึ้น R2 หรือผ่าน PHP) ไฟล์เก่าก่อน 31 ต.ค. 2026 อยู่ใน disk public ของเซิร์ฟเวอร์ ดูหัวข้อเอกสารบทเรียน
 ```
 
 รูปทุกชนิดที่อัปโหลดผ่านแอดมินหรือ API แปลงเป็น WebP ก่อนเก็บ ยกเว้น GIF ในเนื้อหาบทความ (เก็บเดิมเพื่อให้ภาพเคลื่อนไหวยังเล่นได้) และสลิปโอนเงิน (เป็นหลักฐาน และรับ PDF) รูปที่ใช้ path คงที่ (เช่น `banners/{id}/{id}.webp`) ต่อท้าย URL ด้วย `?v={updated_at}` เพื่อให้ CDN ไม่แสดงรูปเก่าหลังเปลี่ยนรูป
@@ -109,7 +109,7 @@ Storage::disk(MediaStorage::disk())->put($path, $webp, [
 
 เมื่อใช้ R2 หน้าเพิ่มวิดีโอในบทเรียน หน้าแก้ไขวิดีโอ (เปลี่ยนไฟล์) และหน้าอัปโหลดวิดีโอในหลักสูตร ส่งไฟล์จากเบราว์เซอร์ขึ้น R2 โดยตรงแบบ multipart ไฟล์ไม่ผ่าน PHP จึงไม่ติด `upload_max_filesize` / `post_max_size` และขีดจำกัดขนาดคำขอของ Cloudflare/nginx รองรับสูงสุด 5GB
 
-ขั้นตอน (`resources/js/video-upload.js`, `App\Support\VideoDirectUpload`, `VideoUploadController`):
+ขั้นตอน (`resources/js/video-upload.js`, `App\Support\DirectUpload`, `VideoUploadController`) ใช้กับเอกสารบทเรียนด้วย โดยส่ง `kind=document` (ดูหัวข้อเอกสารบทเรียน):
 
 1. `POST /video-uploads` ส่ง `scope` (`course` หรือ `standalone`), `course_id`, `chapter_id`, `filename`, `size` ระบบตรวจนามสกุล (mp4, webm, mov) และขนาด สร้าง multipart upload บน R2 ที่ key `.../{uuid}.{ext}` แล้วคืน `token`, `part_size`, `part_count` ถ้าไม่ได้ใช้ R2 คืน `{"direct": false}` และหน้าเว็บส่งไฟล์ผ่าน PHP แบบเดิม (สูงสุด 500MB)
 2. `POST /video-uploads/{token}/sign` ขอ presigned URL ทีละไม่เกิน 50 part (อายุ 60 นาที ถ้าหมดอายุ R2 ตอบ 403 แล้วหน้าเว็บขอ URL ใหม่ให้เอง)
@@ -126,6 +126,24 @@ Storage::disk(MediaStorage::disk())->put($path, $webp, [
 MEDIA_VIDEO_MAX_MB=5120          # ขนาดสูงสุด (5GB)
 MEDIA_VIDEO_PART_MB=32           # ขนาดต่อ part (R2 ต้องการ part เท่ากันยกเว้น part สุดท้าย ขั้นต่ำ 5MB)
 MEDIA_VIDEO_UPLOAD_TTL_HOURS=24  # อายุ token อัปโหลด
+MEDIA_DOCUMENT_MAX_MB=500        # ขนาดสูงสุดของเอกสารบทเรียน
+```
+
+#### เอกสารบทเรียน
+
+ฟอร์ม "เพิ่มเอกสาร" ในบทเรียน (`CourseChapterDocumentController`) อัปโหลดตรงขึ้น R2 แบบเดียวกับวิดีโอ (`data-upload-kind="document"`, `data-file-input="file"`) แล้วส่งฟอร์มพร้อม `upload_token` ถ้าไม่ได้ใช้ R2 หรือเบราว์เซอร์ส่งขึ้น R2 ไม่ได้และไฟล์ไม่เกิน 500MB ส่งผ่าน PHP (`MediaStorage::storeDocument()`) ซึ่งเก็บบน disk เดียวกัน
+
+- สูงสุด `MEDIA_DOCUMENT_MAX_MB` (500MB) รับเฉพาะ pdf, doc, docx, xls, xlsx, ppt, pptx, txt, csv, zip, rar, 7z, jpg, jpeg, png, webp, mp3, m4a, wav (`DirectUpload::DOCUMENT_TYPES`)
+- ไฟล์บน R2 ตั้ง `Content-Type` ตามนามสกุล และ `Content-Disposition: inline; filename*=UTF-8''{ชื่อไฟล์เดิม}` เปิด PDF ในเบราว์เซอร์ได้และดาวน์โหลดได้ชื่อเดิม (รวมชื่อภาษาไทย)
+- ลบเอกสาร (หรือลบวิชา) ลบไฟล์ทั้งบน R2 และ disk public (`MediaStorage::delete()`)
+- ข้อความ error แสดงใต้ช่องไฟล์ในฟอร์ม
+
+เอกสารที่อัปโหลดก่อนหน้านี้ (#1–#4) เก็บใน `storage/app/public/documents/...` ของเซิร์ฟเวอร์ที่อัปโหลด แต่ `MediaStorage::url()` สร้างลิงก์ CDN ของ R2 จึงเปิดไม่ได้ (404) ย้ายขึ้น R2 ด้วยคำสั่งบนเซิร์ฟเวอร์ที่มีไฟล์:
+
+```bash
+php artisan media:documents-to-r2 --dry-run     # ดูรายการก่อน
+php artisan media:documents-to-r2               # อัปโหลดขึ้น R2 ที่ path เดิม
+php artisan media:documents-to-r2 --delete-local  # อัปโหลดแล้วลบไฟล์ในเครื่อง
 ```
 
 #### ตรวจไฟล์วิดีโอ (จอดำ / ไฟล์ไม่สมบูรณ์)

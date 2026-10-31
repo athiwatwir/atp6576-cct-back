@@ -58,7 +58,7 @@ class GuestCheckoutController extends Controller
                 'order' => OrderResource::make($order)->resolve($request),
                 'guest_token' => $order->guest_token,
                 'account_created' => $result['account_created'],
-                'account_email_sent' => $result['email_sent'],
+                'account_email_sent' => false,
                 'login_url' => $this->guests->loginUrl(),
                 ...$this->paymentLink($order),
             ],

@@ -105,6 +105,37 @@ class MediaStorage
         return self::courseVideoDirectory($courseId, $chapterId)."/{$videoId}.{$ext}";
     }
 
+    public static function documentDirectory(int $courseId, int $chapterId): string
+    {
+        return "documents/{$courseId}/{$chapterId}";
+    }
+
+    /**
+     * ให้ดาวน์โหลดได้ชื่อไฟล์เดิม (รองรับชื่อภาษาไทย) แต่ยังเปิดดูในเบราว์เซอร์ได้ เช่น PDF
+     */
+    public static function contentDisposition(string $filename): string
+    {
+        $ascii = trim((string) preg_replace('/[^A-Za-z0-9._-]+/', '_', Str::ascii($filename)), '_') ?: 'file';
+
+        return 'inline; filename="'.$ascii.'"; filename*=UTF-8\'\''.rawurlencode($filename);
+    }
+
+    /**
+     * อัปโหลดเอกสารบทเรียนผ่าน PHP (เมื่อไม่ได้อัปโหลดตรงขึ้น R2): documents/{course_id}/{chapter_id}/{uuid}.{ext}
+     */
+    public static function storeDocument(UploadedFile $file, int $courseId, int $chapterId): string
+    {
+        $extension = strtolower($file->getClientOriginalExtension() ?: (string) $file->extension()) ?: 'bin';
+        $path = self::documentDirectory($courseId, $chapterId).'/'.Str::uuid()->toString().'.'.$extension;
+
+        $file->storeAs(dirname($path), basename($path), self::writeOptions(array_filter([
+            'ContentType' => DirectUpload::DOCUMENT_TYPES[$extension] ?? null,
+            'ContentDisposition' => self::disk() === 'r2' ? self::contentDisposition($file->getClientOriginalName()) : null,
+        ])));
+
+        return $path;
+    }
+
     public static function store(UploadedFile $file, string $directory): string
     {
         $extension = $file->getClientOriginalExtension() ?: $file->extension() ?: 'bin';

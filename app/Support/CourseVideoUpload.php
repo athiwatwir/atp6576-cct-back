@@ -51,7 +51,7 @@ class CourseVideoUpload
     public static function store(Course $course, Chapter $chapter, array $data, ?UploadedFile $file): Video
     {
         if (filled($data['upload_token'] ?? null)) {
-            $upload = VideoDirectUpload::consume($data['upload_token'], (int) auth()->id(), [
+            $upload = DirectUpload::consume($data['upload_token'], (int) auth()->id(), 'video', [
                 'scope' => 'course',
                 'course_id' => $course->id,
                 'chapter_id' => $chapter->id,
@@ -79,7 +79,7 @@ class CourseVideoUpload
     public static function storeStandalone(array $data, ?UploadedFile $file): Video
     {
         if (filled($data['upload_token'] ?? null)) {
-            $upload = VideoDirectUpload::consume($data['upload_token'], (int) auth()->id(), ['scope' => 'standalone']);
+            $upload = DirectUpload::consume($data['upload_token'], (int) auth()->id(), 'video', ['scope' => 'standalone']);
 
             return self::create(self::withDuration($data, $upload['duration']), $upload['key']);
         }

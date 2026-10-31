@@ -8,7 +8,7 @@ use App\Models\Course;
 use App\Models\Video;
 use App\Support\CourseVideoUpload;
 use App\Support\MediaStorage;
-use App\Support\VideoDirectUpload;
+use App\Support\DirectUpload;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -64,7 +64,7 @@ class CourseChapterVideoController extends Controller
         $detected = null;
 
         if (filled($data['upload_token'] ?? null)) {
-            $upload = VideoDirectUpload::consume($data['upload_token'], (int) $request->user()->id, [
+            $upload = DirectUpload::consume($data['upload_token'], (int) $request->user()->id, 'video', [
                 'scope' => 'course',
                 'course_id' => $course->id,
                 'chapter_id' => $chapter->id,

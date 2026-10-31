@@ -29,7 +29,7 @@
                         <x-common.status-badge :status="$document->status" fallback="active" />
                     </td>
                     <td class="px-4 py-3 text-right">
-                        <a href="{{ Storage::url($document->file_path) }}" target="_blank" class="{{ $btn['view'] }}">เปิดไฟล์</a>
+                        <a href="{{ $document->url }}" target="_blank" rel="noopener" class="{{ $btn['view'] }}">เปิดไฟล์</a>
                     </td>
                 </tr>
                 @endforeach

@@ -31,13 +31,13 @@
 
     @if (empty($password))
         <p style="margin:0 0 20px;font-size:14px;line-height:1.7;color:#64748b;">
-            เข้าสู่ระบบด้วยอีเมล {{ $email }} และรหัสผ่านของบัญชีนี้ ถ้าบัญชีถูกสร้างตอนสั่งซื้อ รหัสผ่านอยู่ในอีเมล "ข้อมูลบัญชีและคำสั่งซื้อ" ที่ส่งไปก่อนหน้า
+            เข้าสู่ระบบด้วยอีเมล {{ $email }} และรหัสผ่านเดิมของบัญชีนี้ ถ้าจำรหัสผ่านไม่ได้ กรุณาติดต่อแอดมิน
         </p>
     @endif
 
     @if (! empty($password))
         <p style="margin:0 0 12px;font-size:15px;line-height:1.7;color:#334155;">
-            ใช้ข้อมูลด้านล่างเพื่อเข้าสู่ระบบครั้งแรก
+            ข้อมูลบัญชีผู้ใช้งานของคุณ ใช้เข้าสู่ระบบครั้งแรก
         </p>
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 20px;background:#f0fdfa;border:1px solid #99f6e4;border-radius:12px;">
             <tr>

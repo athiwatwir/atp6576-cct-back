@@ -195,17 +195,39 @@ class StudentPurchase
         $paid = $order->payments()->where('status', PaymentStatus::Paid->value)->latest('id')->first();
         $receipt = $this->receiptPdf($order);
 
+        $send = fn (?string $password) => $this->mailService->sendCustomerPurchase(
+            to: $order->user,
+            order: $order,
+            password: $password,
+            queue: false,
+            amount: (float) ($paid?->amount ?? $order->total_amount),
+            actionUrl: $this->studentLoginUrl(),
+            actionText: $order->isBook() ? 'ดูคำสั่งซื้อ' : 'เข้าสู่ระบบเพื่อเริ่มเรียน',
+            receipt: $receipt['receipt'] ?? null,
+            receiptPdf: $receipt['pdf'] ?? null,
+        );
+
         try {
-            $this->mailService->sendCustomerPurchase(
-                to: $order->user,
-                order: $order,
-                queue: false,
-                amount: (float) ($paid?->amount ?? $order->total_amount),
-                actionUrl: $this->studentLoginUrl(),
-                actionText: $order->isBook() ? 'ดูคำสั่งซื้อ' : 'เข้าสู่ระบบเพื่อเริ่มเรียน',
-                receipt: $receipt['receipt'] ?? null,
-                receiptPdf: $receipt['pdf'] ?? null,
-            );
+            if ($order->user->credentials_pending_at === null) {
+                $send(null);
+
+                return true;
+            }
+
+            // บัญชีที่สร้างตอนสั่งซื้อแบบ guest: ออกรหัสผ่านและส่งพร้อมอีเมลนี้ ถ้าส่งไม่สำเร็จ rollback ให้ยังรอส่งครั้งต่อไป
+            DB::transaction(function () use ($order, $send) {
+                $user = User::query()->whereKey($order->user_id)->lockForUpdate()->first();
+
+                if ($user?->credentials_pending_at === null) {
+                    $send(null);
+
+                    return;
+                }
+
+                $password = Str::password(10, symbols: false);
+                $user->forceFill(['password' => $password, 'credentials_pending_at' => null])->save();
+                $send($password);
+            });
 
             return true;
         } catch (\Throwable $exception) {
@@ -465,8 +487,9 @@ class StudentPurchase
             }
         }
 
-        foreach ($grants as $grant) {
-            $this->activateEnrollment(
+        $periods = [];
+        foreach ($grants as $key => $grant) {
+            $periods[$key] = $this->activateEnrollment(
                 $student,
                 $order,
                 courseId: $grant['course'],
@@ -475,8 +498,35 @@ class StudentPurchase
                 days: $grant['days'],
             );
         }
+
+        // บันทึกช่วงสิทธิ์ของแต่ละรายการไว้กับออเดอร์ ใช้แสดงในใบเสร็จ (ต่ออายุ = เริ่มจากวันหมดอายุเดิม)
+        foreach ($order->items as $item) {
+            $key = match (true) {
+                (bool) $item->course_id => $item->course_id.':0:0',
+                (bool) $item->curriculum_id => '0:'.$item->curriculum_id.':0',
+                (bool) $item->assessment_id => '0:0:'.$item->assessment_id,
+                default => null,
+            };
+
+            if ($key === null || ! isset($periods[$key])) {
+                continue;
+            }
+
+            $item->update([
+                'metadata' => [
+                    ...($item->metadata ?? []),
+                    'access' => [
+                        'starts_at' => $periods[$key]['starts_at']->toIso8601String(),
+                        'expires_at' => $periods[$key]['expires_at']?->toIso8601String(),
+                    ],
+                ],
+            ]);
+        }
     }
 
+    /**
+     * @return array{starts_at: CarbonInterface, expires_at: ?CarbonInterface} ช่วงสิทธิ์ที่ได้จากการซื้อครั้งนี้
+     */
     private function activateEnrollment(
         User $student,
         Order $order,
@@ -484,7 +534,7 @@ class StudentPurchase
         ?int $curriculumId = null,
         ?int $assessmentId = null,
         ?int $days = null,
-    ): void {
+    ): array {
         $enrollment = Enrollment::query()
             ->where('user_id', $student->id)
             ->when(
@@ -504,26 +554,38 @@ class StudentPurchase
             )
             ->first();
 
+        $expiresAt = $this->nextExpiry($enrollment, $days);
+        $extendsFrom = $this->isStillActive($enrollment) && $enrollment->expires_at !== null && $expiresAt !== null
+            ? $enrollment->expires_at->copy()
+            : null;
+
         $payload = [
             'order_id' => $order->id,
             'source' => 'purchase',
             'status' => EnrollmentStatus::Active->value,
             'started_at' => $enrollment?->started_at ?? now(),
-            'expires_at' => $this->nextExpiry($enrollment, $days),
+            'expires_at' => $expiresAt,
         ];
 
         if ($enrollment) {
             $enrollment->update($payload);
-
-            return;
+        } else {
+            $student->enrollments()->create([
+                'course_id' => $courseId,
+                'curriculum_id' => $curriculumId,
+                'assessment_id' => $assessmentId,
+                ...$payload,
+            ]);
         }
 
-        $student->enrollments()->create([
-            'course_id' => $courseId,
-            'curriculum_id' => $curriculumId,
-            'assessment_id' => $assessmentId,
-            ...$payload,
-        ]);
+        return ['starts_at' => $extendsFrom ?? now(), 'expires_at' => $expiresAt];
+    }
+
+    private function isStillActive(?Enrollment $enrollment): bool
+    {
+        return $enrollment !== null
+            && $enrollment->status === EnrollmentStatus::Active->value
+            && ($enrollment->expires_at === null || $enrollment->expires_at->isFuture());
     }
 
     /**
@@ -531,9 +593,7 @@ class StudentPurchase
      */
     private function nextExpiry(?Enrollment $enrollment, ?int $days): ?CarbonInterface
     {
-        $stillActive = $enrollment
-            && $enrollment->status === EnrollmentStatus::Active->value
-            && ($enrollment->expires_at === null || $enrollment->expires_at->isFuture());
+        $stillActive = $this->isStillActive($enrollment);
 
         if ($days === null || ($stillActive && $enrollment->expires_at === null)) {
             return null;

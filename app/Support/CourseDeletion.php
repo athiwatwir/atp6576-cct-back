@@ -8,7 +8,6 @@ use App\Models\Document;
 use App\Models\Question;
 use App\Models\Video;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use InvalidArgumentException;
 
 class CourseDeletion
@@ -206,9 +205,7 @@ class CourseDeletion
                 }
 
                 if ($document->chapters()->count() === 0) {
-                    if ($document->file_path) {
-                        Storage::disk('public')->delete($document->file_path);
-                    }
+                    MediaStorage::delete($document->file_path);
                     $document->delete();
                     $deleted++;
                 }

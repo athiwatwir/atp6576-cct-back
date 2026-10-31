@@ -6,7 +6,7 @@ $money = fn ($n) => number_format((float) $n, 2);
 <head>
     <style>
         body {
-            font-family: garuda;
+            font-family: notosansthai;
             font-size: 11pt;
             color: #1f2937;
         }
@@ -132,7 +132,12 @@ $money = fn ($n) => number_format((float) $n, 2);
             @foreach ($receipt->items as $index => $item)
             <tr>
                 <td class="center">{{ $index + 1 }}</td>
-                <td>{{ $item['name'] }}</td>
+                <td>
+                    {{ $item['name'] }}
+                    @if ($access = $accessText($item))
+                        <div class="small muted">{{ $access }}</div>
+                    @endif
+                </td>
                 <td class="center">{{ $item['quantity'] }}</td>
                 <td class="right">{{ $money($item['unit_price']) }}</td>
                 <td class="right">{{ $money($item['total_price']) }}</td>

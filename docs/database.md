@@ -118,6 +118,8 @@ It supports:
 
 `orders.guest_token` (nullable, unique, 48 chars) is set for orders placed through the guest checkout API (`/api/v1/guest/orders`). It lets the buyer view, pay, and upload a slip without logging in. It is hidden from JSON and excluded from the activity log. The order still belongs to a student `user_id` (created from the email when the account did not exist).
 
+`users.credentials_pending_at` (nullable timestamp) marks an account created by guest checkout whose login details have not been emailed yet. Its password is a random value nobody knows. On the first successful payment the system sets a new password, emails it in the purchase email, and clears this column. Changing the password any other way also clears it, so the system never overwrites a password someone set. Hidden from JSON and the activity log.
+
 `orders.kind` is `book` or `enrollment`. A book order is a book sale and keeps shipping. An enrollment order is a course, curriculum, or exam purchase and does not use shipping. One order is one kind. Existing orders that contain only learning items are backfilled to `enrollment`. Orders that also contain a book stay `book`.
 
 ### Payment
