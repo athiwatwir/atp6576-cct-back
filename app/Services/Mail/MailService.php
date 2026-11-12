@@ -149,7 +149,7 @@ class MailService
             view: 'emails.customer.password',
             data: [
                 'password' => $password,
-                'actionUrl' => $loginUrl ?? config('app.url'),
+                'actionUrl' => $loginUrl ?? \App\Support\StudentApp::loginUrl(),
                 'actionText' => 'เริ่มเรียนเลย',
             ],
             queue: $queue,
@@ -167,7 +167,17 @@ class MailService
         ?\App\Models\Receipt $receipt = null,
         ?string $receiptPdf = null,
     ): void {
-        $items = $order->items->pluck('item_name')->filter()->values()->all();
+        $items = $order->items
+            ->filter(fn ($item) => filled($item->item_name))
+            ->map(fn ($item) => [
+                'name' => $item->item_name,
+                'access' => \App\Support\AccessPeriod::summary(
+                    $item->metadata['access'] ?? null,
+                    $item->access_days !== null ? (int) $item->access_days : null,
+                ),
+            ])
+            ->values()
+            ->all();
 
         $this->sendCustomer(
             to: $to,
@@ -180,7 +190,7 @@ class MailService
                 'password' => $password,
                 'isBook' => $order->isBook(),
                 'receiptNo' => $receipt?->receipt_no,
-                'actionUrl' => $actionUrl ?? config('app.url'),
+                'actionUrl' => $actionUrl ?? \App\Support\StudentApp::loginUrl(),
                 'actionText' => $actionText ?? 'เริ่มเรียนเลย',
             ],
             queue: $queue,

@@ -24,9 +24,11 @@ class ProfileController extends Controller
         $user = $request->user();
         $data = $request->safe()->only([
             'name',
+            'nickname',
             'email',
             'phone',
             'school_name',
+            'school_province',
             'address_line1',
             'subdistrict',
             'district',
@@ -53,12 +55,28 @@ class ProfileController extends Controller
 
     public function updatePassword(UpdateStudentPasswordRequest $request): JsonResponse
     {
-        $request->user()->update([
-            'password' => $request->string('password')->toString(),
-        ]);
+        $request->user()->setVisiblePassword($request->string('password')->toString())->save();
 
         return response()->json([
             'message' => 'เปลี่ยนรหัสผ่านแล้ว',
         ]);
+    }
+
+    /**
+     * รหัสผ่านปัจจุบันของนักเรียนเอง จากสำเนาเข้ารหัส (`users.issued_password`) เรียกเมื่อกดดูเท่านั้น ห้าม cache
+     * null เมื่อยังไม่มีสำเนา เช่น บัญชีเดิมที่ยังไม่เข้าสู่ระบบด้วยรหัสผ่านหลังเปิดระบบนี้
+     */
+    public function revealPassword(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        return response()
+            ->json([
+                'data' => [
+                    'password' => $user->issuedPassword(),
+                    'updated_at' => $user->issued_password_at?->toIso8601String(),
+                ],
+            ])
+            ->header('Cache-Control', 'no-store, private');
     }
 }

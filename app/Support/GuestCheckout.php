@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Enums\AccountStatus;
+use App\Enums\PaymentStatus;
 use App\Models\Order;
 use App\Models\Role;
 use App\Models\User;
@@ -17,6 +18,9 @@ use Illuminate\Validation\ValidationException;
  */
 class GuestCheckout
 {
+    /** จำนวนวันหลังชำระเงินที่ยังเข้าสู่ระบบจากหน้าออเดอร์ได้โดยไม่ต้องใช้รหัสผ่าน */
+    public const AUTO_LOGIN_DAYS = 7;
+
     public function __construct(
         private readonly StorefrontCheckout $checkout,
     ) {}
@@ -38,7 +42,7 @@ class GuestCheckout
     }
 
     /**
-     * @param  array{email: string, name?: ?string, phone?: ?string}  $customer
+     * @param  array{email: string, name?: ?string, phone?: ?string, school_name?: ?string, school_province?: ?string}  $customer
      * @param  list<array<string, mixed>>  $items
      * @param  array<string, mixed>  $shipping
      * @return array{order: Order, account_created: bool}
@@ -48,7 +52,7 @@ class GuestCheckout
         $email = $this->normalizeEmail($customer['email']);
         $created = false;
 
-        // ตรวจตะกร้า ที่อยู่ และคูปองก่อน จะได้ไม่สร้างบัญชีทิ้งไว้เมื่อรายการไม่ผ่าน
+        // ตรวจรายการที่เลือก ที่อยู่ และคูปองก่อน จะได้ไม่สร้างบัญชีทิ้งไว้เมื่อรายการไม่ผ่าน
         $this->checkout->quote($this->quoteCustomer($email), $items, $couponCode);
 
         $student = DB::transaction(function () use ($email, $customer, &$created) {
@@ -56,6 +60,7 @@ class GuestCheckout
 
             if ($existing) {
                 $this->assertUsable($existing);
+                $this->fillBlankProfile($existing, $customer);
 
                 return $existing;
             }
@@ -65,7 +70,9 @@ class GuestCheckout
             $user = User::query()->forceCreate([
                 'name' => filled($customer['name'] ?? null) ? trim((string) $customer['name']) : Str::before($email, '@'),
                 'email' => $email,
-                'phone' => filled($customer['phone'] ?? null) ? trim((string) $customer['phone']) : null,
+                'phone' => $this->availablePhone($customer['phone'] ?? null),
+                'school_name' => $customer['school_name'] ?? null,
+                'school_province' => $customer['school_province'] ?? null,
                 // ไม่มีใครรู้รหัสผ่านนี้ รหัสผ่านจริงออกให้ทางอีเมลหลังชำระเงินสำเร็จ
                 'password' => Str::password(40),
                 'credentials_pending_at' => now(),
@@ -87,7 +94,7 @@ class GuestCheckout
             throw $exception;
         }
 
-        $order->forceFill(['guest_token' => Str::random(48)])->save();
+        $order->forceFill(['guest_token' => Str::random(48), 'guest_account_created' => $created])->save();
 
         Audit::log(
             'storefront.guest_order',
@@ -111,9 +118,49 @@ class GuestCheckout
         return Order::query()->with(['items', 'latestPayment.slips', 'user'])->where('guest_token', $token)->first();
     }
 
+    /**
+     * เข้าสู่ระบบจากออเดอร์ guest ได้เฉพาะบัญชีที่ออเดอร์นี้สร้างขึ้นเอง หลังชำระเงินแล้ว และภายในเวลาที่กำหนด
+     * บัญชีที่มีอยู่ก่อนต้องใช้รหัสผ่าน เพราะใครก็พิมพ์อีเมลของคนอื่นตอนสั่งซื้อได้
+     */
+    public function canAutoLogin(Order $order): bool
+    {
+        $user = $order->user;
+
+        return $order->guest_account_created
+            && $order->payment_status === PaymentStatus::Paid->value
+            && $order->paid_at !== null
+            && $order->paid_at->greaterThan(now()->subDays(self::AUTO_LOGIN_DAYS))
+            && $user !== null
+            && ! $user->trashed()
+            && $user->status === AccountStatus::Active->value
+            && $user->hasRole('student')
+            && ! $user->canAccessBackend();
+    }
+
+    public function autoLogin(Order $order): User
+    {
+        if (! $this->canAutoLogin($order)) {
+            throw ValidationException::withMessages([
+                'order' => 'เข้าสู่ระบบอัตโนมัติไม่ได้ กรุณาเข้าสู่ระบบด้วยอีเมลและรหัสผ่าน',
+            ]);
+        }
+
+        $user = $order->user;
+        $user->forceFill(['last_login_at' => now()])->save();
+
+        Audit::log(
+            'storefront.guest_auto_login',
+            $order,
+            description: 'เข้าสู่ระบบอัตโนมัติจากออเดอร์ '.$order->order_no,
+            new: ['user_id' => $user->id],
+        );
+
+        return $user;
+    }
+
     public function loginUrl(): string
     {
-        return $this->studentAppUrl().'/login';
+        return StudentApp::loginUrl();
     }
 
     private function existingUser(string $email, bool $lock = false): ?User
@@ -145,26 +192,39 @@ class GuestCheckout
         }
     }
 
+    /**
+     * ใครก็พิมพ์อีเมลของบัญชีเดิมได้ จึงเติมเฉพาะช่องที่ยังว่าง ไม่ทับข้อมูลที่นักเรียนกรอกไว้
+     *
+     * @param  array{school_name?: ?string, province?: ?string}  $customer
+     */
+    private function fillBlankProfile(User $user, array $customer): void
+    {
+        $changes = collect(['school_name', 'school_province'])
+            ->filter(fn (string $field) => blank($user->{$field}) && filled($customer[$field] ?? null))
+            ->mapWithKeys(fn (string $field) => [$field => $customer[$field]])
+            ->all();
+
+        if ($changes !== []) {
+            $user->forceFill($changes)->save();
+        }
+    }
+
+    /**
+     * เบอร์โทรใช้เข้าสู่ระบบได้ ถ้าซ้ำกับนักเรียนคนอื่นไม่บันทึกเบอร์ลงบัญชีใหม่ แต่ยังสั่งซื้อต่อได้
+     */
+    private function availablePhone(?string $value): ?string
+    {
+        $phone = Phone::normalize($value);
+
+        if ($phone === null || User::query()->students()->where('phone', $phone)->exists()) {
+            return null;
+        }
+
+        return $phone;
+    }
+
     private function normalizeEmail(string $email): string
     {
         return Str::lower(trim($email));
-    }
-
-    private function studentAppUrl(): string
-    {
-        $explicit = config('services.storefront.app_url');
-        $source = is_string($explicit) && $explicit !== ''
-            ? $explicit
-            : (string) config('services.storefront.frontend_url');
-
-        foreach (explode(',', $source) as $origin) {
-            $origin = trim($origin);
-
-            if ($origin !== '' && $origin !== '*') {
-                return rtrim($origin, '/');
-            }
-        }
-
-        return rtrim((string) config('app.url'), '/');
     }
 }

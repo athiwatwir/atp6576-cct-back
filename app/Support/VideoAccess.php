@@ -13,10 +13,32 @@ class VideoAccess
 {
     public static function canWatch(?int $userId, Course $course, Video $video): bool
     {
-        if ($course->is_trial_available && $video->is_free) {
+        if (self::isTrialVideo($course, $video)) {
             return true;
         }
 
+        return self::isEnrolled($userId, $course);
+    }
+
+    /**
+     * จำนวนวินาทีที่ผู้ใช้คนนี้ดูได้ null = ดูได้ทั้งคลิป (ซื้อแล้ว หรือคลิปทดลองที่ไม่จำกัดเวลา)
+     */
+    public static function watchLimit(?int $userId, Course $course, Video $video): ?int
+    {
+        if (! self::isTrialVideo($course, $video) || self::isEnrolled($userId, $course)) {
+            return null;
+        }
+
+        return $video->trialLimitSeconds();
+    }
+
+    public static function isTrialVideo(Course $course, Video $video): bool
+    {
+        return (bool) $course->is_trial_available && (bool) $video->is_free;
+    }
+
+    public static function isEnrolled(?int $userId, Course $course): bool
+    {
         if (! $userId) {
             return false;
         }

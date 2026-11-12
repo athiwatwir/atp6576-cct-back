@@ -48,6 +48,7 @@ class CourseChapterVideoController extends Controller
             'description' => ['nullable', 'string'],
             'duration_seconds' => ['nullable', 'integer', 'min:0'],
             'is_free' => ['nullable', 'boolean'],
+            'trial_minutes' => CourseVideoUpload::trialMinutesRules(),
             'video_file' => MediaType::CourseVideo->rules(),
             'upload_token' => ['nullable', 'string', 'size:40'],
         ], CourseVideoUpload::messages());
@@ -57,6 +58,7 @@ class CourseChapterVideoController extends Controller
             'description' => $data['description'] ?? null,
             'duration_seconds' => $data['duration_seconds'] ?? 0,
             'is_free' => (bool) ($data['is_free'] ?? false),
+            'trial_seconds' => CourseVideoUpload::trialSeconds($data),
         ];
 
         $oldPath = $video->storage_key;

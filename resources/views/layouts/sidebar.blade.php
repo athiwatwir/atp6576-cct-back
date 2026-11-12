@@ -204,23 +204,32 @@ $currentPath = request()->path();
                                     </span>
                                     @endif
                                     @if (!empty($item['count']))
+                                    @php
+                                        $countKey = $item['count'];
+                                        $countVisible = "counts['{$countKey}'] !== undefined".(! empty($item['count_hide_zero']) ? " && counts['{$countKey}'] > 0" : '');
+                                        $countWarning = ($item['count_tone'] ?? null) === 'warning';
+                                    @endphp
                                     <span
                                         x-cloak
-                                        x-show="counts['{{ $item['count'] }}'] !== undefined"
-                                        x-text="counts['{{ $item['count'] }}']"
-                                        title="กำลังใช้งาน"
+                                        x-show="{{ $countVisible }}"
+                                        x-text="counts['{{ $countKey }}']"
+                                        title="{{ $item['count_title'] ?? 'กำลังใช้งาน' }}"
                                         class="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold leading-none"
+                                        @if ($countWarning)
+                                        :class="isActive('{{ $item['path'] }}') ? 'bg-orange-500 text-white' : 'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300'"
+                                        @else
                                         :class="isActive('{{ $item['path'] }}') ? 'bg-brand-500 text-white' : 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300'"
+                                        @endif
                                     ></span>
                                     @endif
                                 </span>
                                 @if (!empty($item['count']))
                                 <span
                                     x-cloak
-                                    x-show="counts['{{ $item['count'] }}'] !== undefined && !$store.sidebar.isExpanded && !$store.sidebar.isHovered && !$store.sidebar.isMobileOpen"
-                                    x-text="counts['{{ $item['count'] }}']"
-                                    title="กำลังใช้งาน"
-                                    class="absolute right-1 top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-500 px-1 text-[10px] font-semibold leading-none text-white"
+                                    x-show="{{ $countVisible }} && !$store.sidebar.isExpanded && !$store.sidebar.isHovered && !$store.sidebar.isMobileOpen"
+                                    x-text="counts['{{ $countKey }}']"
+                                    title="{{ $item['count_title'] ?? 'กำลังใช้งาน' }}"
+                                    class="absolute right-1 top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full {{ $countWarning ? 'bg-orange-500' : 'bg-brand-500' }} px-1 text-[10px] font-semibold leading-none text-white"
                                 ></span>
                                 @endif
                             </a>

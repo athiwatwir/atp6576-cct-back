@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\ContentController;
 use App\Http\Controllers\Api\ExamAttemptController;
 use App\Http\Controllers\Api\GuestCheckoutController;
 use App\Http\Controllers\Api\OrderController;
+use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\PaymentWebhookController;
 use App\Http\Controllers\Api\ProfileController;
@@ -37,6 +38,8 @@ Route::prefix('v1')->middleware(['storefront', 'throttle:60,1'])->group(function
     Route::post('auth/login', [AuthController::class, 'login'])->middleware('throttle:10,1,auth-login');
     Route::post('auth/email/resend', [AuthController::class, 'resendVerification'])->middleware('throttle:10,1,auth-resend');
     Route::post('auth/email/verify', [AuthController::class, 'confirmEmail'])->middleware('throttle:10,1,auth-verify')->name('api.auth.email.confirm');
+    Route::post('auth/password/forgot', [PasswordResetController::class, 'forgot'])->middleware('throttle:5,1,auth-forgot');
+    Route::post('auth/password/reset', [PasswordResetController::class, 'reset'])->middleware('throttle:10,1,auth-reset');
 
     Route::get('catalog', [CatalogController::class, 'catalog'])->name('api.catalog.index');
     Route::get('courses/{slug}', [CatalogController::class, 'showCourse'])->name('api.courses.show');
@@ -48,6 +51,7 @@ Route::prefix('v1')->middleware(['storefront', 'throttle:60,1'])->group(function
     Route::get('articles', [ContentController::class, 'articles'])->name('api.articles.index');
     Route::get('articles/{slug}', [ContentController::class, 'showArticle'])->name('api.articles.show');
     Route::get('reviews', [ContentController::class, 'reviews'])->name('api.reviews.index');
+    Route::get('pages/{page}', [ContentController::class, 'showPage'])->name('api.pages.show');
     // ไม่มีข้อมูลส่วนตัว ลูกค้าที่สั่งซื้อแบบไม่สมัครสมาชิกต้องใช้ public key ของ Omise ด้วย
     Route::get('payment-methods', [PaymentController::class, 'methods']);
 
@@ -58,9 +62,11 @@ Route::prefix('v1')->middleware(['storefront', 'throttle:60,1'])->group(function
         Route::post('orders/{token}/payment', [GuestCheckoutController::class, 'slip'])->middleware('throttle:10,1,guest-slip');
         Route::post('orders/{token}/payment/thai-qr', [GuestCheckoutController::class, 'thaiQr'])->middleware('throttle:10,1,guest-pay-qr');
         Route::post('orders/{token}/payment/card', [GuestCheckoutController::class, 'card'])->middleware('throttle:10,1,guest-pay-card');
+        Route::post('orders/{token}/payment/wallet', [GuestCheckoutController::class, 'wallet'])->middleware('throttle:10,1,guest-pay-wallet');
         Route::get('orders/{token}/payment/status', [GuestCheckoutController::class, 'paymentStatus']);
         Route::post('orders/{token}/payment/simulate', [GuestCheckoutController::class, 'simulate'])->middleware('throttle:20,1,guest-pay-simulate');
         Route::get('orders/{token}/receipt', [GuestCheckoutController::class, 'receipt'])->middleware('throttle:20,1,guest-receipt');
+        Route::post('orders/{token}/login', [GuestCheckoutController::class, 'login'])->middleware('throttle:10,1,guest-login');
     });
 
     Route::middleware(['auth:sanctum', 'student'])->group(function () {
@@ -68,8 +74,12 @@ Route::prefix('v1')->middleware(['storefront', 'throttle:60,1'])->group(function
 
         Route::put('courses/{slug}/videos/{video}/progress', [LearningController::class, 'updateVideoProgress'])
             ->whereNumber('video');
+        Route::put('courses/{slug}/videos/{video}/rating', [LearningController::class, 'rateVideo'])
+            ->whereNumber('video')
+            ->middleware('throttle:20,1,video-rating');
 
         Route::get('learning/exams/{slug}', [ExamAttemptController::class, 'show']);
+        Route::get('learning/exams/{slug}/leaderboard', [ExamAttemptController::class, 'leaderboard'])->middleware('throttle:30,1,exam-leaderboard');
         Route::post('learning/exams/{slug}/attempts', [ExamAttemptController::class, 'start'])->middleware('throttle:20,1,exam-start');
         Route::get('learning/exams/{slug}/attempts/{attempt}', [ExamAttemptController::class, 'result'])->whereNumber('attempt');
         Route::post('learning/exams/{slug}/attempts/{attempt}/submit', [ExamAttemptController::class, 'submit'])
@@ -79,6 +89,7 @@ Route::prefix('v1')->middleware(['storefront', 'throttle:60,1'])->group(function
         Route::get('profile', [ProfileController::class, 'show']);
         Route::match(['put', 'post'], 'profile', [ProfileController::class, 'update']);
         Route::put('profile/password', [ProfileController::class, 'updatePassword']);
+        Route::post('profile/password/reveal', [ProfileController::class, 'revealPassword'])->middleware('throttle:10,1,password-reveal');
 
         Route::post('checkout/quote', [OrderController::class, 'quote']);
         Route::get('orders', [OrderController::class, 'index']);
@@ -91,6 +102,7 @@ Route::prefix('v1')->middleware(['storefront', 'throttle:60,1'])->group(function
         Route::get('orders/{order}/payment/options', [PaymentController::class, 'options']);
         Route::post('orders/{order}/payment/thai-qr', [PaymentController::class, 'thaiQr'])->middleware('throttle:10,1,pay-qr');
         Route::post('orders/{order}/payment/card', [PaymentController::class, 'card'])->middleware('throttle:10,1,pay-card');
+        Route::post('orders/{order}/payment/wallet', [PaymentController::class, 'wallet'])->middleware('throttle:10,1,pay-wallet');
         Route::get('orders/{order}/payment/status', [PaymentController::class, 'status']);
         Route::post('orders/{order}/payment/simulate', [PaymentController::class, 'simulate'])->middleware('throttle:20,1,pay-simulate');
     });

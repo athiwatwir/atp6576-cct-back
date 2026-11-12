@@ -10,6 +10,8 @@ enum ContentStatus: string
     case Published = 'published';
     case Inactive = 'inactive';
     case Active = 'active';
+    /** วิชาที่ขายผ่านหลังบ้านเท่านั้น API ไม่ส่งข้อมูลทุกกรณี */
+    case Tfh = 'tfh';
 
     public function label(): string
     {
@@ -18,6 +20,7 @@ enum ContentStatus: string
             self::Published => 'เผยแพร่',
             self::Inactive => 'ปิดใช้งาน',
             self::Active => 'เปิดใช้งาน',
+            self::Tfh => 'TFH',
         };
     }
 
@@ -27,6 +30,7 @@ enum ContentStatus: string
             self::Draft => StatusPalette::NEUTRAL,
             self::Published, self::Active => StatusPalette::SUCCESS,
             self::Inactive => StatusPalette::DANGER,
+            self::Tfh => StatusPalette::INFO,
         };
     }
 

@@ -163,7 +163,7 @@
             </div>
 
             <div class="flex flex-col-reverse gap-3 border-t border-gray-100 pt-5 sm:flex-row sm:justify-end dark:border-gray-800">
-                <a href="{{ route('orders.show', $order) }}"
+                <a href="{{ $order->adminUrl() }}"
                     class="inline-flex items-center justify-center rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/5">
                     ยกเลิก
                 </a>

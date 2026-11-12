@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Enums\BannerPlacement;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\SitePageController;
 use App\Models\Content;
 use App\Models\Testimonial;
 use App\Support\ArticleHtml;
@@ -82,10 +83,12 @@ class ContentController extends Controller
             ->with([
                 'courses' => fn ($query) => $query
                     ->where('courses.status', 'published')
-                    ->orderBy('courses.name')
+                    ->orderBy('courses.sort_order')
+                    ->orderBy('courses.id')
                     ->select(['courses.id', 'courses.name', 'courses.slug', 'courses.thumbnail']),
                 'curriculums' => fn ($query) => $query
                     ->where('curriculums.status', 'published')
+                    ->orderBy('curriculums.sort_order')
                     ->orderBy('curriculums.name')
                     ->select(['curriculums.id', 'curriculums.name', 'curriculums.slug', 'curriculums.thumbnail']),
                 'assessments' => fn ($query) => $query
@@ -102,6 +105,28 @@ class ContentController extends Controller
 
         return response()->json([
             'data' => $this->articlePayload($article, withContent: true),
+        ]);
+    }
+
+    public function showPage(string $page): JsonResponse
+    {
+        if (! array_key_exists($page, SitePageController::PAGES)) {
+            abort(404, 'ไม่พบหน้านี้');
+        }
+
+        $record = SitePageController::find($page);
+
+        if (! $record || $record->status !== 'published') {
+            abort(404, 'ยังไม่มีเนื้อหาหน้านี้');
+        }
+
+        return response()->json([
+            'data' => [
+                'key' => $page,
+                'title' => $record->title,
+                'content' => ArticleHtml::clean($record->content),
+                'updated_at' => $record->updated_at?->toIso8601String(),
+            ],
         ]);
     }
 

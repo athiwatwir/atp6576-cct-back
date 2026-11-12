@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api;
 
+use App\Support\ThaiProvinces;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -18,7 +19,24 @@ class StorefrontOrderRequest extends FormRequest
 
         $this->merge([
             'coupon_code' => $couponCode === '' ? null : $couponCode,
+            'school_name' => $this->trimmedOrNull('school_name'),
+            'province' => ThaiProvinces::normalize($this->input('province')),
         ]);
+    }
+
+    /**
+     * คำนวณยอดยังไม่ต้องกรอกข้อมูลผู้เรียน บังคับเฉพาะตอนสร้างออเดอร์
+     */
+    protected function isQuote(): bool
+    {
+        return $this->is('*checkout/quote');
+    }
+
+    private function trimmedOrNull(string $key): ?string
+    {
+        $value = trim((string) $this->input($key, ''));
+
+        return $value === '' ? null : $value;
     }
 
     /**
@@ -33,7 +51,10 @@ class StorefrontOrderRequest extends FormRequest
             'items.*.quantity' => ['nullable', 'integer', 'min:1', 'max:99'],
             'items.*.plan_id' => ['nullable', 'integer', 'min:1'],
             'coupon_code' => ['nullable', 'string', 'max:100'],
+            'auto_coupon' => ['nullable', 'boolean'],
             'notes' => ['nullable', 'string', 'max:2000'],
+            'school_name' => [$this->isQuote() ? 'nullable' : 'required', 'string', 'max:255'],
+            'province' => [$this->isQuote() ? 'nullable' : 'required', 'string', Rule::in(ThaiProvinces::all())],
             'shipping' => ['nullable', 'array'],
             'shipping.name' => ['nullable', 'string', 'max:150'],
             'shipping.phone' => ['nullable', 'string', 'max:30'],
@@ -43,6 +64,18 @@ class StorefrontOrderRequest extends FormRequest
             'shipping.district' => ['nullable', 'string', 'max:100'],
             'shipping.province' => ['nullable', 'string', 'max:100'],
             'shipping.postal_code' => ['nullable', 'string', 'max:20'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'school_name.required' => 'กรุณากรอกชื่อโรงเรียน',
+            'province.required' => 'กรุณากรอกจังหวัดที่เรียน',
+            'province.in' => 'กรุณาเลือกจังหวัดจากรายการ',
         ];
     }
 
@@ -59,6 +92,8 @@ class StorefrontOrderRequest extends FormRequest
             'items.*.plan_id' => 'แพ็กเกจราคา',
             'coupon_code' => 'รหัสคูปอง',
             'notes' => 'หมายเหตุ',
+            'school_name' => 'ชื่อโรงเรียน',
+            'province' => 'จังหวัดที่เรียน',
             'shipping.name' => 'ชื่อผู้รับ',
             'shipping.phone' => 'เบอร์โทร',
             'shipping.address_line1' => 'ที่อยู่',

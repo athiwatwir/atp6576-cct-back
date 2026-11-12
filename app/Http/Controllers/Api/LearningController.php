@@ -8,6 +8,7 @@ use App\Models\LearningProgress;
 use App\Models\User;
 use App\Models\Video;
 use App\Models\VideoProgress;
+use App\Models\VideoRating;
 use App\Support\VideoAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,7 +24,7 @@ class LearningController extends Controller
         ]);
 
         $course = Course::query()
-            ->where('status', 'published')
+            ->learnableBy((int) $request->user()->id)
             ->where('slug', $slug)
             ->first();
 
@@ -52,8 +53,14 @@ class LearningController extends Controller
             $position = min($position, $duration);
         }
 
+        // ผู้ทดลองเรียนที่จำกัดเวลา บันทึกได้ไม่เกินเวลาทดลอง และไม่นับว่าดูจบ
+        $limit = VideoAccess::watchLimit($user->id, $course, $video);
+        if ($limit !== null) {
+            $position = min($position, $limit);
+        }
+
         $percent = $duration > 0 ? round(min(100, ($position / $duration) * 100), 2) : 0;
-        $markComplete = $request->boolean('completed') || ($duration > 0 && $percent >= 90);
+        $markComplete = $limit === null && ($request->boolean('completed') || ($duration > 0 && $percent >= 90));
 
         $existing = VideoProgress::query()
             ->where('user_id', $user->id)
@@ -77,6 +84,56 @@ class LearningController extends Controller
             'data' => [
                 'video_id' => $video->id,
                 ...$progress->toStudentArray(),
+            ],
+        ]);
+    }
+
+    public function rateVideo(Request $request, string $slug, Video $video): JsonResponse
+    {
+        $data = $request->validate([
+            'rating' => ['required', 'integer', 'min:1', 'max:5'],
+            'comment' => ['nullable', 'string', 'max:1000'],
+        ], [], [
+            'rating' => 'คะแนน',
+            'comment' => 'คำแนะนำ',
+        ]);
+
+        $course = Course::query()
+            ->learnableBy((int) $request->user()->id)
+            ->where('slug', $slug)
+            ->first();
+
+        if (! $course) {
+            abort(404, 'ไม่พบวิชานี้');
+        }
+
+        if (! VideoAccess::belongsToCourse($course, $video)) {
+            abort(404, 'ไม่พบวิดีโอนี้ในวิชา');
+        }
+
+        /** @var User $user */
+        $user = $request->user();
+
+        if (! VideoAccess::canWatch($user->id, $course, $video)) {
+            abort(403, 'ยังไม่มีสิทธิ์ดูวิดีโอนี้');
+        }
+
+        $comment = trim((string) ($data['comment'] ?? ''));
+
+        $rating = VideoRating::query()->updateOrCreate(
+            ['user_id' => $user->id, 'video_id' => $video->id],
+            [
+                'course_id' => $course->id,
+                'rating' => (int) $data['rating'],
+                'comment' => $comment === '' ? null : $comment,
+            ],
+        );
+
+        return response()->json([
+            'message' => 'ขอบคุณสำหรับคำติชม',
+            'data' => [
+                'video_id' => $video->id,
+                ...$rating->toStudentArray(),
             ],
         ]);
     }

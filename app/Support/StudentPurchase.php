@@ -9,6 +9,8 @@ use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
 use App\Enums\ShippingStatus;
 use App\Models\Assessment;
+use App\Models\Coupon;
+use App\Models\CouponUsage;
 use App\Models\Course;
 use App\Models\Curriculum;
 use App\Models\Enrollment;
@@ -38,24 +40,27 @@ class StudentPurchase
         $card = fn (Course|Curriculum|Assessment $item, string $name) => [
             'id' => $item->id,
             'name' => $name,
+            'code' => $item instanceof Curriculum ? null : $item->code,
+            'category' => ! $item instanceof Assessment && $item->category ? ['id' => $item->category->id, 'name' => $item->category->name] : null,
+            'subject' => $item instanceof Course && $item->subject ? ['id' => $item->subject->id, 'name' => $item->subject->name] : null,
             'price' => $item->effective_price,
             'plans' => PricePlans::payload($item),
         ];
 
         return [
             'course' => Course::query()
-                ->with('activePricePlans')
-                ->where('status', 'published')
+                ->with(['activePricePlans', 'category:id,name', 'subject:id,name'])
+                ->whereIn('status', Course::ADMIN_SALE_STATUSES)
                 ->orderBy('name')
-                ->get(['id', 'name', 'price', 'sale_price'])
+                ->get(['id', 'code', 'name', 'category_id', 'subject_id', 'price', 'sale_price'])
                 ->map(fn (Course $course) => $card($course, $course->name))
                 ->values()
                 ->all(),
             'curriculum' => Curriculum::query()
-                ->with('activePricePlans')
+                ->with(['activePricePlans', 'category:id,name'])
                 ->where('status', 'published')
                 ->orderBy('name')
-                ->get(['id', 'name', 'price', 'sale_price'])
+                ->get(['id', 'name', 'category_id', 'price', 'sale_price'])
                 ->map(fn (Curriculum $curriculum) => $card($curriculum, $curriculum->name))
                 ->values()
                 ->all(),
@@ -64,7 +69,7 @@ class StudentPurchase
                 ->where('type', 'primary_exam')
                 ->where('status', 'published')
                 ->orderBy('title')
-                ->get(['id', 'title', 'price'])
+                ->get(['id', 'code', 'title', 'price'])
                 ->map(fn (Assessment $exam) => $card($exam, $exam->title))
                 ->values()
                 ->all(),
@@ -105,7 +110,7 @@ class StudentPurchase
             }
 
             $order = Order::query()->create([
-                'order_no' => DocumentSequence::nextOrder(),
+                'order_no' => DocumentSequence::nextOrder(OrderKind::Enrollment),
                 'kind' => OrderKind::Enrollment->value,
                 'user_id' => $student->id,
                 'coupon_id' => $couponId,
@@ -174,6 +179,7 @@ class StudentPurchase
                 }
 
                 $this->grantAccess($order->user, $order);
+                $this->grantCouponGifts($order->user, $order);
                 $this->receipts->issue($order);
                 $paidOrderId = $order->id;
             }
@@ -224,8 +230,8 @@ class StudentPurchase
                     return;
                 }
 
-                $password = Str::password(10, symbols: false);
-                $user->forceFill(['password' => $password, 'credentials_pending_at' => null])->save();
+                $password = SimplePassword::generate();
+                $user->setVisiblePassword($password)->forceFill(['credentials_pending_at' => null])->save();
                 $send($password);
             });
 
@@ -255,18 +261,7 @@ class StudentPurchase
 
     private function studentLoginUrl(): string
     {
-        $explicit = config('services.storefront.app_url');
-        $source = is_string($explicit) && $explicit !== '' ? $explicit : (string) config('services.storefront.frontend_url');
-
-        foreach (explode(',', $source) as $origin) {
-            $origin = trim($origin);
-
-            if ($origin !== '' && $origin !== '*') {
-                return rtrim($origin, '/').'/login';
-            }
-        }
-
-        return (string) config('app.url');
+        return StudentApp::loginUrl();
     }
 
     public function pay(User $student, Order $order, string $method): array
@@ -293,9 +288,14 @@ class StudentPurchase
             $firstPurchase = ! $this->hasPaidOrder($student, $order);
             $paidNow = true;
 
+            // รหัสผ่านที่แอดมินตั้งหรือนักเรียนตั้งเองไว้แล้ว ใช้ต่อและส่งในอีเมล ไม่ออกรหัสใหม่ทับ
             if ($firstPurchase) {
-                $password = Str::password(12);
-                $student->update(['password' => $password]);
+                $password = $student->issuedPassword();
+
+                if ($password === null) {
+                    $password = SimplePassword::generate();
+                    $student->setVisiblePassword($password)->save();
+                }
             }
 
             $order->update([
@@ -327,6 +327,7 @@ class StudentPurchase
             }
 
             $this->grantAccess($student, $order);
+            $this->grantCouponGifts($student, $order);
             $this->receipts->issue($order);
 
             Audit::log(
@@ -390,7 +391,7 @@ class StudentPurchase
 
         $lines = $unique->map(function (array $item) {
             $model = match ($item['type']) {
-                'course' => Course::query()->with('activePricePlans')->where('status', 'published')->find($item['id']),
+                'course' => Course::query()->with('activePricePlans')->whereIn('status', Course::ADMIN_SALE_STATUSES)->find($item['id']),
                 'curriculum' => Curriculum::query()->with('activePricePlans')->where('status', 'published')->find($item['id']),
                 'exam' => Assessment::query()->with('activePricePlans')->where('type', 'primary_exam')->where('status', 'published')->find($item['id']),
                 default => null,
@@ -525,6 +526,114 @@ class StudentPurchase
     }
 
     /**
+     * ของแถมจากคูปองเมื่อออเดอร์ชำระแล้ว ทำครั้งเดียวต่อออเดอร์ (coupon_usages.gifts_granted_at)
+     * - ข้อสอบแถม: เปิดสิทธิ์ (source = coupon_gift) ระยะเวลาเท่ากับรายการที่ทำให้ได้ของแถมที่ยาวที่สุด
+     * - หนังสือแถม: สร้างออเดอร์หนังสือยอด 0 บาท (gift_for_order_id) รอจัดส่งในเมนูออเดอร์หนังสือ
+     */
+    public function grantCouponGifts(User $student, Order $order): void
+    {
+        if (! $order->coupon_id) {
+            return;
+        }
+
+        DB::transaction(function () use ($student, $order) {
+            $usage = CouponUsage::query()->where('order_id', $order->id)->lockForUpdate()->first();
+
+            if (! $usage || $usage->gifts_granted_at !== null) {
+                return;
+            }
+
+            $usage->update(['gifts_granted_at' => now()]);
+
+            $coupon = Coupon::withTrashed()->find($order->coupon_id);
+            $order->loadMissing('items');
+            $gifts = $coupon ? $this->coupons->giftsFor($coupon, $order->items) : [];
+
+            if ($gifts === []) {
+                return;
+            }
+
+            $triggers = $coupon->giftCourses->pluck('id')->map(fn ($id) => (int) $id)->all();
+            $sources = $triggers === []
+                ? $order->items
+                : $order->items->filter(fn ($item) => in_array((int) $item->course_id, $triggers, true));
+            $days = $sources->contains(fn ($item) => $item->access_days === null)
+                ? null
+                : (int) $sources->max('access_days');
+
+            foreach (array_filter($gifts, fn (array $gift) => $gift['type'] === 'exam') as $gift) {
+                $this->activateEnrollment($student, $order, assessmentId: $gift['id'], days: $days, source: 'coupon_gift');
+            }
+
+            $books = array_values(array_filter($gifts, fn (array $gift) => $gift['type'] === 'book'));
+
+            if ($books !== []) {
+                $this->createGiftBookOrder($student, $order, $coupon, $books);
+            }
+        });
+    }
+
+    /**
+     * @param  list<array{type: string, id: int, name: string}>  $books
+     */
+    private function createGiftBookOrder(User $student, Order $order, Coupon $coupon, array $books): Order
+    {
+        // ที่อยู่: ใช้ที่อยู่จัดส่งของออเดอร์ถ้าเป็นออเดอร์หนังสือ ไม่เช่นนั้นใช้ที่อยู่ในโปรไฟล์ แอดมินแก้ได้ในหน้าออเดอร์
+        $fromOrder = $order->isBook() && filled($order->shipping_address_line1);
+        $shipping = $fromOrder
+            ? [
+                'shipping_name' => $order->shipping_name,
+                'shipping_phone' => $order->shipping_phone,
+                'shipping_address_line1' => $order->shipping_address_line1,
+                'shipping_address_line2' => $order->shipping_address_line2,
+                'shipping_subdistrict' => $order->shipping_subdistrict,
+                'shipping_district' => $order->shipping_district,
+                'shipping_province' => $order->shipping_province,
+                'shipping_postal_code' => $order->shipping_postal_code,
+            ]
+            : [
+                'shipping_name' => $student->name,
+                'shipping_phone' => $student->phone,
+                'shipping_address_line1' => $student->address_line1,
+                'shipping_subdistrict' => $student->subdistrict,
+                'shipping_district' => $student->district,
+                'shipping_province' => $student->province,
+                'shipping_postal_code' => $student->postal_code,
+            ];
+
+        $gift = Order::query()->create([
+            'order_no' => DocumentSequence::nextOrder(OrderKind::Book),
+            'kind' => OrderKind::Book->value,
+            'user_id' => $student->id,
+            'gift_for_order_id' => $order->id,
+            'subtotal' => 0,
+            'discount_amount' => 0,
+            'shipping_amount' => 0,
+            'total_amount' => 0,
+            'status' => OrderStatus::Processing->value,
+            'payment_status' => PaymentStatus::Paid->value,
+            'paid_at' => now(),
+            'notes' => 'ของแถมจากคูปอง '.$coupon->code.' ของออเดอร์ '.$order->order_no,
+            'requires_shipping' => true,
+            'shipping_status' => ShippingStatus::Pending->value,
+            ...$shipping,
+        ]);
+
+        foreach ($books as $book) {
+            $gift->items()->create([
+                'product_id' => $book['id'],
+                'item_name' => $book['name'],
+                'quantity' => 1,
+                'unit_price' => 0,
+                'total_price' => 0,
+                'metadata' => ['type' => 'book', 'gift' => true],
+            ]);
+        }
+
+        return $gift;
+    }
+
+    /**
      * @return array{starts_at: CarbonInterface, expires_at: ?CarbonInterface} ช่วงสิทธิ์ที่ได้จากการซื้อครั้งนี้
      */
     private function activateEnrollment(
@@ -534,6 +643,7 @@ class StudentPurchase
         ?int $curriculumId = null,
         ?int $assessmentId = null,
         ?int $days = null,
+        string $source = 'purchase',
     ): array {
         $enrollment = Enrollment::query()
             ->where('user_id', $student->id)
@@ -561,7 +671,7 @@ class StudentPurchase
 
         $payload = [
             'order_id' => $order->id,
-            'source' => 'purchase',
+            'source' => $source,
             'status' => EnrollmentStatus::Active->value,
             'started_at' => $enrollment?->started_at ?? now(),
             'expires_at' => $expiresAt,

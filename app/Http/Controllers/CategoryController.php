@@ -4,8 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Categories\CategoryRequest;
 use App\Models\Category;
+use App\Support\Audit;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -28,6 +31,7 @@ class CategoryController extends Controller
             ->when($status !== '', fn ($query) => $query->where('status', $status))
             ->orderBy('sort_order')
             ->orderBy('name')
+            ->orderBy('id')
             ->paginate(15)
             ->withQueryString();
 
@@ -79,6 +83,51 @@ class CategoryController extends Controller
         return redirect()
             ->route('categories.index')
             ->with('success', 'บันทึกข้อมูลระดับชั้นเรียบร้อยแล้ว');
+    }
+
+    /**
+     * รับลำดับ id ของระดับชั้นที่แสดงอยู่ (หน้าที่ลากหรือผลกรอง) แล้วสลับเฉพาะตำแหน่งของระดับชั้นเหล่านั้นในลำดับรวม
+     * ระดับชั้นที่ไม่ได้แสดงอยู่คงตำแหน่งเดิม
+     */
+    public function reorder(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'order' => ['required', 'array', 'min:1'],
+            'order.*' => ['integer', 'distinct'],
+        ]);
+
+        $moved = array_map('intval', $data['order']);
+
+        $sortOrders = DB::transaction(function () use ($moved) {
+            $all = Category::query()->orderBy('sort_order')->orderBy('name')->orderBy('id')->lockForUpdate()->pluck('id')->all();
+
+            abort_unless(array_diff($moved, $all) === [], 422, 'มีระดับชั้นที่ไม่พบในระบบ');
+
+            $movedSet = array_flip($moved);
+            $slots = array_keys(array_filter($all, fn (int $id) => isset($movedSet[$id])));
+
+            foreach ($slots as $index => $slot) {
+                $all[$slot] = $moved[$index];
+            }
+
+            $sortOrders = [];
+            foreach ($all as $index => $id) {
+                Category::query()->whereKey($id)->where('sort_order', '!=', $index + 1)->update(['sort_order' => $index + 1]);
+
+                if (isset($movedSet[$id])) {
+                    $sortOrders[$id] = $index + 1;
+                }
+            }
+
+            return $sortOrders;
+        });
+
+        Audit::event('category.reordered', 'เรียงลำดับระดับชั้น', ['order' => $moved]);
+
+        return response()->json([
+            'message' => 'เรียงลำดับระดับชั้นเรียบร้อยแล้ว',
+            'sort_orders' => $sortOrders,
+        ]);
     }
 
     public function destroy(Category $category): RedirectResponse

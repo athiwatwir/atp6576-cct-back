@@ -10,12 +10,22 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\User;
 use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
+    /** วันที่ในตัวกรองเป็นวันตามเวลาไทย ฐานข้อมูลเก็บเวลา UTC */
+    private const TIMEZONE = 'Asia/Bangkok';
+
+    private const MAX_DAYS = 1100;
+
+    /** ช่วงยาวกว่านี้กราฟรวมเป็นรายเดือน */
+    private const DAILY_CHART_MAX_DAYS = 62;
+
     public function index(): View
     {
         return view('pages.dashboard.ecommerce', [
@@ -23,146 +33,211 @@ class DashboardController extends Controller
         ]);
     }
 
-    public function summary(): JsonResponse
+    public function summary(Request $request): JsonResponse
     {
-        $payload = Cache::remember('dashboard.summary', now()->addSeconds(45), function () {
-            $now = now();
-            $monthStart = $now->copy()->startOfMonth();
-            $lastMonthStart = $now->copy()->subMonthNoOverflow()->startOfMonth();
-            $lastMonthEnd = $now->copy()->subMonthNoOverflow()->endOfMonth();
-            $chartStart = $now->copy()->subDays(29)->startOfDay();
+        $request->validate([
+            'from' => ['nullable', 'date_format:Y-m-d'],
+            'to' => ['nullable', 'date_format:Y-m-d'],
+        ]);
 
-            $revenue = $this->paidSum($monthStart, $now);
-            $previousRevenue = $this->paidSum($lastMonthStart, $lastMonthEnd);
-            $paidOrders = $this->paidCount($monthStart, $now);
+        $today = now(self::TIMEZONE);
+        $from = $request->filled('from')
+            ? Carbon::createFromFormat('Y-m-d', $request->string('from'), self::TIMEZONE)->startOfDay()
+            : $today->copy()->startOfMonth();
+        $to = $request->filled('to')
+            ? Carbon::createFromFormat('Y-m-d', $request->string('to'), self::TIMEZONE)->endOfDay()
+            : $today->copy()->endOfDay();
 
-            $students = User::students()->count();
-            $newStudents = User::students()->where('created_at', '>=', $monthStart)->count();
-            $activeEnrollments = Enrollment::query()->where('status', EnrollmentStatus::Active->value)->count();
-            $publishedCourses = Course::query()->where('status', 'published')->count();
-            $awaiting = Order::query()->where('payment_status', PaymentStatus::AwaitingVerification->value)->count();
-            $awaitingAmount = (float) Order::query()
-                ->where('payment_status', PaymentStatus::AwaitingVerification->value)
-                ->sum('total_amount');
+        if ($to->greaterThan($today->copy()->endOfDay())) {
+            $to = $today->copy()->endOfDay();
+        }
 
-            $daily = Order::query()
-                ->selectRaw('DATE(paid_at) as day, COUNT(*) as orders, COALESCE(SUM(total_amount), 0) as amount')
-                ->where('payment_status', PaymentStatus::Paid->value)
-                ->whereBetween('paid_at', [$chartStart, $now])
-                ->groupBy('day')
-                ->orderBy('day')
-                ->get()
-                ->keyBy(fn ($row) => Carbon::parse($row->day)->toDateString());
+        abort_if($from->greaterThan($to), 422, 'วันเริ่มต้องไม่หลังวันสิ้นสุด และเลือกได้ถึงวันนี้');
 
-            $labels = [];
-            $amounts = [];
-            $orderCounts = [];
-            for ($cursor = $chartStart->copy(); $cursor->lte($now); $cursor->addDay()) {
-                $key = $cursor->toDateString();
-                $row = $daily->get($key);
-                $labels[] = $cursor->format('d/m');
-                $amounts[] = round((float) ($row->amount ?? 0), 2);
-                $orderCounts[] = (int) ($row->orders ?? 0);
-            }
+        $days = (int) $from->copy()->startOfDay()->diffInDays($to->copy()->startOfDay()) + 1;
+        abort_if($days > self::MAX_DAYS, 422, 'เลือกช่วงได้ไม่เกิน 3 ปี');
 
-            $itemType = "
-                CASE
-                    WHEN order_items.course_id IS NOT NULL THEN 'course'
-                    WHEN order_items.curriculum_id IS NOT NULL THEN 'curriculum'
-                    WHEN order_items.assessment_id IS NOT NULL THEN 'exam'
-                    WHEN order_items.product_id IS NOT NULL THEN 'book'
-                    ELSE 'other'
-                END
-            ";
+        $cacheKey = 'dashboard.summary.v2.'.$from->toDateString().'.'.$to->toDateString();
 
-            $breakdown = OrderItem::query()
-                ->join('orders', 'orders.id', '=', 'order_items.order_id')
-                ->where('orders.payment_status', PaymentStatus::Paid->value)
-                ->whereBetween('orders.paid_at', [$monthStart, $now])
-                ->selectRaw($itemType.' as item_type, COALESCE(SUM(order_items.total_price), 0) as amount, COUNT(*) as item_count')
-                ->groupByRaw($itemType)
-                ->orderByDesc('amount')
-                ->get();
-
-            $breakdownTotal = max(1, (float) $breakdown->sum('amount'));
-
-            $orders = Order::query()
-                ->with('user:id,name')
-                ->latest('id')
-                ->limit(8)
-                ->get()
-                ->map(function (Order $order) {
-                    $status = PaymentStatus::tryFrom((string) $order->payment_status);
-
-                    return [
-                        'no' => $order->order_no,
-                        'customer' => $order->user?->name ?: '-',
-                        'status' => $order->payment_status,
-                        'status_label' => $status?->label() ?? $order->payment_status,
-                        'amount' => $this->money($order->total_amount),
-                        'at' => $order->created_at?->format('d/m/Y H:i'),
-                        'url' => route('orders.show', $order),
-                    ];
-                })
-                ->all();
-
-            return [
-                'period' => $monthStart->format('d/m/Y').' – '.$now->format('d/m/Y'),
-                'metrics' => [
-                    [
-                        'label' => 'รายได้เดือนนี้',
-                        'value' => $this->money($revenue),
-                        'hint' => number_format($paidOrders).' ออเดอร์ที่ชำระแล้ว',
-                        'change' => $this->change($revenue, $previousRevenue),
-                        'href' => route('finance.index'),
-                    ],
-                    [
-                        'label' => 'นักเรียน',
-                        'value' => number_format($students),
-                        'hint' => 'ใหม่เดือนนี้ '.number_format($newStudents).' คน',
-                        'change' => null,
-                        'href' => route('students.index'),
-                    ],
-                    [
-                        'label' => 'กำลังเรียน',
-                        'value' => number_format($activeEnrollments),
-                        'hint' => 'วิชาที่เผยแพร่ '.number_format($publishedCourses).' รายการ',
-                        'change' => null,
-                        'href' => route('courses.index'),
-                    ],
-                    [
-                        'label' => 'รอตรวจสอบ',
-                        'value' => number_format($awaiting),
-                        'hint' => $this->money($awaitingAmount),
-                        'change' => null,
-                        'href' => route('finance.index'),
-                    ],
-                ],
-                'chart' => [
-                    'labels' => $labels,
-                    'amounts' => $amounts,
-                'orders' => $orderCounts,
-            ],
-            'breakdown' => $breakdown->map(fn ($row) => [
-                    'label' => match ($row->item_type) {
-                        'course' => 'วิชา',
-                        'curriculum' => 'หลักสูตร',
-                        'exam' => 'ข้อสอบ',
-                        'book' => 'หนังสือ',
-                        default => 'อื่นๆ',
-                    },
-                    'amount' => $this->money($row->amount),
-                    'lines' => (int) $row->item_count,
-                    'share' => (int) round(((float) $row->amount / $breakdownTotal) * 100),
-                ])->values()->all(),
-                'orders' => $orders,
-            ];
-        });
+        $payload = Cache::remember($cacheKey, now()->addSeconds(45), fn () => $this->build($from, $to, $days));
 
         return response()->json($payload);
     }
 
-    private function paidSum(Carbon $from, Carbon $to): float
+    /**
+     * @return array<string, mixed>
+     */
+    private function build(Carbon $from, Carbon $to, int $days): array
+    {
+        $fromUtc = $from->copy()->utc();
+        $toUtc = $to->copy()->utc();
+        $previousTo = $from->copy()->subSecond();
+        $previousFrom = $previousTo->copy()->subDays($days - 1)->startOfDay();
+
+        $revenue = $this->paidSum($fromUtc, $toUtc);
+        $previousRevenue = $this->paidSum($previousFrom->copy()->utc(), $previousTo->copy()->utc());
+        $paidOrders = $this->paidCount($fromUtc, $toUtc);
+        $newStudents = User::students()->whereBetween('created_at', [$fromUtc, $toUtc])->count();
+        $previousNewStudents = User::students()->whereBetween('created_at', [$previousFrom->copy()->utc(), $previousTo->copy()->utc()])->count();
+
+        $students = User::students()->count();
+        $activeEnrollments = Enrollment::query()->where('status', EnrollmentStatus::Active->value)->count();
+        $publishedCourses = Course::query()->where('status', 'published')->count();
+        $awaiting = Order::query()->where('payment_status', PaymentStatus::AwaitingVerification->value)->count();
+        $awaitingAmount = (float) Order::query()
+            ->where('payment_status', PaymentStatus::AwaitingVerification->value)
+            ->sum('total_amount');
+
+        $chart = $this->chart($from, $to, $days);
+
+        $itemType = "
+            CASE
+                WHEN order_items.course_id IS NOT NULL THEN 'course'
+                WHEN order_items.curriculum_id IS NOT NULL THEN 'curriculum'
+                WHEN order_items.assessment_id IS NOT NULL THEN 'exam'
+                WHEN order_items.product_id IS NOT NULL THEN 'book'
+                ELSE 'other'
+            END
+        ";
+
+        $breakdown = OrderItem::query()
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->where('orders.payment_status', PaymentStatus::Paid->value)
+            ->whereBetween('orders.paid_at', [$fromUtc, $toUtc])
+            ->selectRaw($itemType.' as item_type, COALESCE(SUM(order_items.total_price), 0) as amount, COUNT(*) as item_count')
+            ->groupByRaw($itemType)
+            ->orderByDesc('amount')
+            ->get();
+
+        $breakdownTotal = max(1, (float) $breakdown->sum('amount'));
+
+        $ordersInRange = Order::query()->whereBetween('created_at', [$fromUtc, $toUtc]);
+        $orderCount = (clone $ordersInRange)->count();
+
+        $orders = (clone $ordersInRange)
+            ->with('user:id,name')
+            ->latest('id')
+            ->limit(8)
+            ->get()
+            ->map(function (Order $order) {
+                $status = PaymentStatus::tryFrom((string) $order->payment_status);
+
+                return [
+                    'no' => $order->order_no,
+                    'customer' => $order->user?->name ?: '-',
+                    'status' => $order->payment_status,
+                    'status_label' => $status?->label() ?? $order->payment_status,
+                    'amount' => $this->money($order->total_amount),
+                    'at' => $order->created_at?->timezone(self::TIMEZONE)->format('d/m/Y H:i'),
+                    'url' => $order->adminUrl(),
+                    'receipt_url' => $status === PaymentStatus::Paid
+                        ? route('orders.receipt', [$order, 'inline' => 1])
+                        : null,
+                ];
+            })
+            ->all();
+
+        return [
+            'range' => [
+                'from' => $from->toDateString(),
+                'to' => $to->toDateString(),
+                'days' => $days,
+                'previous_from' => $previousFrom->toDateString(),
+                'previous_to' => $previousTo->toDateString(),
+            ],
+            'period' => $from->format('d/m/Y').' – '.$to->format('d/m/Y'),
+            'metrics' => [
+                [
+                    'label' => 'รายได้',
+                    'value' => $this->money($revenue),
+                    'hint' => number_format($paidOrders).' ออเดอร์ที่ชำระแล้ว',
+                    'change' => $this->change($revenue, $previousRevenue),
+                    'href' => route('finance.index'),
+                ],
+                [
+                    'label' => 'นักเรียนใหม่',
+                    'value' => number_format($newStudents),
+                    'hint' => 'ทั้งหมด '.number_format($students).' คน',
+                    'change' => $this->change($newStudents, $previousNewStudents),
+                    'href' => route('students.index'),
+                ],
+                [
+                    'label' => 'กำลังเรียน',
+                    'value' => number_format($activeEnrollments),
+                    'hint' => 'ปัจจุบัน · วิชาที่เผยแพร่ '.number_format($publishedCourses).' รายการ',
+                    'change' => null,
+                    'href' => route('courses.index'),
+                ],
+                [
+                    'label' => 'รอตรวจสอบ',
+                    'value' => number_format($awaiting),
+                    'hint' => 'ปัจจุบัน · '.$this->money($awaitingAmount),
+                    'change' => null,
+                    'href' => route('finance.index'),
+                ],
+            ],
+            'chart' => $chart,
+            'breakdown' => $breakdown->map(fn ($row) => [
+                'label' => match ($row->item_type) {
+                    'course' => 'วิชา',
+                    'curriculum' => 'หลักสูตร',
+                    'exam' => 'ข้อสอบ',
+                    'book' => 'หนังสือ',
+                    default => 'อื่นๆ',
+                },
+                'amount' => $this->money($row->amount),
+                'lines' => (int) $row->item_count,
+                'share' => (int) round(((float) $row->amount / $breakdownTotal) * 100),
+            ])->values()->all(),
+            'orders' => $orders,
+            'order_count' => $orderCount,
+        ];
+    }
+
+    /**
+     * รายได้รายวัน (ช่วงไม่เกิน 62 วัน) หรือรายเดือน ตามวันที่ไทย
+     *
+     * @return array{granularity: string, labels: list<string>, amounts: list<float>, orders: list<int>}
+     */
+    private function chart(Carbon $from, Carbon $to, int $days): array
+    {
+        $monthly = $days > self::DAILY_CHART_MAX_DAYS;
+        $offset = $from->format('P');
+        $localTime = "CONVERT_TZ(paid_at, '+00:00', '{$offset}')";
+        $bucket = $monthly ? "DATE_FORMAT({$localTime}, '%Y-%m')" : "DATE({$localTime})";
+
+        $rows = Order::query()
+            ->selectRaw("{$bucket} as bucket, COUNT(*) as orders, COALESCE(SUM(total_amount), 0) as amount")
+            ->where('payment_status', PaymentStatus::Paid->value)
+            ->whereBetween('paid_at', [$from->copy()->utc(), $to->copy()->utc()])
+            ->groupBy('bucket')
+            ->get()
+            ->keyBy(fn ($row) => (string) $row->bucket);
+
+        $labels = [];
+        $amounts = [];
+        $orders = [];
+        $months = ['', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+
+        $cursor = $monthly ? $from->copy()->startOfMonth() : $from->copy()->startOfDay();
+        while ($cursor->lte($to)) {
+            $key = $monthly ? $cursor->format('Y-m') : $cursor->toDateString();
+            $row = $rows->get($key);
+            $labels[] = $monthly ? $months[$cursor->month].' '.substr((string) ($cursor->year + 543), -2) : $cursor->format('d/m');
+            $amounts[] = round((float) ($row->amount ?? 0), 2);
+            $orders[] = (int) ($row->orders ?? 0);
+            $monthly ? $cursor->addMonthNoOverflow() : $cursor->addDay();
+        }
+
+        return [
+            'granularity' => $monthly ? 'month' : 'day',
+            'labels' => $labels,
+            'amounts' => $amounts,
+            'orders' => $orders,
+        ];
+    }
+
+    private function paidSum(CarbonInterface $from, CarbonInterface $to): float
     {
         return (float) Order::query()
             ->where('payment_status', PaymentStatus::Paid->value)
@@ -170,7 +245,7 @@ class DashboardController extends Controller
             ->sum('total_amount');
     }
 
-    private function paidCount(Carbon $from, Carbon $to): int
+    private function paidCount(CarbonInterface $from, CarbonInterface $to): int
     {
         return Order::query()
             ->where('payment_status', PaymentStatus::Paid->value)

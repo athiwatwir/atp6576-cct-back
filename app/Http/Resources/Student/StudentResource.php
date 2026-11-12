@@ -3,6 +3,7 @@
 namespace App\Http\Resources\Student;
 
 use App\Enums\AccountStatus;
+use App\Models\LearningProgress;
 use App\Support\MediaStorage;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -23,7 +24,7 @@ class StudentResource extends JsonResource
                     $query->whereNull('expires_at')->orWhere('expires_at', '>', now());
                 })
                 ->with([
-                    'course:id,name,slug,thumbnail',
+                    'course:id,name,slug,thumbnail,status',
                     'curriculum:id,name,slug,thumbnail',
                     'assessment:id,title,slug,thumbnail',
                 ]),
@@ -49,12 +50,31 @@ class StudentResource extends JsonResource
             }
         }
 
+        $progress = $courses === [] ? collect() : LearningProgress::query()
+            ->where('user_id', $this->id)
+            ->whereIn('course_id', array_keys($courses))
+            ->get()
+            ->keyBy('course_id');
+
+        foreach ($courses as $courseId => $item) {
+            $record = $progress->get($courseId);
+            $courses[$courseId]['progress'] = $record ? [
+                'percent' => (float) $record->progress_percent,
+                'completed_items' => (int) $record->completed_items,
+                'total_items' => (int) $record->total_items,
+                'completed_at' => $record->completed_at?->toIso8601String(),
+                'last_activity_at' => $record->last_activity_at?->toIso8601String(),
+            ] : null;
+        }
+
         return [
             'id' => $this->id,
             'name' => $this->name,
+            'nickname' => $this->nickname,
             'email' => $this->email,
             'phone' => $this->phone,
             'school_name' => $this->school_name,
+            'school_province' => $this->school_province,
             'address' => [
                 'address_line1' => $this->address_line1,
                 'subdistrict' => $this->subdistrict,

@@ -21,7 +21,13 @@
                     <div style="margin-top:8px;"><strong>รายการ:</strong></div>
                     <ul style="margin:6px 0 0;padding-left:18px;">
                         @foreach ($items as $item)
-                            <li>{{ $item }}</li>
+                            @php($item = is_array($item) ? $item : ['name' => $item, 'access' => null])
+                            <li style="margin-bottom:4px;">
+                                {{ $item['name'] }}
+                                @if (! empty($item['access']))
+                                    <div style="font-size:13px;color:#0f766e;">{{ $item['access'] }}</div>
+                                @endif
+                            </li>
                         @endforeach
                     </ul>
                 @endif

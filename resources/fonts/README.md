@@ -1,6 +1,6 @@
 # ฟอนต์ของ PDF (ใบเสร็จรับเงิน)
 
-`NotoSansThai-Regular.ttf` และ `NotoSansThai-Bold.ttf` คือ Noto Sans Thai จาก Google Fonts (สัญญาอนุญาต SIL Open Font License 1.1 ดู `OFL.txt`) ใช้ใน `App\Support\Receipts::pdf()`
+`NotoSansThai-Regular.ttf` และ `NotoSansThai-Bold.ttf` คือ Noto Sans Thai จาก Google Fonts (สัญญาอนุญาต SIL Open Font License 1.1 ดู `OFL.txt`) ตั้งค่าไว้ที่ `App\Support\ThaiPdf::make()` ใช้ร่วมกันระหว่างใบเสร็จ (`Receipts::pdf()`) และใบปะหน้าพัสดุ (`ShippingLabels::pdf()`)
 
 ## ที่มา
 

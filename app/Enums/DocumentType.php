@@ -16,6 +16,7 @@ enum DocumentType: string
             self::Course => 'C',
             self::Exam => 'E',
             self::Book => 'B',
+            // เลขออเดอร์ใหม่ใช้ OrderKind::orderPrefix() ส่วน O เป็นของออเดอร์เก่า
             self::Order => 'O',
             self::Receipt => 'RC',
         };

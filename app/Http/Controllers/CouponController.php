@@ -10,6 +10,7 @@ use App\Models\Coupon;
 use App\Models\Course;
 use App\Models\Curriculum;
 use App\Models\Product;
+use App\Models\Video;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -28,6 +29,7 @@ class CouponController extends Controller
                 'assessments:id,title',
                 'products:id,name',
             ])
+            ->withCount(['requiredCourses', 'requiredProducts', 'requiredVideos', 'giftAssessments', 'giftProducts'])
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($inner) use ($search) {
                     $inner->where('code', 'like', "%{$search}%")
@@ -40,7 +42,7 @@ class CouponController extends Controller
             ->withQueryString();
 
         return view('pages.coupons.index', [
-            'title' => 'คูปอง',
+            'title' => 'คูปอง/โปรโมชัน',
             'coupons' => $coupons,
             'filters' => [
                 'search' => $search,
@@ -78,6 +80,12 @@ class CouponController extends Controller
             'curriculums:id,name',
             'assessments:id,title',
             'products:id,name',
+            'requiredCourses:id,name',
+            'requiredProducts:id,name',
+            'requiredVideos:id,title',
+            'giftCourses:id,name',
+            'giftAssessments:id,title',
+            'giftProducts:id,name',
             'usages' => fn ($query) => $query->with(['user:id,name,email', 'order:id,order_no'])->latest('used_at'),
         ]);
 
@@ -89,7 +97,11 @@ class CouponController extends Controller
 
     public function edit(Coupon $coupon): View
     {
-        $coupon->load(['courses:id', 'curriculums:id', 'assessments:id', 'products:id']);
+        $coupon->load([
+            'courses:id', 'curriculums:id', 'assessments:id', 'products:id',
+            'requiredCourses:id', 'requiredProducts:id', 'requiredVideos:id',
+            'giftCourses:id', 'giftAssessments:id', 'giftProducts:id',
+        ]);
 
         return view('pages.coupons.edit', [
             'title' => 'แก้ไขคูปอง',
@@ -130,10 +142,14 @@ class CouponController extends Controller
     private function formData(): array
     {
         return [
-            'courses' => Course::query()->orderBy('name')->get(['id', 'name']),
-            'curriculums' => Curriculum::query()->orderBy('name')->get(['id', 'name']),
-            'exams' => Assessment::query()->where('type', 'primary_exam')->orderBy('title')->get(['id', 'title']),
-            'books' => Product::query()->books()->orderBy('name')->get(['id', 'name']),
+            'courses' => Course::query()->orderBy('name')->get(['id', 'code', 'name', 'status']),
+            'curriculums' => Curriculum::query()->orderBy('name')->get(['id', 'name', 'status']),
+            'exams' => Assessment::query()->where('type', 'primary_exam')->orderBy('title')->get(['id', 'title', 'status']),
+            'books' => Product::query()->books()->orderBy('name')->get(['id', 'name', 'price', 'sale_price', 'status']),
+            'videos' => Video::query()
+                ->with(['chapters:id,course_id,title', 'chapters.course:id,name,is_trial_available'])
+                ->orderBy('title')
+                ->get(['id', 'title', 'duration_seconds', 'is_free', 'trial_seconds']),
         ];
     }
 
@@ -154,6 +170,11 @@ class CouponController extends Controller
             'min_purchase_amount' => $data['min_purchase_amount'] ?? null,
             'usage_limit' => $data['usage_limit'] ?? null,
             'per_user_limit' => $data['per_user_limit'] ?? null,
+            'student_group' => $data['student_group'],
+            'purchase_type' => $data['purchase_type'],
+            'required_video_seconds' => ! empty($data['required_video_ids']) && (float) ($data['required_video_minutes'] ?? 0) > 0
+                ? (int) round((float) $data['required_video_minutes'] * 60)
+                : null,
             'start_at' => $data['start_at'] ?? null,
             'end_at' => $data['end_at'] ?? null,
             'status' => $data['status'],
@@ -169,5 +190,11 @@ class CouponController extends Controller
         $coupon->curriculums()->sync($data['curriculum_ids'] ?? []);
         $coupon->assessments()->sync($data['assessment_ids'] ?? []);
         $coupon->products()->sync($data['product_ids'] ?? []);
+        $coupon->requiredCourses()->sync($data['required_course_ids'] ?? []);
+        $coupon->requiredProducts()->sync($data['required_product_ids'] ?? []);
+        $coupon->requiredVideos()->sync($data['required_video_ids'] ?? []);
+        $coupon->giftCourses()->sync($data['gift_course_ids'] ?? []);
+        $coupon->giftAssessments()->sync($data['gift_assessment_ids'] ?? []);
+        $coupon->giftProducts()->sync($data['gift_product_ids'] ?? []);
     }
 }

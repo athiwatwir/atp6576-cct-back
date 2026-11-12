@@ -15,6 +15,7 @@ class CouponUsage extends Model
         'order_id',
         'discount_amount',
         'used_at',
+        'gifts_granted_at',
     ];
 
     protected function casts(): array
@@ -22,6 +23,7 @@ class CouponUsage extends Model
         return [
             'discount_amount' => 'decimal:2',
             'used_at' => 'datetime',
+            'gifts_granted_at' => 'datetime',
         ];
     }
 

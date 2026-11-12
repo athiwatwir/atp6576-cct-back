@@ -40,8 +40,9 @@ class ExamAccess
             return collect();
         }
 
+        // นักเรียนมีสิทธิ์เรียนอยู่แล้ว วิชา tfh ที่แอดมินขายให้จึงนับด้วย
         return $exam->courses()
-            ->where('courses.status', 'published')
+            ->whereIn('courses.status', Course::ADMIN_SALE_STATUSES)
             ->whereIn('courses.id', $courseIds)
             ->get(['courses.id', 'courses.name', 'courses.slug']);
     }

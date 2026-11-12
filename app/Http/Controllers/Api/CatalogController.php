@@ -16,6 +16,7 @@ use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\User;
 use App\Models\VideoProgress;
+use App\Models\VideoRating;
 use App\Support\PricePlans;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -52,21 +53,25 @@ class CatalogController extends Controller
 
         $paginator = DB::query()
             ->fromSub($union, 'catalog_items')
-            ->orderByDesc('is_featured')
+            ->orderByRaw('category_sort IS NULL')
+            ->orderBy('category_sort')
+            ->orderBy('category_id')
+            ->when(count($types) > 1, fn ($query) => $query->orderByRaw("CASE item_type WHEN 'course' THEN 0 WHEN 'curriculum' THEN 1 ELSE 2 END"))
             ->orderBy('sort_order')
             ->orderBy('name')
+            ->orderBy('id')
             ->paginate($this->perPage($request))
             ->withQueryString();
 
         $rows = collect($paginator->items());
         $courses = Course::query()
-            ->with(['category:id,name,slug', 'subject:id,name,slug', 'instructor:id,name,slug', 'activePricePlans'])
+            ->with(['category:id,name,slug,sort_order', 'subject:id,name,slug', 'instructor:id,name,slug', 'activePricePlans'])
             ->withCount('chapters')
             ->whereIn('id', $rows->where('item_type', 'course')->pluck('id'))
             ->get()
             ->keyBy('id');
         $curriculums = Curriculum::query()
-            ->with(['category:id,name,slug', 'activePricePlans'])
+            ->with(['category:id,name,slug,sort_order', 'activePricePlans'])
             ->withCount('courses')
             ->whereIn('id', $rows->where('item_type', 'curriculum')->pluck('id'))
             ->get()
@@ -92,20 +97,21 @@ class CatalogController extends Controller
     public function showCourse(Request $request, string $slug): CourseResource
     {
         $this->rememberPurchases($request);
+        $user = $request->user() ?? auth('sanctum')->user();
 
         $course = Course::query()
             ->with([
-                'category:id,name,slug',
+                'category:id,name,slug,sort_order',
                 'subject:id,name,slug',
                 'instructor:id,name,slug',
                 'chapters' => fn ($query) => $query->orderBy('seq'),
                 'chapters.videos',
                 'chapters.documents',
-                'assessments' => fn ($query) => $query->withCount('questions'),
+                'assessments' => fn ($query) => $query->withCount('questions')->orderBy('assessments.title')->orderBy('assessments.id'),
                 'activePricePlans',
             ])
             ->withCount('chapters')
-            ->where('status', 'published')
+            ->learnableBy($user?->id)
             ->where('slug', $slug)
             ->first();
 
@@ -113,7 +119,10 @@ class CatalogController extends Controller
             abort(404, 'ไม่พบวิชานี้');
         }
 
-        $user = $request->user() ?? auth('sanctum')->user();
+        // วิชา tfh ต่ออายุ/ซื้อผ่านหน้าร้านไม่ได้ จึงไม่ส่งแพ็กเกจ
+        if ($course->status === Course::STATUS_TFH) {
+            $course->setRelation('activePricePlans', collect());
+        }
         $videoIds = $course->chapters->flatMap(fn ($chapter) => $chapter->videos->pluck('id'))->unique()->values();
         $progress = collect();
 
@@ -126,6 +135,9 @@ class CatalogController extends Controller
         }
 
         $request->attributes->set('video_progress', $progress);
+        $request->attributes->set('video_ratings', $user && $videoIds->isNotEmpty()
+            ? VideoRating::query()->where('user_id', $user->id)->whereIn('video_id', $videoIds)->get()->keyBy('video_id')
+            : collect());
 
         return CourseResource::make($course);
     }
@@ -136,7 +148,7 @@ class CatalogController extends Controller
 
         $curriculum = Curriculum::query()
             ->with([
-                'category:id,name,slug',
+                'category:id,name,slug,sort_order',
                 'courses' => fn ($query) => $query
                     ->where('courses.status', 'published')
                     ->select('courses.id', 'courses.name', 'courses.slug', 'courses.thumbnail'),
@@ -239,16 +251,23 @@ class CatalogController extends Controller
             return Assessment::query()
                 ->forSale()
                 ->when($search !== '', fn ($query) => $query->where('title', 'like', '%'.$search.'%'))
-                ->selectRaw('? as item_type, id, title as name, 0 as is_featured, 0 as sort_order', ['exam']);
+                ->selectRaw('? as item_type, id, title as name, 0 as is_featured, 0 as sort_order, NULL as category_sort, NULL as category_id', ['exam']);
         }
 
         $query = $type === 'course' ? Course::query() : Curriculum::query();
+        $table = $query->getModel()->getTable();
 
         return $query
-            ->where('status', 'published')
-            ->when($featured, fn ($inner) => $inner->where('is_featured', true))
-            ->when($search !== '', fn ($inner) => $inner->where('name', 'like', '%'.$search.'%'))
-            ->selectRaw('? as item_type, id, name, is_featured, sort_order', [$type]);
+            ->leftJoin('categories', fn ($join) => $join
+                ->on('categories.id', '=', $table.'.category_id')
+                ->whereNull('categories.deleted_at'))
+            ->where($table.'.status', 'published')
+            ->when($featured, fn ($inner) => $inner->where($table.'.is_featured', true))
+            ->when($search !== '', fn ($inner) => $inner->where($table.'.name', 'like', '%'.$search.'%'))
+            ->selectRaw(
+                "? as item_type, {$table}.id, {$table}.name, {$table}.is_featured, {$table}.sort_order, categories.sort_order as category_sort, categories.id as category_id",
+                [$type]
+            );
     }
 
     /**
@@ -362,7 +381,7 @@ class CatalogController extends Controller
     }
 
     /**
-     * @return array{id:int,name:string,slug:string}|null
+     * @return array{id:int,name:string,slug:string,sort_order:int}|null
      */
     private function categoryCard(mixed $category): ?array
     {
@@ -374,6 +393,7 @@ class CatalogController extends Controller
             'id' => $category->id,
             'name' => $category->name,
             'slug' => $category->slug,
+            'sort_order' => (int) $category->sort_order,
         ];
     }
 

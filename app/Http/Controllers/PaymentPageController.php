@@ -44,14 +44,16 @@ class PaymentPageController extends Controller
 
         $latest = $order->payments()->latest('id')->first();
         $state = $this->payments->payload($this->payments->activeQr($order) ?? $latest, $order);
+        // หน้านี้รองรับเฉพาะ QR พร้อมเพย์และบัตร (e-Wallet และโอนเงินใช้ผ่านเว็บนักเรียน)
+        $methods = array_values(array_intersect($this->payments->enabledMethods(), [PaymentMethod::ThaiQr->value, PaymentMethod::CreditCard->value]));
 
         return view('payment.show', [
             'title' => 'ชำระเงิน '.$order->order_no,
             'link' => $link,
             'order' => $order,
             'state' => $state,
-            'methods' => $this->payments->enabledMethods(),
-            'quotes' => PaymentFees::quote($order, $this->payments->enabledMethods()),
+            'methods' => $methods,
+            'quotes' => PaymentFees::quote($order, $methods),
             'fakeQr' => $this->payments->isFake(PaymentMethod::ThaiQr),
             'fakeCard' => $this->payments->isFake(PaymentMethod::CreditCard),
             'omisePublicKey' => $this->payments->cardGateway()->publicKey(),

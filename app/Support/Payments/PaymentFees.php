@@ -18,7 +18,15 @@ class PaymentFees
      */
     public static function configurableMethods(): array
     {
-        return [PaymentMethod::ThaiQr, PaymentMethod::CreditCard, PaymentMethod::BankTransfer];
+        return PaymentMethod::customerMethods();
+    }
+
+    /**
+     * แอดมินเปิดให้ลูกค้าใช้วิธีนี้หรือไม่ (หน้า วิธี/ค่าธรรมเนียมการชำระเงิน)
+     */
+    public static function isActive(PaymentMethod $method): bool
+    {
+        return (bool) self::all()->get($method->value)?->is_active;
     }
 
     /**
@@ -32,6 +40,7 @@ class PaymentFees
             ->mapWithKeys(fn (PaymentMethod $method) => [
                 $method->value => $saved->get($method->value) ?? new PaymentFee([
                     'payment_method' => $method->value,
+                    'is_active' => false,
                     'is_enabled' => false,
                     'percent' => 0,
                     'fixed_amount' => 0,
@@ -73,7 +82,7 @@ class PaymentFees
      * ยอดที่ลูกค้าต้องจ่ายต่อวิธีชำระสำหรับออเดอร์นี้
      *
      * @param  list<string>  $methods
-     * @return array<string, array{method: string, label: string, fee_label: ?string, order_amount: float, fee_amount: float, total: float}>
+     * @return array<string, array{method: string, label: string, type: string, fee_label: ?string, order_amount: float, fee_amount: float, total: float}>
      */
     public static function quote(Order $order, array $methods): array
     {
@@ -94,6 +103,7 @@ class PaymentFees
             $result[$value] = [
                 'method' => $value,
                 'label' => $method->label(),
+                'type' => $method->type(),
                 'fee_label' => $feeAmount > 0 ? self::customerLabel($method, $fee) : null,
                 'order_amount' => $base,
                 'fee_amount' => $feeAmount,

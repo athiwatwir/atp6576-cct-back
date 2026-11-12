@@ -139,9 +139,9 @@ class ArticleController extends Controller
     private function formData(): array
     {
         return [
-            'courses' => Course::query()->orderBy('name')->get(['id', 'name']),
-            'curriculums' => Curriculum::query()->orderBy('name')->get(['id', 'name']),
-            'exams' => Assessment::query()->where('type', 'primary_exam')->orderBy('title')->get(['id', 'title']),
+            'courses' => Course::query()->orderBy('name')->get(['id', 'code', 'name', 'status']),
+            'curriculums' => Curriculum::query()->orderBy('name')->get(['id', 'name', 'status']),
+            'exams' => Assessment::query()->where('type', 'primary_exam')->orderBy('title')->get(['id', 'title', 'status']),
         ];
     }
 

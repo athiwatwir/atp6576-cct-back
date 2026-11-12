@@ -14,10 +14,8 @@ return [
 
     'merchant_name' => env('PAYMENT_MERCHANT_NAME', 'Click Class Tutor'),
 
-    'methods' => [
-        'thai_qr' => (bool) env('PAYMENT_THAI_QR_ENABLED', true),
-        'credit_card' => (bool) env('PAYMENT_CARD_ENABLED', true),
-    ],
+    // เปิด/ปิดวิธีชำระตั้งที่หน้า "วิธี/ค่าธรรมเนียมการชำระเงิน" (payment_fees.is_active)
+    // PAYMENT_THAI_QR_ENABLED / PAYMENT_CARD_ENABLED ใช้เป็นค่าเริ่มต้นตอน migrate เท่านั้น
 
     'link_ttl_minutes' => (int) env('PAYMENT_LINK_TTL_MINUTES', 60),
 

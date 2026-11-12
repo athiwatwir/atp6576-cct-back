@@ -33,11 +33,63 @@ class OnlinePayment
     }
 
     /**
+     * วิธีชำระที่ลูกค้าใช้ได้ตอนนี้: แอดมินเปิดไว้ (payment_fees.is_active) และระบบพร้อมใช้
+     *
      * @return list<string>
      */
     public function enabledMethods(): array
     {
-        return array_values(array_keys(array_filter((array) config('payment.methods', []))));
+        $settings = PaymentFees::all();
+
+        return collect(PaymentMethod::customerMethods())
+            ->filter(fn (PaymentMethod $method) => (bool) $settings->get($method->value)?->is_active && $this->isAvailable($method))
+            ->map(fn (PaymentMethod $method) => $method->value)
+            ->values()
+            ->all();
+    }
+
+    /**
+     * ระบบพร้อมรับวิธีนี้หรือไม่ (ไม่ขึ้นกับการเปิดปิดของแอดมิน)
+     * e-Wallet ต้องใช้ Omise โหมด live (คีย์ test หรือ live ก็ได้) เพราะโหมด fake ไม่มีหน้าจำลองของ e-Wallet
+     */
+    public function isAvailable(PaymentMethod $method): bool
+    {
+        if ($method->isWallet()) {
+            return ! $this->isFake(PaymentMethod::CreditCard) && filled(config('payment.omise.secret_key'));
+        }
+
+        return in_array($method, PaymentMethod::customerMethods(), true);
+    }
+
+    /**
+     * รายการวิธีชำระที่เปิดอยู่สำหรับหน้าเว็บนักเรียน
+     *
+     * @return list<array{method: string, label: string, type: string, provider: string, test_mode: bool, fee: ?array<string, mixed>}>
+     */
+    public function catalog(): array
+    {
+        $rules = collect(PaymentFees::rules())->keyBy('method');
+
+        return collect($this->enabledMethods())
+            ->map(function (string $value) use ($rules) {
+                $method = PaymentMethod::from($value);
+                $rule = $rules->get($value);
+
+                return [
+                    'method' => $value,
+                    'label' => $method->label(),
+                    'type' => $method->type(),
+                    'provider' => $method->provider(),
+                    'test_mode' => match ($method->provider()) {
+                        'kgp' => $this->isFake(PaymentMethod::ThaiQr),
+                        'omise' => $this->isFake(PaymentMethod::CreditCard) || str_starts_with((string) config('payment.omise.secret_key'), 'skey_test_'),
+                        default => false,
+                    },
+                    'fee' => $rule && $rule['enabled'] ? $rule : null,
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     public function qrGateway(): ThaiQrGateway
@@ -191,6 +243,63 @@ class OnlinePayment
         $this->apply($payment->refresh(), $charge, 'card.charge');
 
         return $payment->refresh();
+    }
+
+    /**
+     * เริ่มชำระด้วย e-Wallet ผ่าน Omise
+     * platform = mobile เปิดแอปของผู้ให้บริการ, desktop แสดง QR (TrueMoney, WeChat Pay) หรือหน้าเว็บของผู้ให้บริการ
+     */
+    public function startWallet(Order $order, PaymentMethod $method, string $platform, ?string $ip = null): Payment
+    {
+        if (! $method->isWallet()) {
+            throw ValidationException::withMessages(['method' => 'วิธีชำระนี้ไม่ใช่ e-Wallet']);
+        }
+
+        $this->assertMethodEnabled($method);
+        $this->assertPayable($order);
+
+        $gateway = app(OmiseCardGateway::class);
+        $sourceType = (string) $method->omiseSourceType($platform);
+
+        $this->supersedePending($order);
+        $payment = $this->newAttempt($order, $method, 'omise');
+
+        try {
+            $result = $gateway->chargeSource($payment, $order, $sourceType, $this->walletReturnUrl($order), $ip);
+        } catch (GatewayException $exception) {
+            $this->markFailed($payment, $exception->failureCode, $exception->getMessage(), 'wallet.create_failed', $exception->raw);
+
+            throw ValidationException::withMessages(['method' => 'สร้างรายการชำระไม่สำเร็จ: '.$exception->getMessage()]);
+        }
+
+        $charge = $result['charge'];
+
+        $payment->update(array_filter([
+            'transaction_id' => $charge->chargeId,
+            'expires_at' => $result['expires_at'] ? \Illuminate\Support\Carbon::parse($result['expires_at']) : null,
+            'metadata' => [
+                ...($payment->metadata ?? []),
+                'source_type' => $sourceType,
+                'platform' => $platform,
+                'flow' => $result['flow'],
+                'authorize_uri' => $charge->authorizeUri,
+                'qr_image' => $result['qr_image'],
+            ],
+        ], fn ($value) => $value !== null));
+
+        $this->apply($payment->refresh(), $charge, 'wallet.created');
+
+        return $payment->refresh();
+    }
+
+    /**
+     * ปลายทางหลังลูกค้ายืนยันในแอป e-Wallet กลับมาหน้าออเดอร์ของเว็บนักเรียน
+     */
+    public function walletReturnUrl(Order $order): string
+    {
+        $url = $this->appReturnUrl($order);
+
+        return $url.(str_contains($url, '?') ? '&' : '?').'payment_return=wallet';
     }
 
     public function refresh(Payment $payment): Payment
@@ -405,9 +514,7 @@ class OnlinePayment
 
     public function appReturnUrl(Order $order): string
     {
-        $template = (string) (config('payment.return_url')
-            ?: rtrim((string) (config('services.storefront.app_url')
-                ?: trim(explode(',', (string) config('services.storefront.frontend_url'))[0])), '/').'/orders/{order_id}');
+        $template = (string) (config('payment.return_url') ?: \App\Support\StudentApp::url('orders/{order_id}'));
 
         $guestToken = (string) ($order->guest_token ?? '');
 
@@ -454,7 +561,8 @@ class OnlinePayment
                 'paid_at' => $payment->paid_at?->toIso8601String(),
                 'failure_code' => $payment->failure_code,
                 'failure_message' => $payment->failure_message,
-                'qr_image' => $method === PaymentMethod::ThaiQr && $payment->status === PaymentStatus::Pending->value
+                'type' => $method?->type(),
+                'qr_image' => ($method === PaymentMethod::ThaiQr || $method?->isWallet()) && $payment->status === PaymentStatus::Pending->value
                     ? ($payment->metadata['qr_image'] ?? null)
                     : null,
                 'merchant_name' => $payment->metadata['account_name'] ?? config('payment.merchant_name'),
@@ -513,6 +621,10 @@ class OnlinePayment
         foreach ($pending as $payment) {
             if ($payment->payment_method === PaymentMethod::ThaiQr->value) {
                 $this->gatewayFor($payment, 'qr')->cancel($payment);
+            }
+
+            if ($payment->provider === 'omise' && PaymentMethod::tryFrom((string) $payment->payment_method)?->isWallet()) {
+                app(OmiseCardGateway::class)->expire($payment);
             }
 
             $this->markFailed($payment, 'superseded', 'เริ่มการชำระใหม่', 'superseded');

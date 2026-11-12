@@ -11,7 +11,8 @@ Helper กลางสำหรับรันเลขเอกสารจา�
 | วิชา | `C{dayOfYear}{seq2}` | `C26901` | `courses.code` |
 | ข้อสอบ (ขายแยก) | `E{dayOfYear}{seq2}` | `E26901` | `assessments.code` |
 | หนังสือ | `B{seq3}` | `B001` | `products.code` |
-| ออเดอร์ | `O{ymd}{seq3}` | `O260926001` | `orders.order_no` |
+| ออเดอร์สมัครเรียน (`kind = enrollment`) | `C{ymd}{seq3}` | `C261112001` | `orders.order_no` |
+| ออเดอร์หนังสือ (`kind = book` รวมหนังสือแถมจากคูปอง) | `B{ymd}{seq3}` | `B261112001` | `orders.order_no` |
 | ใบเสร็จรับเงิน | `RC{ym}{seq4}` | `RC26100001` | `receipts.receipt_no` |
 
 ### ความหมายส่วนประกอบ
@@ -29,7 +30,9 @@ Helper กลางสำหรับรันเลขเอกสารจา�
 |--------|--------------|----------|
 | วิชา / ข้อสอบ | `dayOfYear` เช่น `269` | รันต่อเนื่องตามวันของปี (ไม่รีเซ็ตทุกปี เพื่อไม่ให้รหัสซ้ำข้ามปี) |
 | หนังสือ | `global` | รันเลขทั้งระบบ ไม่ผูกวันที่ |
-| ออเดอร์ | `ymd` เช่น `260926` | รีเซ็ตทุกวัน (รหัสมีวันที่อยู่แล้ว จึงไม่ชนกัน) |
+| ออเดอร์ | ตัวขึ้นต้น + `ymd` เช่น `C261112`, `B261112` | สมัครเรียนกับหนังสือรันเลขแยกกัน รีเซ็ตทุกวัน (รหัสมีวันที่อยู่แล้ว จึงไม่ชนกัน) |
+
+ออเดอร์ที่สร้างก่อน 12 พ.ย. 2026 ยังเป็น `O{ymd}{seq3}` (เช่น `O260926001`) ไม่ได้เปลี่ยนเลขย้อนหลัง เพราะเลขนี้อยู่ในใบเสร็จ อีเมล และข้อมูลที่ส่งให้ช่องทางชำระเงินแล้ว ห้ามเอาไปใช้แยกประเภทออเดอร์ ให้ใช้ `orders.kind`
 | ใบเสร็จรับเงิน | `ym` ของวันที่ชำระ เช่น `2610` | รีเซ็ตทุกเดือน ลำดับ 4 หลัก (`{seq4}` เริ่ม `0001`) |
 
 ## ไฟล์ที่เกี่ยวข้อง
@@ -37,7 +40,8 @@ Helper กลางสำหรับรันเลขเอกสารจา�
 | ไฟล์ | บทบาท |
 |------|--------|
 | `app/Support/DocumentSequence.php` | สร้างรหัสถัดไป |
-| `app/Enums/DocumentType.php` | ประเภทเอกสาร + prefix (`C`/`E`/`B`/`O`) |
+| `app/Enums/DocumentType.php` | ประเภทเอกสาร + prefix (`C`/`E`/`B`/`RC`) |
+| `app/Enums/OrderKind.php` | `orderPrefix()` ตัวขึ้นต้นเลขออเดอร์ (`C` สมัครเรียน / `B` หนังสือ) |
 | `app/Models/DocumentSequence.php` | Eloquent ของตารางรันเลข |
 | `database/migrations/2026_09_26_144802_create_document_sequences_and_codes.php` | ตาราง `document_sequences` + คอลัมน์ `code` |
 
@@ -58,7 +62,7 @@ Unique: `(doc_type, period_key)`
 | `DocumentSequence::nextCourse(?CarbonInterface $at = null)` | รหัสวิชา |
 | `DocumentSequence::nextExam(?CarbonInterface $at = null)` | รหัสข้อสอบ |
 | `DocumentSequence::nextBook()` | รหัสหนังสือ |
-| `DocumentSequence::nextOrder(?CarbonInterface $at = null)` | หมายเลขออเดอร์ |
+| `DocumentSequence::nextOrder(OrderKind $kind, ?CarbonInterface $at = null)` | หมายเลขออเดอร์ตามประเภท |
 | `DocumentSequence::nextReceipt(?CarbonInterface $at = null)` | เลขที่ใบเสร็จรับเงิน (ดู `docs/receipts.md`) |
 
 พารามิเตอร์ `$at` ใช้กำหนดวันที่อ้างอิง (ค่าเริ่มต้น = `now()`) — มีประโยชน์ตอนทดสอบหรือ backdate
@@ -71,7 +75,8 @@ use App\Support\DocumentSequence;
 $courseCode = DocumentSequence::nextCourse(); // C26901
 $examCode   = DocumentSequence::nextExam();   // E26901
 $bookCode   = DocumentSequence::nextBook();   // B001
-$orderNo    = DocumentSequence::nextOrder();  // O260926001
+$orderNo    = DocumentSequence::nextOrder(OrderKind::Enrollment); // C261112001
+$bookOrder  = DocumentSequence::nextOrder(OrderKind::Book);       // B261112001
 ```
 
 ### จุดที่เรียกใช้แล้วในระบบ
@@ -81,7 +86,9 @@ $orderNo    = DocumentSequence::nextOrder();  // O260926001
 | `CourseController@store` | สร้างวิชา → `courses.code` |
 | `ExamController@store` | สร้างข้อสอบขายแยก → `assessments.code` |
 | `BookController@store` | สร้างหนังสือ → `products.code` |
-| `OrderController` (`generateOrderNo`) | สร้างออเดอร์ → `orders.order_no` |
+| `OrderController@store` | แอดมินสร้างออเดอร์หนังสือ → `B...` |
+| `StudentPurchase` | แอดมินสมัครเรียนให้นักเรียน → `C...` / หนังสือแถมจากคูปอง → `B...` |
+| `StorefrontCheckout::place` | นักเรียนสั่งซื้อผ่าน API → `C...` หรือ `B...` ตาม `kind` |
 
 > แบบทดสอบ/ควิซในวิชา (`CourseAssessmentController`) **ยังไม่ออกเลข** `E...` — ใช้เฉพาะข้อสอบขายแยก
 

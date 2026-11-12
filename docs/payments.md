@@ -1,13 +1,34 @@
-# ชำระเงินออนไลน์ (Thai QR PromptPay + บัตรเครดิต)
-
-ระบบรับชำระออนไลน์มีสองช่องทาง
+# ชำระเงินออนไลน์ (Thai QR PromptPay + บัตรเครดิต + e-Wallet)
 
 | วิธีชำระ (`payments.payment_method`) | ผู้ให้บริการ (`payments.provider`) | เอกสาร |
 |------|------|------|
 | `thai_qr` QR พร้อมเพย์ | `kgp` KGP Payment Gateway (PGW) | `docs/omise/attachments/KGP-PGW [QR] API Specification v.1.2.1.pdf` |
 | `credit_card` บัตรเครดิต / เดบิต | `omise` Omise (KPN) | [docs.omise.co/charging-cards](https://docs.omise.co/charging-cards) |
+| `truemoney` TrueMoney Wallet | `omise` | [docs.omise.co/truemoney-wallet](https://docs.omise.co/truemoney-wallet) |
+| `shopeepay` ShopeePay | `omise` | [docs.omise.co/shopeepay](https://docs.omise.co/shopeepay) |
+| `rabbit_linepay` Rabbit LINE Pay | `omise` | [docs.omise.co/rabbit-linepay](https://docs.omise.co/rabbit-linepay) |
+| `wechat_pay` WeChat Pay | `omise` | [docs.omise.co/wechat-pay](https://docs.omise.co/wechat-pay) |
+| `bank_transfer` โอนเงินแล้วแนบสลิป | ไม่มี (แอดมินตรวจสลิป) | |
 
-การโอนเงินพร้อมแนบสลิป (`bank_transfer`) ยังใช้ได้เหมือนเดิม
+แต่ละวิธีเปิดหรือปิดได้ที่หน้า **วิธี/ค่าธรรมเนียมการชำระเงิน** ดูหัวข้อ [เปิดปิดวิธีชำระและค่าธรรมเนียม](#เปิดปิดวิธีชำระและค่าธรรมเนียม)
+
+## e-Wallet (Omise Source)
+
+`OnlinePayment::startWallet()` สร้าง charge แบบ source กับ Omise (`OmiseCardGateway::chargeSource()`) ด้วยยอด `payments.amount` และ `return_uri` เป็นหน้าออเดอร์ของ Nuxt ต่อท้าย `payment_return=wallet` (`OnlinePayment::walletReturnUrl()`)
+
+| วิธี | `platform=desktop` (ค่าเริ่มต้น) | `platform=mobile` |
+|------|------|------|
+| TrueMoney | `truemoney_qr` แสดง QR (หมดอายุ 1 วัน) | `truemoney_jumpapp` เปิดแอป TrueMoney |
+| ShopeePay | `shopeepay` หน้าเว็บ ShopeePay | `shopeepay_jumpapp` เปิดแอป Shopee |
+| Rabbit LINE Pay | `rabbit_linepay` หน้าเว็บ (หมดอายุประมาณ 20 นาที) | เหมือนกัน |
+| WeChat Pay | `wechat_pay_mpm` แสดง QR (หมดอายุ 1 วัน) | `wechat_pay` เปิดแอป WeChat |
+
+- ผลที่ได้มี `authorize_uri` (ให้ redirect ไป) และสำหรับแบบ QR มี `qr_image` (ระบบดาวน์โหลดรูป QR จาก Omise แล้วเก็บเป็น data URI ใน `payments.metadata.qr_image`) เก็บ `source_type`, `platform`, `flow` ไว้ใน `payments.metadata`
+- ยืนยันผลเหมือนบัตร: webhook ของ Omise และ `payment/status` ดึง charge จาก Omise ใหม่ (`expired` = ไม่สำเร็จ)
+- กดชำระใหม่ รายการเดิมที่ยังรอถูกปิด (`superseded`) และสั่ง Omise expire charge เดิม กันลูกค้าจ่ายรายการเก่าซ้ำ
+- ต้องใช้ `PAYMENT_CARD_DRIVER=live` และคีย์ Omise (test หรือ live) โหมด `fake` ไม่มี e-Wallet บัญชี Omise ต้องเปิดช่องทางนั้นด้วย หน้าตั้งค่าตรวจกับ Omise `GET /capability` (แคช 10 นาที) แล้วเตือนถ้ายังไม่เปิด
+- Omise test mode: หน้า `authorize_uri` ให้กดจำลองสำเร็จหรือไม่สำเร็จได้ หรือใช้ `POST /charges/{id}/mark_as_paid` / `mark_as_failed` ของ Omise (เฉพาะคีย์ test)
+- ตรวจกับบัญชี test เมื่อ 2 พ.ย. 2569: บัญชีเปิด TrueMoney, ShopeePay, Rabbit LINE Pay, WeChat Pay และผ่อนชำระ / Direct Debit (ยังไม่รองรับในระบบ) บัญชี live ต้องตรวจอีกครั้งเมื่อเปลี่ยนคีย์
 
 ## Driver ต่อวิธีชำระ
 
@@ -48,8 +69,6 @@ PAYMENT_DRIVER=fake            # fake | live ค่าเริ่มต้น�
 PAYMENT_THAI_QR_DRIVER=fake    # ไม่ตั้ง = ใช้ PAYMENT_DRIVER
 PAYMENT_CARD_DRIVER=live       # ไม่ตั้ง = ใช้ PAYMENT_DRIVER
 PAYMENT_MERCHANT_NAME="Click Class Tutor"
-PAYMENT_THAI_QR_ENABLED=true
-PAYMENT_CARD_ENABLED=true
 PAYMENT_LINK_TTL_MINUTES=60
 # ปลายทางหลังชำระ ใช้ {order_id}, {order_no}, {guest_token} ได้ ถ้าไม่ตั้งใช้ STUDENT_APP_URL/orders/{order_id}
 # ออเดอร์ที่สั่งแบบไม่สมัครสมาชิกต่อท้าย ?guest_token=... ให้เอง ถ้ารูปแบบไม่มี {guest_token}
@@ -66,13 +85,16 @@ OMISE_SECRET_KEY=
 
 ค่าทั้งหมดอ่านผ่าน `config/payment.php` หลังแก้ `.env` ให้รัน `php artisan config:clear`
 
+`PAYMENT_THAI_QR_ENABLED` / `PAYMENT_CARD_ENABLED` เลิกใช้แล้ว ใช้เป็นค่าเริ่มต้นตอนรัน migration `add_is_active_to_payment_fees_table` ครั้งแรกเท่านั้น หลังจากนั้นเปิดปิดที่หน้าแอดมิน
+
 ## ชำระในเว็บนักเรียน (Nuxt)
 
 หน้าออเดอร์ของ Nuxt สร้าง QR ตัดบัตร และถามสถานะผ่าน Student API เอง ไม่ redirect มาหน้า Laravel (นอกจากหน้า 3-D Secure ของธนาคาร) endpoint อยู่ใต้ `/api/v1/orders/{id}/payment/...` สำหรับนักเรียนที่ล็อกอิน และ `/api/v1/guest/orders/{guest_token}/payment/...` สำหรับสั่งซื้อแบบไม่สมัครสมาชิก ดู `docs/student-api.md`
 
 - บัตร: `return_uri` ที่ส่งให้ Omise คือหน้าออเดอร์ของ Nuxt (`OnlinePayment::cardReturnUrl()` = `PAYMENT_RETURN_URL` หรือ `{STUDENT_APP_URL}/orders/{order_id}` ต่อท้าย `payment_return=card`) หน้านั้นเรียก `payment/status` ซึ่งดึง charge จาก Omise ใหม่ ส่วนหน้า `/pay/{token}` ยังกลับผ่าน `/pay/return/{payment}` เหมือนเดิม
-- โหมดทดสอบ: `POST .../payment/simulate` (`OnlinePayment::simulateLatest()`) แทนปุ่มจำลองในหน้า Laravel
-- `GET /api/v1/payment-methods` ไม่ต้องล็อกอิน เพื่อให้ลูกค้าแบบไม่สมัครสมาชิกได้ `omise_public_key`
+- e-Wallet: `POST .../payment/wallet` ส่ง `method` และ `platform` แล้ว redirect ไป `authorize_uri` หรือแสดง `qr_image` ลูกค้ากลับมาที่หน้าออเดอร์พร้อม `payment_return=wallet`
+- โหมดทดสอบ: `POST .../payment/simulate` (`OnlinePayment::simulateLatest()`) แทนปุ่มจำลองในหน้า Laravel (ใช้กับรายการ `fake` เท่านั้น)
+- `GET /api/v1/payment-methods` ไม่ต้องล็อกอิน ส่งวิธีที่เปิดอยู่ (`available`) และ `omise_public_key`
 
 ## หน้าชำระเงิน (`/pay/{token}`)
 
@@ -102,13 +124,29 @@ OMISE_SECRET_KEY=
 
 ### ส่วนบัตร
 
-โหมด live โหลด [Omise.js](https://docs.omise.co/omise-js) แล้วสร้าง token บัตรในเบราว์เซอร์ เลขบัตรไม่ผ่าน server ของเรา (เราไม่มี PCI DSS) จากนั้น server ตัดเงินด้วย Charges API แบบ `capture=true` ถ้าธนาคารต้องยืนยัน 3-D Secure จะพาไปที่ `authorize_uri` แล้วกลับมาที่ `/pay/return/{payment}` (signed URL) ระบบตรวจผลกับ Omise แล้วพากลับไปหน้าชำระเงิน
+โหมด live โหลด [Omise.js](https://docs.omise.co/omise-js) แล้วใช้หน้าต่างชำระของ Omise (`OmiseCard.configure()` / `OmiseCard.open()` ใน `resources/js/payment.js`)
+
+- **หน้าต่าง:** เปิดเฉพาะบัตร (`otherPaymentMethods: []`) ภาษาไทย ยอดเงินคือยอดออเดอร์รวมค่าธรรมเนียมบัตร (สตางค์)
+- **การกรอกบัตร:** ลูกค้ากรอกบัตรใน iframe ของ Omise (`cdn.omise.co/pay.html`) หน้าเว็บและ server ของเราไม่เห็นเลขบัตร (เราไม่มี PCI DSS)
+- **token:** ได้ token จาก `onCreateTokenSuccess` แล้วส่งไปที่ `POST /pay/{token}/card`
+- **ฟอร์มบัตรในหน้าเดิม:** ใช้เฉพาะเมื่อ driver บัตรเป็นตัวจำลอง (ต้องส่ง token จำลอง) หรือโหลด `OmiseCard` ไม่ได้
+- **API ของ Nuxt ไม่เปลี่ยน:** ยังรับ token จาก `Omise.createToken()` ตาม `docs/student-api.md`
+
+จากนั้น server ตัดเงินด้วย Charges API แบบ `capture=true` ถ้าธนาคารต้องยืนยัน 3-D Secure จะพาไปที่ `authorize_uri` แล้วกลับมาที่ `/pay/return/{payment}` (signed URL) ระบบตรวจผลกับ Omise แล้วพากลับไปหน้าชำระเงิน
 
 `failure_code` ที่พบบ่อยของ Omise (`insufficient_fund`, `stolen_or_lost_card`, `invalid_security_code`, `payment_rejected`, `failed_fraud_check` ฯลฯ) ถูกแปลงเป็นข้อความภาษาไทยใน `failure_message` รหัสอื่นใช้ข้อความจาก Omise
 
-## ค่าธรรมเนียมตามวิธีชำระ
+## เปิดปิดวิธีชำระและค่าธรรมเนียม
 
-ตั้งค่าที่ **การขาย → ค่าธรรมเนียมชำระเงิน** (`/settings/payment-fees`) แยกต่อวิธี: QR พร้อมเพย์ (`thai_qr`), บัตรเครดิต (`credit_card`), โอนเงิน (`bank_transfer`) ค่าเริ่มต้นคือไม่เก็บ
+ตั้งค่าที่ **การขาย → วิธี/ค่าธรรมเนียมการชำระเงิน** (`/settings/payment-fees`) หน้าเดียวแสดงทุกวิธี (`PaymentMethod::customerMethods()`): QR พร้อมเพย์, บัตรเครดิต, TrueMoney, ShopeePay, Rabbit LINE Pay, WeChat Pay, โอนเงิน เก็บที่ตาราง `payment_fees` แถวละวิธี
+
+- **เปิดใช้งาน** (`payment_fees.is_active`) ลูกค้าเห็นและเลือกวิธีนี้ได้ ปิดแล้ว API ไม่แสดง และเริ่มชำระด้วยวิธีนั้นไม่ได้ (ตอบ `422` "ยังไม่เปิดใช้วิธีชำระนี้" / ส่งสลิปตอบ "ยังไม่เปิดรับชำระด้วยการโอนเงิน") รายการที่เริ่มไปแล้วยังจ่ายต่อได้
+- ค่าเริ่มต้นหลัง migrate: QR และบัตรตาม `PAYMENT_*_ENABLED` เดิม (ปกติเปิด) โอนเงินเปิด e-Wallet ปิด
+- วิธีที่เปิดแต่ระบบยังไม่พร้อม (เช่น e-Wallet ตอน `PAYMENT_CARD_DRIVER=fake`) ไม่แสดงให้ลูกค้า หน้าตั้งค่าขึ้นคำเตือน (`OnlinePayment::isAvailable()`)
+- หน้าแสดงผู้ให้บริการ โหมดทดสอบ / คีย์ทดสอบ และคำเตือนเมื่อบัญชี Omise ยังไม่เปิดช่องทาง e-Wallet นั้น
+- หน้า `/pay/{token}` ของ Laravel แสดงเฉพาะ QR พร้อมเพย์และบัตรที่เปิดอยู่
+
+ค่าธรรมเนียมตั้งแยกต่อวิธี ค่าเริ่มต้นคือไม่เก็บ
 
 | ช่อง | ความหมาย |
 |------|------|
@@ -121,7 +159,7 @@ OMISE_SECRET_KEY=
 สูตร: `ยอดออเดอร์ × เปอร์เซ็นต์ / 100 + ค่าคงที่` แล้วจำกัดด้วยขั้นต่ำ/สูงสุด ปัดเป็นทศนิยม 2 ตำแหน่ง ออเดอร์ยอด 0 บาทไม่มีค่าธรรมเนียม หน้าตั้งค่ามีช่องลองคำนวณจากยอดตัวอย่าง การบันทึกถูกเก็บใน Activity Log
 
 - ค่าธรรมเนียมเก็บที่รายการชำระ: `payments.amount` = ยอดออเดอร์ + ค่าธรรมเนียม และ `payments.fee_amount` = ค่าธรรมเนียม ยอดออเดอร์ ส่วนลด และคูปองไม่เปลี่ยน
-- คิดตอนเริ่มชำระแต่ละครั้ง (สร้าง QR, ตัดบัตร, สร้างออเดอร์/ส่งสลิปโอนเงิน) และเก็บค่าตั้งที่ใช้ไว้ใน `payments.metadata.fee` แก้ค่าตั้งภายหลังไม่กระทบรายการที่สร้างแล้ว QR ที่ยังไม่หมดอายุจะถูกสร้างใหม่ถ้ายอดที่ต้องจ่ายเปลี่ยน
+- คิดตอนเริ่มชำระแต่ละครั้ง (สร้าง QR, ตัดบัตร, เปิด e-Wallet, สร้างออเดอร์/ส่งสลิปโอนเงิน) และเก็บค่าตั้งที่ใช้ไว้ใน `payments.metadata.fee` แก้ค่าตั้งภายหลังไม่กระทบรายการที่สร้างแล้ว QR ที่ยังไม่หมดอายุจะถูกสร้างใหม่ถ้ายอดที่ต้องจ่ายเปลี่ยน
 - ยอดที่ส่งให้ KGP และ Omise คือ `payments.amount` และการตรวจยอดตอนแจ้งผลเทียบกับยอดนี้
 - หน้าชำระเงินแสดงค่าธรรมเนียมใต้แต่ละวิธี และแยกบรรทัดยอดออเดอร์ / ค่าธรรมเนียม / ยอดชำระเมื่อเลือกวิธีแล้ว
 - แอดมินบันทึกการชำระให้นักเรียนเอง (หน้านักเรียน) ไม่คิดค่าธรรมเนียม

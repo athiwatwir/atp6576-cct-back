@@ -21,6 +21,7 @@ class Video extends Model
         'hls_path',
         'duration_seconds',
         'is_free',
+        'trial_seconds',
         'status',
         'published_at',
     ];
@@ -30,8 +31,36 @@ class Video extends Model
         return [
             'duration_seconds' => 'integer',
             'is_free' => 'boolean',
+            'trial_seconds' => 'integer',
             'published_at' => 'datetime',
         ];
+    }
+
+    /**
+     * จำนวนวินาทีที่ผู้ทดลองเรียนดูได้ null = ดูได้ทั้งคลิป (ไม่ได้ตั้ง หรือตั้งไว้ไม่น้อยกว่าความยาวคลิป)
+     */
+    public function trialLimitSeconds(): ?int
+    {
+        $limit = (int) $this->trial_seconds;
+
+        if (! $this->is_free || $limit <= 0) {
+            return null;
+        }
+
+        $duration = (int) $this->duration_seconds;
+
+        return $duration > 0 && $limit >= $duration ? null : $limit;
+    }
+
+    /**
+     * ข้อความสั้นสำหรับหลังบ้าน เช่น "3 นาที 20 วินาที"
+     */
+    public static function secondsLabel(int $seconds): string
+    {
+        $minutes = intdiv($seconds, 60);
+        $rest = $seconds % 60;
+
+        return trim(($minutes > 0 ? $minutes.' นาที ' : '').($rest > 0 || $minutes === 0 ? $rest.' วินาที' : ''));
     }
 
     public function chapters(): BelongsToMany

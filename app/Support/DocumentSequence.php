@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Enums\DocumentType;
+use App\Enums\OrderKind;
 use App\Models\DocumentSequence as DocumentSequenceModel;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
@@ -44,15 +45,16 @@ class DocumentSequence
     }
 
     /**
-     * หมายเลขออเดอร์: O{ymd}{seq3} เช่น O260926001
+     * หมายเลขออเดอร์: {C|B}{ymd}{seq3} เช่น C261112001 (สมัครเรียน), B261112001 (หนังสือ)
+     * แต่ละประเภทรันเลขแยกกันและรีเซ็ตทุกวัน
      */
-    public static function nextOrder(?CarbonInterface $at = null): string
+    public static function nextOrder(OrderKind $kind, ?CarbonInterface $at = null): string
     {
         $at ??= now();
-        $ymd = $at->format('ymd');
-        $seq = self::nextNumber(DocumentType::Order, $ymd);
+        $prefix = $kind->orderPrefix().$at->format('ymd');
+        $seq = self::nextNumber(DocumentType::Order, $prefix);
 
-        return DocumentType::Order->prefix().$ymd.sprintf('%03d', $seq);
+        return $prefix.sprintf('%03d', $seq);
     }
 
     /**

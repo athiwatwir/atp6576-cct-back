@@ -30,12 +30,13 @@ class StorefrontCheckout
 
     /**
      * @param  list<array{type:string,id:int|string,quantity?:int|string|null}>  $items
-     * @return array{items:list<array<string,mixed>>,subtotal:float,discount:float,shipping:float,total:float,requires_shipping:bool,coupon:?array{code:string,description:?string}}
+     * @param  bool  $autoCoupon  ไม่ได้กรอกโค้ด ให้หาคูปองต่ออายุหรือโปรโมชันของแถมที่ใช้ได้มาใส่ให้ (`coupon.auto` เป็น true)
+     * @return array{items:list<array<string,mixed>>,subtotal:float,discount:float,shipping:float,total:float,requires_shipping:bool,coupon:?array{code:string,description:?string,gifts:list<array<string,mixed>>,auto:bool}}
      */
-    public function quote(User $student, array $items, ?string $couponCode = null): array
+    public function quote(User $student, array $items, ?string $couponCode = null, bool $autoCoupon = false): array
     {
         $lines = $this->resolveLines($items, lockBooks: false);
-        $priced = $this->price($student, $lines, $couponCode);
+        $priced = $this->price($student, $lines, $couponCode, $autoCoupon);
 
         return [
             'items' => $lines->map(fn (array $line) => $this->publicLine($line))->values()->all(),
@@ -61,11 +62,13 @@ class StorefrontCheckout
 
             $priced = $this->price($student, $lines, $couponCode);
 
+            $kind = $lines->contains(fn (array $line) => $line['product_id'] !== null)
+                ? OrderKind::Book
+                : OrderKind::Enrollment;
+
             $order = Order::query()->create([
-                'order_no' => DocumentSequence::nextOrder(),
-                'kind' => $lines->contains(fn (array $line) => $line['product_id'] !== null)
-                    ? OrderKind::Book->value
-                    : OrderKind::Enrollment->value,
+                'order_no' => DocumentSequence::nextOrder($kind),
+                'kind' => $kind->value,
                 'user_id' => $student->id,
                 'coupon_id' => $priced['coupon_id'],
                 'subtotal' => $priced['subtotal'],
@@ -130,6 +133,12 @@ class StorefrontCheckout
         if (in_array($order->payment_status, [PaymentStatus::Refunded->value], true)) {
             throw ValidationException::withMessages([
                 'order' => 'ออเดอร์นี้ไม่สามารถส่งสลิปได้',
+            ]);
+        }
+
+        if (! PaymentFees::isActive(PaymentMethod::BankTransfer)) {
+            throw ValidationException::withMessages([
+                'slip' => 'ยังไม่เปิดรับชำระด้วยการโอนเงิน กรุณาเลือกวิธีชำระอื่น',
             ]);
         }
 
@@ -347,26 +356,34 @@ class StorefrontCheckout
      * @param  Collection<int, array<string, mixed>>  $lines
      * @return array{subtotal:float,discount:float,total:float,coupon_id:?int,coupon:?array{code:string,description:?string}}
      */
-    private function price(User $student, Collection $lines, ?string $couponCode): array
+    private function price(User $student, Collection $lines, ?string $couponCode, bool $autoCoupon = false): array
     {
         $subtotal = round((float) $lines->sum('total_price'), 2);
         $discount = 0.0;
         $couponId = null;
         $coupon = null;
+        $couponLines = $lines->map(fn (array $line) => [
+            'course_id' => $line['course_id'],
+            'curriculum_id' => $line['curriculum_id'],
+            'assessment_id' => $line['assessment_id'],
+            'product_id' => $line['product_id'],
+            'total_price' => $line['total_price'],
+        ])->all();
 
-        if (filled($couponCode)) {
-            $applied = $this->coupons->quote($student, (string) $couponCode, $lines->map(fn (array $line) => [
-                'course_id' => $line['course_id'],
-                'curriculum_id' => $line['curriculum_id'],
-                'assessment_id' => $line['assessment_id'],
-                'product_id' => $line['product_id'],
-                'total_price' => $line['total_price'],
-            ])->all());
+        $applied = match (true) {
+            filled($couponCode) => $this->coupons->quote($student, (string) $couponCode, $couponLines),
+            $autoCoupon => $this->coupons->bestAutomatic($student, $couponLines),
+            default => null,
+        };
+
+        if ($applied !== null) {
             $discount = $applied['discount'];
             $couponId = $applied['coupon']->id;
             $coupon = [
                 'code' => $applied['coupon']->code,
                 'description' => $applied['coupon']->description,
+                'gifts' => $applied['gifts'],
+                'auto' => ! filled($couponCode),
             ];
         }
 

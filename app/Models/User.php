@@ -5,6 +5,8 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use App\Models\Concerns\LogsActivity;
+use App\Support\Phone;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -12,7 +14,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Crypt;
 
 class User extends Authenticatable
 {
@@ -30,11 +34,13 @@ class User extends Authenticatable
         'last_login_at',
         'email_verified_at',
         'credentials_pending_at',
+        'issued_password',
+        'issued_password_at',
     ];
 
     public function getAuditLabel(): string
     {
-        return 'ผู้ใช้ '.$this->name.' ('.$this->email.')';
+        return 'ผู้ใช้ '.$this->name.' ('.($this->email ?: $this->phone).')';
     }
 
     /**
@@ -44,10 +50,12 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name',
+        'nickname',
         'email',
         'password',
         'phone',
         'school_name',
+        'school_province',
         'address_line1',
         'subdistrict',
         'district',
@@ -68,6 +76,8 @@ class User extends Authenticatable
         'password',
         'remember_token',
         'credentials_pending_at',
+        'issued_password',
+        'issued_password_at',
     ];
 
     /**
@@ -81,18 +91,73 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'last_login_at' => 'datetime',
             'credentials_pending_at' => 'datetime',
+            'issued_password_at' => 'datetime',
             'password' => 'hashed',
         ];
     }
 
+    protected function phone(): Attribute
+    {
+        return Attribute::set(fn (?string $value) => Phone::normalize($value));
+    }
+
     protected static function booted(): void
     {
-        // บัญชีที่สร้างตอนสั่งซื้อแบบ guest จะได้รหัสผ่านทางอีเมลหลังชำระเงิน ถ้ารหัสผ่านถูกตั้งทางอื่นก่อน ห้ามทับ
         static::updating(function (User $user) {
+            // บัญชีที่สร้างตอนสั่งซื้อแบบ guest จะได้รหัสผ่านทางอีเมลหลังชำระเงิน ถ้ารหัสผ่านถูกตั้งทางอื่นก่อน ห้ามทับ
             if ($user->isDirty('password') && ! $user->isDirty('credentials_pending_at')) {
                 $user->credentials_pending_at = null;
             }
+
+            // เปลี่ยนรหัสผ่านโดยไม่ผ่าน setVisiblePassword() สำเนาเดิมจะไม่ตรง ต้องล้างทิ้ง
+            if ($user->isDirty('password') && ! $user->isDirty('issued_password')) {
+                $user->issued_password = null;
+                $user->issued_password_at = null;
+            }
         });
+    }
+
+    /**
+     * ตั้งรหัสผ่านนักเรียนพร้อมเก็บสำเนาเข้ารหัส (APP_KEY) ให้แอดมินเปิดดูได้ ยังไม่บันทึก
+     */
+    public function setVisiblePassword(string $password): static
+    {
+        return $this->forceFill([
+            'password' => $password,
+            'issued_password' => Crypt::encryptString($password),
+            'issued_password_at' => now(),
+        ]);
+    }
+
+    /**
+     * เก็บสำเนาของรหัสผ่านปัจจุบัน (ตรวจแล้วว่าถูกต้อง เช่น ตอนเข้าสู่ระบบ) โดยไม่เปลี่ยนรหัสผ่าน
+     */
+    public function rememberPasswordCopy(string $password): void
+    {
+        if ($this->issuedPassword() === $password) {
+            return;
+        }
+
+        $this->forceFill([
+            'issued_password' => Crypt::encryptString($password),
+            'issued_password_at' => now(),
+        ])->saveQuietly();
+    }
+
+    /**
+     * null เมื่อยังไม่มีสำเนา (บัญชีเดิมที่ยังไม่เข้าสู่ระบบหลังเปิดระบบนี้) หรือถอดรหัสไม่ได้เพราะ APP_KEY เปลี่ยน
+     */
+    public function issuedPassword(): ?string
+    {
+        if (blank($this->issued_password)) {
+            return null;
+        }
+
+        try {
+            return Crypt::decryptString($this->issued_password);
+        } catch (DecryptException) {
+            return null;
+        }
     }
 
     /**

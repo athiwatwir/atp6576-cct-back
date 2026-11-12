@@ -58,18 +58,21 @@ class CourseResource extends JsonResource
 
                 $stored = $request->attributes->get('video_progress');
                 $progress = $stored instanceof Collection ? $stored : collect();
+                $storedRatings = $request->attributes->get('video_ratings');
+                $ratings = $storedRatings instanceof Collection ? $storedRatings : collect();
 
                 $viewerId = auth('sanctum')->id();
 
-                return $this->chapters->map(function ($chapter) use ($purchased, $trialOpen, $progress, $viewerId) {
+                return $this->chapters->map(function ($chapter) use ($purchased, $trialOpen, $progress, $ratings, $viewerId) {
                     return [
                         'id' => $chapter->id,
                         'title' => $chapter->title,
                         'description' => $chapter->description,
-                        'videos' => $chapter->videos->map(function ($video) use ($purchased, $trialOpen, $progress, $viewerId) {
+                        'videos' => $chapter->videos->map(function ($video) use ($purchased, $trialOpen, $progress, $ratings, $viewerId) {
                             $isTrial = (bool) $video->is_free;
                             $canWatch = $purchased || ($trialOpen && $isTrial);
                             $record = $progress->get($video->id);
+                            $trialSeconds = $trialOpen ? $video->trialLimitSeconds() : null;
 
                             return [
                                 'id' => $video->id,
@@ -77,10 +80,13 @@ class CourseResource extends JsonResource
                                 'description' => $video->description,
                                 'duration_seconds' => (int) $video->duration_seconds,
                                 'is_trial' => $isTrial,
+                                'trial_seconds' => $trialSeconds,
+                                'watch_limit_seconds' => $canWatch && ! $purchased ? $trialSeconds : null,
                                 'video_url' => $canWatch ? $video->streamUrl($this->id, $viewerId ? (int) $viewerId : null) : null,
                                 'progress' => $record instanceof VideoProgress
                                     ? $record->toStudentArray()
                                     : VideoProgress::unwatchedPayload(),
+                                'my_rating' => $ratings->get($video->id)?->toStudentArray(),
                             ];
                         })->values(),
                         'documents' => $chapter->documents->map(function ($document) use ($purchased, $trialOpen) {

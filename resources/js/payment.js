@@ -54,7 +54,18 @@ function paymentPage(config) {
         card: { name: '', number: '', expiry: '', cvc: '' },
 
         init() {
-            if (this.config.omisePublicKey && window.Omise) {
+            if (this.usesCardPopup) {
+                window.OmiseCard.configure({
+                    publicKey: this.config.omisePublicKey,
+                    currency: 'THB',
+                    locale: 'th',
+                    frameLabel: this.config.merchantName,
+                    submitLabel: 'ชำระ',
+                    defaultPaymentMethod: 'credit_card',
+                    // QR ใช้ KGP และ e-Wallet ใช้ผ่านเว็บนักเรียน หน้าต่างนี้จึงรับเฉพาะบัตร
+                    otherPaymentMethods: [],
+                });
+            } else if (this.config.omisePublicKey && window.Omise) {
                 window.Omise.setPublicKey(this.config.omisePublicKey);
             }
 
@@ -73,6 +84,15 @@ function paymentPage(config) {
 
         get paid() {
             return this.state.paid;
+        },
+
+        /** บัตรจริงใช้หน้าต่าง OmiseCard ส่วนโหมดจำลองใช้ฟอร์มเดิมเพราะต้องส่ง token จำลอง */
+        get usesCardPopup() {
+            return !this.config.fakeCard && Boolean(this.config.omisePublicKey) && Boolean(window.OmiseCard);
+        },
+
+        get cardTotal() {
+            return this.quotes.credit_card?.total ?? this.orderTotal;
         },
 
         get quotes() {
@@ -254,6 +274,7 @@ function paymentPage(config) {
             });
         },
 
+        /** ฟอร์มบัตรในหน้า (โหมดจำลอง หรือกรณีโหลดหน้าต่าง OmiseCard ไม่ได้) */
         async payCard() {
             const invalid = this.cardErrors();
             if (invalid) {
@@ -265,23 +286,60 @@ function paymentPage(config) {
             this.error = '';
 
             try {
-                const token = await this.tokenize();
-                const next = await request(this.config.urls.card, { method: 'POST', body: JSON.stringify({ token }) });
-                this.state = next;
-                this.card.cvc = '';
-
-                if (next.payment?.authorize_uri) {
-                    window.location.href = next.payment.authorize_uri;
-                    return;
-                }
-
-                if (!next.paid) {
-                    this.error = next.payment?.failure_message || 'ชำระเงินไม่สำเร็จ กรุณาตรวจสอบบัตรหรือใช้บัตรอื่น';
-                }
+                await this.chargeToken(await this.tokenize());
             } catch (exception) {
                 this.error = exception.message;
             } finally {
                 this.busy = false;
+            }
+        },
+
+        /** เปิดหน้าต่างบัตรของ Omise ลูกค้ากรอกบัตรในหน้าต่างนั้น เราได้รับเฉพาะ token */
+        openCardPopup() {
+            if (this.busy) return;
+            this.error = '';
+
+            window.OmiseCard.open({
+                amount: Math.round(Number(this.cardTotal) * 100),
+                currency: 'THB',
+                frameLabel: this.config.merchantName,
+                frameDescription: `ออเดอร์ ${this.config.orderNo}`,
+                submitLabel: 'ชำระ', // OmiseCard ต่อท้ายยอดเงินให้เอง
+                defaultPaymentMethod: 'credit_card',
+                otherPaymentMethods: [],
+                onCreateTokenSuccess: (token) => this.payCardToken(token),
+            });
+        },
+
+        async payCardToken(token) {
+            if (!String(token).startsWith('tokn_')) {
+                this.error = 'หน้านี้รับชำระเฉพาะบัตรเครดิต / เดบิต';
+                return;
+            }
+
+            this.busy = true;
+
+            try {
+                await this.chargeToken(token);
+            } catch (exception) {
+                this.error = exception.message;
+            } finally {
+                this.busy = false;
+            }
+        },
+
+        async chargeToken(token) {
+            const next = await request(this.config.urls.card, { method: 'POST', body: JSON.stringify({ token }) });
+            this.state = next;
+            this.card.cvc = '';
+
+            if (next.payment?.authorize_uri) {
+                window.location.href = next.payment.authorize_uri;
+                return;
+            }
+
+            if (!next.paid) {
+                this.error = next.payment?.failure_message || 'ชำระเงินไม่สำเร็จ กรุณาตรวจสอบบัตรหรือใช้บัตรอื่น';
             }
         },
 

@@ -244,15 +244,27 @@ it('creates a course order and accepts a payment slip', function () {
         'status' => 'published',
     ]);
 
+    $this->withToken($token)->postJson('/api/v1/orders', [
+        'items' => [
+            ['type' => 'course', 'id' => $course->id],
+        ],
+    ])->assertStatus(422)->assertJsonValidationErrors(['school_name', 'province']);
+
     $order = $this->withToken($token)->postJson('/api/v1/orders', [
         'items' => [
             ['type' => 'course', 'id' => $course->id],
         ],
+        'school_name' => ' โรงเรียนสาธิต ',
+        'province' => 'เชียงใหม่',
     ])        ->assertCreated()
         ->assertJsonPath('data.kind', 'enrollment')
         ->assertJsonPath('data.total', 1200)
         ->assertJsonPath('data.payment_status', PaymentStatus::Pending->value)
         ->assertJsonPath('data.requires_shipping', false);
+
+    expect($student->refresh())
+        ->school_name->toBe('โรงเรียนสาธิต')
+        ->province->toBe('เชียงใหม่');
 
     $this->withToken($token)->post('/api/v1/orders/'.$order->json('data.id').'/payment', [
         'slip' => UploadedFile::fake()->image('slip.jpg'),
@@ -284,6 +296,8 @@ it('requires a shipping address when the cart has a book', function () {
         'items' => [
             ['type' => 'book', 'id' => $book->id, 'quantity' => 1],
         ],
+        'school_name' => 'โรงเรียนสาธิต',
+        'province' => 'เชียงใหม่',
         'shipping' => [
             'name' => 'ใหม่ ใจดี',
             'phone' => '0812345678',
@@ -302,6 +316,8 @@ it('requires a shipping address when the cart has a book', function () {
             ['type' => 'book', 'id' => $book->id, 'quantity' => 1],
             ['type' => 'course', 'id' => 1],
         ],
+        'school_name' => 'โรงเรียนสาธิต',
+        'province' => 'เชียงใหม่',
         'shipping' => [
             'name' => 'ใหม่ ใจดี',
             'phone' => '0812345678',
@@ -311,6 +327,84 @@ it('requires a shipping address when the cart has a book', function () {
             'postal_code' => '50000',
         ],
     ])->assertStatus(422)->assertJsonValidationErrors(['items']);
+});
+
+it('saves school and province from a guest order without overwriting an existing profile', function () {
+    $course = Course::query()->create([
+        'name' => 'คอร์สเคมี',
+        'slug' => 'chemistry',
+        'price' => 900,
+        'status' => 'published',
+    ]);
+    $items = [['type' => 'course', 'id' => $course->id]];
+
+    $this->postJson('/api/v1/guest/checkout/quote', ['email' => 'guest@example.com', 'items' => $items])
+        ->assertOk();
+
+    $this->postJson('/api/v1/guest/orders', ['email' => 'guest@example.com', 'items' => $items])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['school_name', 'province']);
+
+    $this->postJson('/api/v1/guest/orders', [
+        'email' => 'guest@example.com',
+        'items' => $items,
+        'school_name' => 'โรงเรียนใหม่',
+        'province' => 'ลำพูน',
+    ])->assertCreated()->assertJsonPath('data.account_created', true);
+
+    expect(User::query()->where('email', 'guest@example.com')->first())
+        ->school_name->toBe('โรงเรียนใหม่')
+        ->province->toBe('ลำพูน');
+
+    $existing = makeStudent(['email' => 'old@example.com', 'school_name' => 'โรงเรียนเดิม']);
+
+    $this->postJson('/api/v1/guest/orders', [
+        'email' => 'old@example.com',
+        'items' => $items,
+        'school_name' => 'โรงเรียนอื่น',
+        'province' => 'เชียงราย',
+    ])->assertCreated()->assertJsonPath('data.account_created', false);
+
+    expect($existing->refresh())
+        ->school_name->toBe('โรงเรียนเดิม')
+        ->province->toBe('เชียงราย');
+});
+
+it('logs in from a paid guest order only when that order created the account', function () {
+    $course = Course::query()->create([
+        'name' => 'คอร์สชีวะ',
+        'slug' => 'biology',
+        'price' => 500,
+        'status' => 'published',
+    ]);
+    $payload = fn (string $email) => [
+        'email' => $email,
+        'items' => [['type' => 'course', 'id' => $course->id]],
+        'school_name' => 'โรงเรียนใหม่',
+        'province' => 'ลำพูน',
+    ];
+
+    $newToken = $this->postJson('/api/v1/guest/orders', $payload('fresh@example.com'))->assertCreated()->json('data.guest_token');
+    makeStudent(['email' => 'owner@example.com']);
+    $existingToken = $this->postJson('/api/v1/guest/orders', $payload('owner@example.com'))->assertCreated()->json('data.guest_token');
+
+    $this->getJson("/api/v1/guest/orders/{$newToken}")->assertOk()->assertJsonPath('data.auto_login', false);
+    $this->postJson("/api/v1/guest/orders/{$newToken}/login")->assertStatus(422)->assertJsonValidationErrors(['order']);
+
+    \App\Models\Order::query()->whereIn('guest_token', [$newToken, $existingToken])
+        ->update(['payment_status' => PaymentStatus::Paid->value, 'paid_at' => now()]);
+
+    $this->getJson("/api/v1/guest/orders/{$newToken}")->assertOk()->assertJsonPath('data.auto_login', true);
+    $this->postJson("/api/v1/guest/orders/{$newToken}/login")
+        ->assertOk()
+        ->assertJsonPath('token_type', 'Bearer')
+        ->assertJsonPath('user.email', 'fresh@example.com');
+
+    $this->getJson("/api/v1/guest/orders/{$existingToken}")->assertOk()->assertJsonPath('data.auto_login', false);
+    $this->postJson("/api/v1/guest/orders/{$existingToken}/login")->assertStatus(422);
+
+    \App\Models\Order::query()->where('guest_token', $newToken)->update(['paid_at' => now()->subDays(8)]);
+    $this->postJson("/api/v1/guest/orders/{$newToken}/login")->assertStatus(422);
 });
 
 it('requires a token to read the profile', function () {

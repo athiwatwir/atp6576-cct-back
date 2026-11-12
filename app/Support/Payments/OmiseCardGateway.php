@@ -7,6 +7,7 @@ use App\Models\Payment;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 class OmiseCardGateway implements CardGateway
@@ -49,6 +50,115 @@ class OmiseCardGateway implements CardGateway
         }
 
         return $this->chargeFromPayload($data);
+    }
+
+    /**
+     * ชำระด้วย e-Wallet ผ่าน Omise Source (TrueMoney, ShopeePay, Rabbit LINE Pay, WeChat Pay)
+     * ผลคือ charge ที่รอชำระ มี authorize_uri (พาไปแอปหรือหน้าผู้ให้บริการ) หรือ QR ให้สแกน
+     *
+     * @return array{charge: GatewayCharge, qr_image: ?string, expires_at: ?string, flow: ?string}
+     */
+    public function chargeSource(Payment $payment, Order $order, string $sourceType, string $returnUri, ?string $ip = null): array
+    {
+        $params = [
+            'amount' => (int) round((float) $payment->amount * 100),
+            'currency' => 'thb',
+            'source[type]' => $sourceType,
+            'return_uri' => $returnUri,
+            'description' => 'Order '.$order->order_no,
+            'metadata[order_no]' => $order->order_no,
+            'metadata[payment_reference]' => $payment->reference,
+        ];
+
+        if (str_starts_with($sourceType, 'wechat_pay')) {
+            $params['source[ip]'] = $ip ?: '127.0.0.1';
+        }
+
+        $response = $this->send(fn (PendingRequest $http) => $http->post('/charges', $params));
+        $data = $response->json() ?? [];
+
+        if (($data['object'] ?? null) === 'error' || ! $response->successful()) {
+            throw new GatewayException(
+                (string) ($data['message'] ?? 'สร้างรายการชำระไม่สำเร็จ'),
+                isset($data['code']) ? (string) $data['code'] : null,
+                $data,
+            );
+        }
+
+        return [
+            'charge' => $this->chargeFromPayload($data),
+            'qr_image' => $this->qrImage((string) data_get($data, 'source.scannable_code.image.download_uri', '')),
+            'expires_at' => $data['expires_at'] ?? null,
+            'flow' => data_get($data, 'source.flow'),
+        ];
+    }
+
+    /**
+     * ยกเลิก charge ของ e-Wallet ที่ยังไม่จ่าย กันลูกค้าจ่ายรายการเก่าซ้ำ (ไม่สำเร็จก็ไม่เป็นไร)
+     */
+    public function expire(Payment $payment): void
+    {
+        if (blank($payment->transaction_id)) {
+            return;
+        }
+
+        try {
+            $this->send(fn (PendingRequest $http) => $http->post('/charges/'.rawurlencode((string) $payment->transaction_id).'/expire'));
+        } catch (GatewayException) {
+        }
+    }
+
+    /**
+     * ช่องทางที่บัญชี Omise เปิดใช้ (ชื่อ source type เช่น truemoney_qr) null = ถาม Omise ไม่สำเร็จ
+     *
+     * @return list<string>|null
+     */
+    public function capabilities(): ?array
+    {
+        $publicKey = $this->publicKey();
+
+        if ($publicKey === null) {
+            return null;
+        }
+
+        return Cache::remember('omise.capability.'.md5($publicKey), now()->addMinutes(10), function () use ($publicKey) {
+            try {
+                $response = Http::baseUrl(rtrim((string) config('payment.omise.base_url'), '/'))
+                    ->acceptJson()
+                    ->timeout(10)
+                    ->withBasicAuth($publicKey, '')
+                    ->get('/capability');
+            } catch (ConnectionException) {
+                return null;
+            }
+
+            if (! $response->successful()) {
+                return null;
+            }
+
+            return collect($response->json('payment_methods') ?? [])->pluck('name')->filter()->values()->all();
+        });
+    }
+
+    private function qrImage(string $uri): ?string
+    {
+        if ($uri === '') {
+            return null;
+        }
+
+        try {
+            $response = Http::timeout(15)->get($uri);
+        } catch (ConnectionException) {
+            return null;
+        }
+
+        if (! $response->successful()) {
+            return null;
+        }
+
+        $type = strtok((string) $response->header('Content-Type'), ';') ?: 'image/png';
+
+        return 'data:'.$type.';base64,'.base64_encode($response->body());
     }
 
     public function inquire(Payment $payment): GatewayCharge
@@ -104,7 +214,7 @@ class OmiseCardGateway implements CardGateway
             'stolen_or_lost_card' => 'บัตรนี้ถูกแจ้งหายหรือถูกขโมย กรุณาติดต่อธนาคาร',
             'invalid_security_code' => 'รหัส CVV ไม่ถูกต้อง',
             'invalid_account_number', 'invalid_card' => 'หมายเลขบัตรไม่ถูกต้อง',
-            'payment_rejected', 'payment_cancelled' => 'ธนาคารปฏิเสธรายการ กรุณาติดต่อธนาคารหรือใช้บัตรอื่น',
+            'payment_rejected', 'payment_cancelled' => 'รายการถูกปฏิเสธหรือยกเลิก กรุณาติดต่อธนาคาร/ผู้ให้บริการ หรือเลือกวิธีชำระอื่น',
             'failed_fraud_check' => 'รายการไม่ผ่านการตรวจสอบความปลอดภัย กรุณาใช้บัตรอื่น',
             'failed_processing' => 'ประมวลผลไม่สำเร็จ กรุณาลองใหม่',
             'authentication_failure', 'payment_expired' => 'ยืนยันตัวตนกับธนาคารไม่สำเร็จหรือหมดเวลา กรุณาลองใหม่',

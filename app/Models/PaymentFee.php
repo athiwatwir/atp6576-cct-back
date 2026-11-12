@@ -12,6 +12,7 @@ class PaymentFee extends Model
 
     protected $fillable = [
         'payment_method',
+        'is_active',
         'is_enabled',
         'percent',
         'fixed_amount',
@@ -24,6 +25,8 @@ class PaymentFee extends Model
     protected function casts(): array
     {
         return [
+            // is_active = ลูกค้าเลือกวิธีนี้ได้, is_enabled = เก็บค่าธรรมเนียม
+            'is_active' => 'boolean',
             'is_enabled' => 'boolean',
             'percent' => 'decimal:2',
             'fixed_amount' => 'decimal:2',
@@ -34,7 +37,7 @@ class PaymentFee extends Model
 
     public function getAuditLabel(): string
     {
-        return 'ค่าธรรมเนียม '.(\App\Enums\PaymentMethod::tryFrom($this->payment_method)?->label() ?? $this->payment_method);
+        return 'วิธีชำระ '.(\App\Enums\PaymentMethod::tryFrom($this->payment_method)?->label() ?? $this->payment_method);
     }
 
     public function updater(): BelongsTo

@@ -103,12 +103,13 @@ $course = $course ?? null;
             สถานะ<span class="text-error-500">*</span>
         </label>
         <select id="status" name="status" required class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-            @foreach (\App\Enums\ContentStatus::options(['draft', 'published', 'inactive']) as $value => $label)
+            @foreach (\App\Enums\ContentStatus::options(\App\Models\Course::STATUSES) as $value => $label)
             <option value="{{ $value }}" @selected(old('status', $course?->status ?? 'draft') === $value)>
                 {{ $label }}
             </option>
             @endforeach
         </select>
+        <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">TFH: ขายผ่านระบบหลังบ้านเท่านั้น ไม่แสดงและไม่ส่งข้อมูลผ่าน API ทุกกรณี</p>
         @error('status')
         <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p>
         @enderror

@@ -18,6 +18,8 @@ use App\Models\User;
 use App\Support\Audit;
 use App\Support\CouponService;
 use App\Support\DocumentSequence;
+use App\Support\Phone;
+use App\Support\StudentPurchase;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -33,7 +35,7 @@ class OrderController extends Controller
 
     public function index(Request $request): View
     {
-        $kind = $request->routeIs('enrollments.index') ? OrderKind::Enrollment : OrderKind::Book;
+        $kind = OrderKind::Book;
         $search = $request->string('search')->trim()->toString();
         $status = $request->string('status')->toString();
         $paymentStatus = $request->string('payment_status')->toString();
@@ -165,7 +167,7 @@ class OrderController extends Controller
                 : PaymentStatus::AwaitingVerification;
 
             $order = Order::query()->create([
-                'order_no' => $this->generateOrderNo(),
+                'order_no' => DocumentSequence::nextOrder(OrderKind::Book),
                 'kind' => OrderKind::Book->value,
                 'user_id' => $user->id,
                 'coupon_id' => $couponId,
@@ -216,8 +218,12 @@ class OrderController extends Controller
             ->with('success', 'สร้างออเดอร์เรียบร้อยแล้ว');
     }
 
-    public function show(Order $order): View
+    public function show(Order $order): View|RedirectResponse
     {
+        if (! $order->isBook()) {
+            return redirect()->route('enrollments.show', $order);
+        }
+
         $order->load(['user', 'items.product', 'payments', 'latestPayment', 'coupon', 'receipt']);
 
         return view('pages.orders.show', [
@@ -231,8 +237,14 @@ class OrderController extends Controller
         ]);
     }
 
-    public function edit(Order $order): View
+    public function edit(Request $request, Order $order): View|RedirectResponse
     {
+        $expectedRoute = $order->isBook() ? 'orders.edit' : 'enrollments.edit';
+
+        if (! $request->routeIs($expectedRoute)) {
+            return redirect()->route($expectedRoute, $order);
+        }
+
         $order->load(['user', 'items.product', 'latestPayment']);
 
         return view('pages.orders.edit', [
@@ -333,10 +345,15 @@ class OrderController extends Controller
                     ],
                 ]);
             }
+
+            // ออเดอร์หนังสือที่สร้างในหลังบ้านบันทึกการใช้คูปองตอนสร้าง ของแถมให้เมื่อแอดมินตั้งเป็นชำระแล้ว
+            if ($paymentStatus === PaymentStatus::Paid && $order->isBook() && $order->user) {
+                app(StudentPurchase::class)->grantCouponGifts($order->user, $order);
+            }
         });
 
         return redirect()
-            ->route('orders.show', $order)
+            ->to($order->adminUrl())
             ->with('success', 'บันทึกออเดอร์เรียบร้อยแล้ว');
     }
 
@@ -344,7 +361,7 @@ class OrderController extends Controller
     {
         if ($order->payment_status === PaymentStatus::Paid->value) {
             return redirect()
-                ->route('orders.show', $order)
+                ->to($order->adminUrl())
                 ->with('error', 'ไม่สามารถลบออเดอร์ที่ชำระเงินแล้วได้');
         }
 
@@ -368,9 +385,7 @@ class OrderController extends Controller
         $email = filled($data['customer_email'] ?? null)
             ? Str::lower(trim((string) $data['customer_email']))
             : null;
-        $phone = filled($data['customer_phone'] ?? null)
-            ? trim((string) $data['customer_phone'])
-            : null;
+        $phone = Phone::normalize($data['customer_phone'] ?? null);
 
         $user = null;
 
@@ -421,6 +436,68 @@ class OrderController extends Controller
         }
 
         return $user->fresh();
+    }
+
+    /**
+     * แก้ข้อมูลบัญชีลูกค้าและที่อยู่จัดส่งจากหน้ารายละเอียดออเดอร์หนังสือ
+     * บัญชีผู้ใช้งานหลังบ้านแก้จากที่นี่ไม่ได้ แก้ได้เฉพาะที่อยู่จัดส่งของออเดอร์
+     */
+    public function updateCustomer(Request $request, Order $order): RedirectResponse
+    {
+        abort_unless($order->isBook(), 404);
+
+        $user = $order->user;
+        $editAccount = $user !== null && ! $user->canAccessBackend();
+
+        $data = $request->validate([
+            'customer_name' => [Rule::requiredIf($editAccount), 'nullable', 'string', 'max:150'],
+            'customer_email' => ['nullable', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user?->id)],
+            'customer_phone' => ['nullable', 'string', 'max:30'],
+            'shipping_name' => ['required', 'string', 'max:150'],
+            'shipping_phone' => ['required', 'string', 'max:30'],
+            'shipping_address_line1' => ['required', 'string', 'max:255'],
+            'shipping_subdistrict' => ['nullable', 'string', 'max:100'],
+            'shipping_district' => ['required', 'string', 'max:100'],
+            'shipping_province' => ['required', 'string', 'max:100'],
+            'shipping_postal_code' => ['required', 'string', 'max:20'],
+        ], [], [
+            'customer_name' => 'ชื่อลูกค้า',
+            'customer_email' => 'อีเมลลูกค้า',
+            'customer_phone' => 'เบอร์โทรลูกค้า',
+            'shipping_name' => 'ชื่อผู้รับ',
+            'shipping_phone' => 'เบอร์โทรผู้รับ',
+            'shipping_address_line1' => 'ที่อยู่',
+            'shipping_subdistrict' => 'ตำบล/แขวง',
+            'shipping_district' => 'อำเภอ/เขต',
+            'shipping_province' => 'จังหวัด',
+            'shipping_postal_code' => 'รหัสไปรษณีย์',
+        ]);
+
+        DB::transaction(function () use ($data, $order, $user, $editAccount) {
+            if ($editAccount) {
+                $email = filled($data['customer_email'] ?? null) ? Str::lower(trim($data['customer_email'])) : null;
+
+                $user->update([
+                    'name' => trim($data['customer_name']),
+                    'email' => $email ?? $user->email,
+                    'phone' => filled($data['customer_phone'] ?? null) ? trim($data['customer_phone']) : null,
+                ]);
+            }
+
+            $order->update([
+                'shipping_name' => trim($data['shipping_name']),
+                'shipping_phone' => trim($data['shipping_phone']),
+                'shipping_address_line1' => trim($data['shipping_address_line1']),
+                'shipping_subdistrict' => $data['shipping_subdistrict'] ?? null,
+                'shipping_district' => $data['shipping_district'],
+                'shipping_province' => $data['shipping_province'],
+                'shipping_postal_code' => $data['shipping_postal_code'],
+            ]);
+        });
+
+        return redirect()
+            ->route('orders.show', $order)
+            ->with('success', 'บันทึกข้อมูลลูกค้าและที่อยู่จัดส่งเรียบร้อยแล้ว');
     }
 
     public function updateShippingStatus(Request $request, Order $order): RedirectResponse
@@ -580,8 +657,4 @@ class OrderController extends Controller
             ->get(['id', 'name', 'price', 'sale_price', 'stock', 'status', 'thumbnail']);
     }
 
-    private function generateOrderNo(): string
-    {
-        return DocumentSequence::nextOrder();
-    }
 }

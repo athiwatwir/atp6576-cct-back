@@ -9,9 +9,6 @@ use App\Models\Receipt;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\URL;
-use Mpdf\Config\ConfigVariables;
-use Mpdf\Config\FontVariables;
-use Mpdf\Mpdf;
 
 /**
  * ใบเสร็จรับเงิน: ออกครั้งเดียวต่อออเดอร์ตอนชำระสำเร็จ เก็บสำเนาข้อมูล ณ วันชำระ แล้วสร้าง PDF จากสำเนานั้น
@@ -24,6 +21,11 @@ class Receipts
     public function issue(Order $order): ?Receipt
     {
         if ($order->payment_status !== PaymentStatus::Paid->value) {
+            return null;
+        }
+
+        // ออเดอร์หนังสือแถมจากคูปองไม่มีการชำระเงิน จึงไม่ออกใบเสร็จ
+        if ($order->gift_for_order_id !== null) {
             return null;
         }
 
@@ -100,34 +102,11 @@ class Receipts
 
     public function pdf(Receipt $receipt): string
     {
-        $tempDir = storage_path('app/mpdf');
-
-        if (! is_dir($tempDir)) {
-            mkdir($tempDir, 0775, true);
-        }
-
-        $config = (new ConfigVariables)->getDefaults();
-        $fonts = (new FontVariables)->getDefaults();
-
-        $mpdf = new Mpdf([
-            'mode' => 'utf-8',
-            'format' => 'A4',
-            // Noto Sans Thai จาก Google Fonts ที่ตัด MarkGlyphSets ออกแล้ว (mPDF ไม่รองรับ) ดู resources/fonts/README.md
-            'fontDir' => [...$config['fontDir'], resource_path('fonts')],
-            'fontdata' => $fonts['fontdata'] + [
-                'notosansthai' => [
-                    'R' => 'NotoSansThai-Regular.ttf',
-                    'B' => 'NotoSansThai-Bold.ttf',
-                    'useOTL' => 0xFF,
-                ],
-            ],
-            'default_font' => 'notosansthai',
-            'default_font_size' => 11,
+        $mpdf = ThaiPdf::make([
             'margin_left' => 14,
             'margin_right' => 14,
             'margin_top' => 14,
             'margin_bottom' => 16,
-            'tempDir' => $tempDir,
         ]);
 
         $mpdf->SetTitle('ใบเสร็จรับเงิน '.$receipt->receipt_no);
@@ -201,19 +180,11 @@ class Receipts
             return null;
         }
 
-        $start = $this->thaiShortDate(Carbon::parse($access['starts_at']));
+        $start = AccessPeriod::shortDate(Carbon::parse($access['starts_at']));
 
         return empty($access['expires_at'])
             ? 'เริ่มเรียนได้ '.$start.' ไม่มีวันหมดอายุ'
-            : 'เริ่มเรียนได้ '.$start.' ถึง '.$this->thaiShortDate(Carbon::parse($access['expires_at']));
-    }
-
-    private function thaiShortDate(\DateTimeInterface $date): string
-    {
-        $months = ['', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
-        $local = Carbon::instance($date)->timezone((string) config('receipt.timezone', 'Asia/Bangkok'));
-
-        return $local->day.' '.$months[$local->month].' '.($local->year + 543);
+            : 'เริ่มเรียนได้ '.$start.' ถึง '.AccessPeriod::shortDate(Carbon::parse($access['expires_at']));
     }
 
     private function address(Order $order): ?string

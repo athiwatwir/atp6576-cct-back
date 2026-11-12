@@ -195,7 +195,7 @@
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M10 8.5v7l6-3.5-6-3.5z" />
                                             </svg>
-                                            เปิดทดลองเรียน
+                                            เปิดทดลองเรียน{{ $video->trialLimitSeconds() ? ' · '.\App\Models\Video::secondsLabel($video->trialLimitSeconds()) : ' · ทั้งคลิป' }}
                                         </span>
                                         @endif
                                         @if ($video->storage_key)
@@ -313,7 +313,8 @@
                                     <label class="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">ความยาว (วินาที)</label>
                                     <input type="number" name="duration_seconds" min="0" value="{{ $video->duration_seconds }}" class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm shadow-theme-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                                 </div>
-                                <label x-data="{ trialOpen: {{ $video->is_free ? 'true' : 'false' }} }" class="flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-3" :class="trialOpen ? 'border-brand-200 bg-brand-50 dark:border-brand-500/30 dark:bg-brand-500/10' : 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-white/5'">
+                                <div x-data="{ trialOpen: {{ $video->is_free ? 'true' : 'false' }} }" class="space-y-2">
+                                <label class="flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-3" :class="trialOpen ? 'border-brand-200 bg-brand-50 dark:border-brand-500/30 dark:bg-brand-500/10' : 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-white/5'">
                                     <input type="checkbox" name="is_free" value="1" class="sr-only" x-model="trialOpen" @checked($video->is_free) />
                                     <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" :class="trialOpen ? 'bg-brand-500 text-white' : 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500'">
                                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
@@ -327,6 +328,21 @@
                                         <span class="mt-0.5 block text-xs leading-5" :class="trialOpen ? 'text-brand-700/80 dark:text-brand-300/80' : 'text-gray-500 dark:text-gray-400'" x-text="trialOpen ? 'ผู้เรียนดูวิดีโอนี้ได้ก่อนซื้อวิชา' : 'ต้องลงทะเบียนวิชาก่อนจึงจะดูวิดีโอนี้ได้'"></span>
                                     </span>
                                 </label>
+                                <div x-show="trialOpen" x-cloak class="rounded-xl border border-brand-200 px-3 py-3 dark:border-brand-500/30">
+                                    <label class="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">ทดลองเรียนได้ (นาที)</label>
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <input type="number" name="trial_minutes" min="0.5" max="1440" step="0.5" placeholder="ทั้งคลิป" :disabled="!trialOpen"
+                                            value="{{ \App\Support\CourseVideoUpload::trialMinutesValue($video->trial_seconds) }}"
+                                            class="dark:bg-dark-900 h-10 w-32 rounded-lg border border-gray-300 bg-transparent px-3 text-sm shadow-theme-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                                        <span class="text-xs text-gray-500 dark:text-gray-400">นาที</span>
+                                        @if ($video->duration_seconds > 0)
+                                        <span class="text-xs text-gray-400">จากความยาว {{ \App\Models\Video::secondsLabel((int) $video->duration_seconds) }}</span>
+                                        @endif
+                                    </div>
+                                    <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">เว้นว่าง = ดูได้ทั้งคลิป ใส่ทศนิยมได้ เช่น 1.5 = 1 นาที 30 วินาที ถ้าตั้งไว้ยาวกว่าคลิป ระบบถือว่าดูได้ทั้งคลิป ผู้ที่ซื้อวิชาแล้วดูได้เต็มเสมอ</p>
+                                    @error('trial_minutes')<p class="mt-1 text-xs text-error-500">{{ $message }}</p>@enderror
+                                </div>
+                                </div>
                                 <div x-show="uploadingVideo" x-cloak class="space-y-2 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-white/[0.03]">
                                     <div class="flex items-center justify-between text-xs text-gray-600 dark:text-gray-300">
                                         <span x-text="uploadStage === 'saving' ? 'กำลังบันทึก...' : 'กำลังอัปโหลดไฟล์ขึ้น R2...'"></span>

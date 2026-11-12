@@ -26,7 +26,9 @@
             <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
                 <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">ยืนยันการชำระเงิน</h3>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    @if ($hasPaidOrder)
+                    @if (! $student->email)
+                        นักเรียนไม่มีอีเมล ระบบจะไม่ส่งอีเมล{{ $hasPaidOrder ? '' : ' หลังชำระเงินให้กด "ดูรหัสผ่าน" ในหน้านักเรียนแล้วแจ้งเบอร์โทรและรหัสผ่านให้นักเรียน' }}
+                    @elseif ($hasPaidOrder)
                         ส่งอีเมลผลการซื้อให้ {{ $student->email }} โดยไม่แนบข้อมูลเข้าระบบ
                     @else
                         ส่งอีเมลผลการซื้อและข้อมูลสำหรับเข้าระบบให้ {{ $student->email }}

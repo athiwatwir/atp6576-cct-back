@@ -27,15 +27,16 @@ class VideoStreamController extends Controller
     {
         $this->assertPlayerRequest($request);
 
+        $userId = (int) $request->query('u') ?: null;
+
         $course = Course::query()
-            ->where('status', 'published')
+            ->learnableBy($userId)
             ->find((int) $request->query('c'));
 
         if (! $course || ! VideoAccess::belongsToCourse($course, $video)) {
             abort(404);
         }
 
-        $userId = (int) $request->query('u') ?: null;
         if (! VideoAccess::canWatch($userId, $course, $video)) {
             abort(403);
         }

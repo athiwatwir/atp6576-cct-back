@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\LogsActivity;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -13,6 +14,14 @@ class Course extends Model
 {
     use LogsActivity;
     use SoftDeletes;
+
+    public const STATUS_TFH = 'tfh';
+
+    /** สถานะที่เลือกได้ในหลังบ้าน */
+    public const STATUSES = ['draft', 'published', self::STATUS_TFH, 'inactive'];
+
+    /** สถานะที่แอดมินขายให้นักเรียนได้ */
+    public const ADMIN_SALE_STATUSES = ['published', self::STATUS_TFH];
 
     public array $auditExclude = [
         'updated_at',
@@ -111,6 +120,25 @@ class Course extends Model
     public function enrollments(): HasMany
     {
         return $this->hasMany(Enrollment::class);
+    }
+
+    /**
+     * วิชาที่เปิดเรียนผ่าน API ได้: published หรือ tfh ที่ผู้ใช้คนนี้มีสิทธิ์เรียนอยู่ (tfh ขายเฉพาะในหลังบ้าน แต่คนที่ได้สิทธิ์ต้องเข้าเรียนได้)
+     */
+    public function scopeLearnableBy(Builder $query, ?int $userId): Builder
+    {
+        return $query->where(function (Builder $query) use ($userId) {
+            $query->where('status', 'published');
+
+            if ($userId) {
+                $query->orWhere(fn (Builder $tfh) => $tfh
+                    ->where('status', self::STATUS_TFH)
+                    ->whereHas('enrollments', fn (Builder $enrollment) => $enrollment
+                        ->where('user_id', $userId)
+                        ->where('status', 'active')
+                        ->where(fn (Builder $active) => $active->whereNull('expires_at')->orWhere('expires_at', '>', now()))));
+            }
+        });
     }
 
     public function learningProgress(): HasMany

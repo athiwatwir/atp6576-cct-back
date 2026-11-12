@@ -62,6 +62,13 @@ $otherCarrierValue = \App\Enums\ShippingCarrier::Other->value;
             แก้ไข
         </a>
         @if ($order->isBook())
+        @if ($order->requires_shipping)
+        <a href="{{ route('orders.shipping-label', $order) }}" target="_blank" rel="noopener" data-no-loading title="ใบปะหน้ากล่องพัสดุขนาด A6"
+            class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-800 bg-gray-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-800 dark:border-white/20 dark:bg-white/10 dark:hover:bg-white/20">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/></svg>
+            ปริ้นใบปะหน้า
+        </a>
+        @endif
         <button type="button" data-no-loading @click="$dispatch('open-shipping-status-modal')"
             class="inline-flex items-center justify-center rounded-lg border border-warning-300 bg-warning-50 px-4 py-2.5 text-sm font-medium text-warning-700 hover:bg-warning-100 dark:border-warning-500/40 dark:bg-warning-500/10 dark:text-warning-400">
             อัปเดตสถานะจัดส่ง
@@ -116,7 +123,16 @@ $otherCarrierValue = \App\Enums\ShippingCarrier::Other->value;
         </div>
 
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-            <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ $order->isBook() ? 'ข้อมูลลูกค้าและที่อยู่จัดส่ง' : 'ข้อมูลนักเรียน' }}</h3>
+            <div class="flex items-start justify-between gap-3">
+                <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ $order->isBook() ? 'ข้อมูลลูกค้าและที่อยู่จัดส่ง' : 'ข้อมูลนักเรียน' }}</h3>
+                @if ($order->isBook())
+                <button type="button" data-no-loading @click="$dispatch('open-customer-modal')"
+                    class="inline-flex items-center gap-1.5 rounded-lg border border-warning-300 bg-warning-50 px-3 py-2 text-xs font-medium text-warning-700 hover:bg-warning-100 dark:border-warning-500/40 dark:bg-warning-500/10 dark:text-warning-400">
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                    แก้ไข
+                </button>
+                @endif
+            </div>
             <div class="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
                 <div class="space-y-2 text-gray-600 dark:text-gray-400">
                     <div class="text-xs font-medium uppercase tracking-wide text-gray-400">บัญชีลูกค้า</div>
@@ -142,117 +158,7 @@ $otherCarrierValue = \App\Enums\ShippingCarrier::Other->value;
     </div>
 
     <div class="space-y-6 xl:col-span-4">
-        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-            <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">การชำระเงิน</h3>
-            <div class="mt-4 space-y-3 text-sm">
-                <div class="flex justify-between">
-                    <span class="text-gray-500">วิธีชำระ</span>
-                    <span class="font-medium text-gray-800 dark:text-white/90">
-                        {{ \App\Enums\PaymentMethod::tryFrom($latestPayment?->payment_method ?? '')?->label() ?? '-' }}
-                    </span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-gray-500">สถานะ</span>
-                    <x-common.status-badge :status="\App\Enums\PaymentStatus::tryFrom($order->payment_status)" />
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-gray-500">ชำระเมื่อ</span>
-                    <span>{{ $order->paid_at?->format('d/m/Y H:i') ?? '-' }}</span>
-                </div>
-                @if ($order->payment_status === 'paid')
-                    <div class="flex items-center justify-between gap-3">
-                        <span class="shrink-0 text-gray-500">ใบเสร็จ</span>
-                        <span class="flex items-center gap-2">
-                            @if ($order->receipt)
-                                <span class="font-mono text-xs">{{ $order->receipt->receipt_no }}</span>
-                            @endif
-                            <a href="{{ route('orders.receipt', [$order, 'inline' => 1]) }}" target="_blank" rel="noopener" data-no-loading class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">เปิด</a>
-                            <a href="{{ route('orders.receipt', $order) }}" data-no-loading class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">ดาวน์โหลด PDF</a>
-                        </span>
-                    </div>
-                @endif
-                @if ((float) ($latestPayment?->fee_amount ?? 0) > 0)
-                    <div class="flex justify-between gap-3">
-                        <span class="shrink-0 text-gray-500">ค่าธรรมเนียม</span>
-                        <span>฿{{ number_format((float) $latestPayment->fee_amount, 2) }}</span>
-                    </div>
-                    <div class="flex justify-between gap-3">
-                        <span class="shrink-0 text-gray-500">ยอดที่ลูกค้าจ่าย</span>
-                        <span class="font-medium text-gray-800 dark:text-white/90">฿{{ number_format((float) $latestPayment->amount, 2) }}</span>
-                    </div>
-                @endif
-                @if ($latestPayment?->isGateway())
-                    <div class="flex justify-between gap-3">
-                        <span class="shrink-0 text-gray-500">ผู้ให้บริการ</span>
-                        <span class="text-right font-medium text-gray-800 dark:text-white/90">
-                            {{ match ($latestPayment->provider) { 'kgp' => 'KGP (Thai QR)', 'omise' => 'Omise (บัตร)', default => 'โหมดทดสอบ' } }}
-                        </span>
-                    </div>
-                    <div class="flex justify-between gap-3">
-                        <span class="shrink-0 text-gray-500">เลขอ้างอิง</span>
-                        <span class="text-right font-mono text-xs text-gray-800 dark:text-white/90">{{ $latestPayment->reference ?? '-' }}</span>
-                    </div>
-                    @if ($latestPayment->transaction_id)
-                        <div class="flex justify-between gap-3">
-                            <span class="shrink-0 text-gray-500">รหัสรายการ</span>
-                            <span class="break-all text-right font-mono text-xs text-gray-800 dark:text-white/90">{{ $latestPayment->metadata['charge_id'] ?? $latestPayment->transaction_id }}</span>
-                        </div>
-                    @endif
-                    @if ($latestPayment->expires_at && $latestPayment->status === 'pending')
-                        <div class="flex justify-between gap-3">
-                            <span class="shrink-0 text-gray-500">QR หมดอายุ</span>
-                            <span>{{ $latestPayment->expires_at->format('d/m/Y H:i') }}</span>
-                        </div>
-                    @endif
-                    @if ($latestPayment->failure_message && $latestPayment->status === 'failed')
-                        <div class="rounded-lg bg-error-50 px-3 py-2 text-xs text-error-600 dark:bg-error-500/10 dark:text-error-400">
-                            {{ $latestPayment->failure_message }}@if ($latestPayment->failure_code) ({{ $latestPayment->failure_code }})@endif
-                        </div>
-                    @endif
-                    @if ($latestPayment->status === 'pending')
-                        <div class="flex flex-wrap gap-2 pt-1">
-                            <form method="POST" action="{{ route('orders.payments.refresh', [$order, $latestPayment]) }}">
-                                @csrf
-                                <button type="submit" class="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">ตรวจสถานะกับผู้ให้บริการ</button>
-                            </form>
-                            @if ($latestPayment->provider === 'fake')
-                                <form method="POST" action="{{ route('orders.payments.simulate', [$order, $latestPayment]) }}">
-                                    @csrf
-                                    <input type="hidden" name="state" value="paid" />
-                                    <button type="submit" class="rounded-lg bg-success-600 px-3 py-2 text-xs font-medium text-white">จำลองชำระสำเร็จ</button>
-                                </form>
-                            @endif
-                        </div>
-                    @endif
-                @endif
-            </div>
-
-            @if (! in_array($order->payment_status, ['paid', 'refunded'], true) && (float) $order->total_amount > 0 && $order->status !== 'cancelled')
-                <div class="mt-4 border-t border-gray-100 pt-4 dark:border-gray-800">
-                    @if (session('payment_link'))
-                        <div x-data="{ copied: false }" class="space-y-2">
-                            <p class="text-xs text-gray-500">ลิงก์ชำระเงิน (QR พร้อมเพย์ / บัตร)</p>
-                            <input type="text" readonly value="{{ session('payment_link') }}" x-ref="link" @focus="$el.select()"
-                                class="h-10 w-full rounded-lg border border-gray-300 bg-gray-50 px-3 font-mono text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" />
-                            <div class="flex gap-2">
-                                <button type="button" data-no-loading @click="navigator.clipboard.writeText($refs.link.value); copied = true; setTimeout(() => copied = false, 2000)"
-                                    class="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">
-                                    <span x-text="copied ? 'คัดลอกแล้ว' : 'คัดลอกลิงก์'"></span>
-                                </button>
-                                <a href="{{ session('payment_link') }}" target="_blank" rel="noopener" class="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">เปิดหน้าชำระ</a>
-                            </div>
-                        </div>
-                    @else
-                        <form method="POST" action="{{ route('orders.payment-link', $order) }}">
-                            @csrf
-                            <button type="submit" class="inline-flex w-full items-center justify-center rounded-lg border border-brand-300 bg-brand-50 px-4 py-2.5 text-sm font-medium text-brand-700 dark:border-brand-500/40 dark:bg-brand-500/10 dark:text-brand-400">
-                                สร้างลิงก์ชำระเงินออนไลน์
-                            </button>
-                        </form>
-                    @endif
-                </div>
-            @endif
-        </div>
+        @include('pages.orders.partials.payment-card')
 
         @if ($order->isBook())
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
@@ -435,5 +341,139 @@ $otherCarrierValue = \App\Enums\ShippingCarrier::Other->value;
         </form>
     </div>
 </div>
+
+{{-- Modal: แก้ไขข้อมูลลูกค้าและที่อยู่จัดส่ง --}}
+@php
+    $customerFields = ['customer_name', 'customer_email', 'customer_phone', 'shipping_name', 'shipping_phone', 'shipping_address_line1', 'shipping_subdistrict', 'shipping_district', 'shipping_province', 'shipping_postal_code'];
+    $customerEditable = $order->user && ! $order->user->canAccessBackend();
+    $customerInput = 'dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90';
+@endphp
+<div
+    x-data="{
+        open: @js($errors->hasAny($customerFields)),
+        copyCustomer() {
+            const form = this.$refs.customerForm;
+            const name = form.querySelector('[name=customer_name]')?.value ?? @js($order->user?->name ?? '');
+            const phone = form.querySelector('[name=customer_phone]')?.value ?? @js($order->user?->phone ?? '');
+            if (name) form.querySelector('[name=shipping_name]').value = name;
+            if (phone) form.querySelector('[name=shipping_phone]').value = phone;
+        },
+    }"
+    x-show="open"
+    x-cloak
+    @open-customer-modal.window="open = true"
+    @keydown.escape.window="open = false"
+    class="modal fixed inset-0 z-99999 flex items-start justify-center overflow-y-auto p-5 sm:items-center"
+    data-modal
+    style="display: none;"
+>
+    <div class="fixed inset-0 h-full w-full bg-gray-900/40" @click="open = false"></div>
+    <div @click.stop class="relative my-8 w-full max-w-2xl rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">แก้ไขข้อมูลลูกค้าและที่อยู่จัดส่ง</h3>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">ออเดอร์ {{ $order->order_no }}</p>
+
+        <form method="POST" action="{{ route('orders.customer', $order) }}" x-ref="customerForm" class="mt-5 space-y-6">
+            @csrf
+            @method('PUT')
+
+            <section>
+                <h4 class="mb-3 text-sm font-semibold text-gray-800 dark:text-white/90">บัญชีลูกค้า</h4>
+                @if ($customerEditable)
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div>
+                        <label for="customer_name" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">ชื่อ<span class="text-error-500">*</span></label>
+                        <input type="text" id="customer_name" name="customer_name" required maxlength="150"
+                            value="{{ old('customer_name', $order->user->name) }}" class="{{ $customerInput }}" />
+                        @error('customer_name')
+                            <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label for="customer_email" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">อีเมล</label>
+                        <input type="email" id="customer_email" name="customer_email" maxlength="255"
+                            value="{{ old('customer_email', $order->user->email) }}" class="{{ $customerInput }}" />
+                        @error('customer_email')
+                            <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label for="customer_phone" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">เบอร์โทร</label>
+                        <input type="text" id="customer_phone" name="customer_phone" maxlength="30"
+                            value="{{ old('customer_phone', $order->user->phone) }}" class="{{ $customerInput }}" />
+                        @error('customer_phone')
+                            <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p>
+                        @enderror
+                    </div>
+                </div>
+                <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">แก้ที่นี่จะเปลี่ยนข้อมูลบัญชีของลูกค้าด้วย อีเมลใช้เข้าสู่ระบบเว็บนักเรียน</p>
+                @else
+                <div class="rounded-xl bg-gray-50 px-4 py-3 text-sm dark:bg-white/[0.03]">
+                    <div class="font-medium text-gray-800 dark:text-white/90">{{ $order->user?->name ?? '-' }}</div>
+                    <div class="mt-1 text-gray-500">{{ $order->user?->email }}{{ $order->user?->phone ? ' · '.$order->user->phone : '' }}</div>
+                    @if ($order->user)
+                    <p class="mt-2 text-xs text-gray-400">บัญชีผู้ใช้งานหลังบ้าน แก้จากหน้าผู้ใช้งานระบบ</p>
+                    @endif
+                </div>
+                @endif
+            </section>
+
+            <section>
+                <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <h4 class="text-sm font-semibold text-gray-800 dark:text-white/90">ที่อยู่จัดส่ง</h4>
+                    @if ($order->user)
+                    <button type="button" data-no-loading @click="copyCustomer()" class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">
+                        ใช้ชื่อและเบอร์ลูกค้าเป็นผู้รับ
+                    </button>
+                    @endif
+                </div>
+                <div class="space-y-4">
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <label for="customer_shipping_name" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">ชื่อผู้รับ<span class="text-error-500">*</span></label>
+                            <input type="text" id="customer_shipping_name" name="shipping_name" required maxlength="150"
+                                value="{{ old('shipping_name', $order->shipping_name) }}" class="{{ $customerInput }}" />
+                            @error('shipping_name')
+                                <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p>
+                            @enderror
+                        </div>
+                        <div>
+                            <label for="customer_shipping_phone" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">เบอร์โทรผู้รับ<span class="text-error-500">*</span></label>
+                            <input type="text" id="customer_shipping_phone" name="shipping_phone" required maxlength="30"
+                                value="{{ old('shipping_phone', $order->shipping_phone) }}" class="{{ $customerInput }}" />
+                            @error('shipping_phone')
+                                <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p>
+                            @enderror
+                        </div>
+                    </div>
+
+                    <x-common.thai-address
+                        :address-line1="$order->shipping_address_line1"
+                        :subdistrict="$order->shipping_subdistrict"
+                        :district="$order->shipping_district"
+                        :province="$order->shipping_province"
+                        :postal-code="$order->shipping_postal_code"
+                    />
+                </div>
+            </section>
+
+            <div class="flex flex-col-reverse gap-2 border-t border-gray-100 pt-5 sm:flex-row sm:justify-end dark:border-gray-800">
+                <button type="button" data-no-loading @click="open = false"
+                    class="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                    ยกเลิก
+                </button>
+                <button type="submit"
+                    class="bg-brand-500 hover:bg-brand-600 inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium text-white shadow-theme-xs">
+                    บันทึกข้อมูล
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 @endif
 @endsection
+
+@if ($order->isBook())
+@push('scripts')
+    @include('partials.thai-address-scripts')
+@endpush
+@endif

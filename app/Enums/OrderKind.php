@@ -14,4 +14,13 @@ enum OrderKind: string
             self::Enrollment => 'สมัครเรียน',
         };
     }
+
+    /** ตัวขึ้นต้นเลขออเดอร์ (DocumentSequence::nextOrder) */
+    public function orderPrefix(): string
+    {
+        return match ($this) {
+            self::Book => 'B',
+            self::Enrollment => 'C',
+        };
+    }
 }

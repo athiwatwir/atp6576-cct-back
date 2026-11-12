@@ -8,8 +8,10 @@ class GuestOrderRequest extends StorefrontOrderRequest
     {
         parent::prepareForValidation();
 
+        $email = strtolower(trim((string) $this->input('email', '')));
+
         $this->merge([
-            'email' => strtolower(trim((string) $this->input('email', ''))),
+            'email' => $email === '' ? null : $email,
         ]);
     }
 
@@ -20,7 +22,7 @@ class GuestOrderRequest extends StorefrontOrderRequest
     {
         return [
             ...parent::rules(),
-            'email' => ['required', 'string', 'email:rfc', 'max:255'],
+            'email' => [$this->isQuote() ? 'nullable' : 'required', 'string', 'email:rfc', 'max:255'],
             'name' => ['nullable', 'string', 'max:150'],
             'phone' => ['nullable', 'string', 'max:30'],
         ];

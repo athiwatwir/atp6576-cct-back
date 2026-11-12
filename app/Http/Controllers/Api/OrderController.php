@@ -29,6 +29,7 @@ class OrderController extends Controller
                 $request->user(),
                 $data['items'],
                 $data['coupon_code'] ?? null,
+                (bool) ($data['auto_coupon'] ?? false),
             ),
         ]);
     }
@@ -40,8 +41,14 @@ class OrderController extends Controller
         ])['kind'] ?? '');
 
         $orders = Order::query()
-            ->with(['items', 'latestPayment.slips', 'receipt'])
+            ->with([
+                'items' => fn ($query) => $query->with(OrderResource::ITEM_SOURCES),
+                'latestPayment.slips',
+                'receipt',
+                ...OrderResource::COUPON_RELATIONS,
+            ])
             ->where('user_id', $request->user()->id)
+            ->visibleInStudentApi()
             ->when($kind !== '', fn ($query) => $query->where('kind', $kind))
             ->latest('id')
             ->paginate(min(50, max(1, (int) $request->integer('per_page', 12))))
@@ -61,6 +68,11 @@ class OrderController extends Controller
             $data['notes'] ?? null,
             $data['shipping'] ?? [],
         );
+
+        $request->user()->forceFill([
+            'school_name' => $data['school_name'],
+            'school_province' => $data['province'],
+        ])->save();
 
         return OrderResource::make($order)
             ->response()
@@ -99,7 +111,7 @@ class OrderController extends Controller
 
     private function owned(Request $request, Order $order): void
     {
-        if ((int) $order->user_id !== (int) $request->user()->id) {
+        if ((int) $order->user_id !== (int) $request->user()->id || $order->isHiddenFromStudentApi()) {
             abort(404, 'ไม่พบออเดอร์นี้');
         }
     }

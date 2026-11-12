@@ -10,6 +10,7 @@ use App\Http\Resources\Student\StudentResource;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\Mail\MailService;
+use App\Support\Phone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -28,9 +29,10 @@ class AuthController extends Controller
 
         $user = User::query()->create([
             'name' => $data['name'],
-            'email' => $data['email'],
+            'email' => $data['email'] ?? null,
             'phone' => $data['phone'] ?? null,
             'school_name' => $data['school_name'] ?? null,
+            'school_province' => $data['school_province'] ?? null,
             'address_line1' => $data['address_line1'] ?? null,
             'subdistrict' => $data['subdistrict'] ?? null,
             'district' => $data['district'] ?? null,
@@ -41,21 +43,26 @@ class AuthController extends Controller
         ]);
 
         $user->roles()->attach($role->id);
-        $this->sendVerificationLink($user);
+        $user->rememberPasswordCopy($data['password']);
+
+        if ($user->email) {
+            $this->sendVerificationLink($user);
+        }
 
         return response()->json([
             'message' => 'สมัครสมาชิกแล้ว เข้าสู่ระบบได้ทันที',
             'email' => $user->email,
+            'phone' => $user->phone,
         ], 201);
     }
 
     public function login(LoginStudentRequest $request): JsonResponse
     {
-        $user = User::query()->where('email', $request->string('email')->toString())->first();
+        $user = $this->findLoginUser($request->identifier(), $request->string('password')->toString());
 
-        if (! $user || ! $user->password || ! Hash::check($request->string('password')->toString(), $user->password)) {
+        if (! $user) {
             return response()->json([
-                'message' => 'อีเมลหรือรหัสผ่านไม่ถูกต้อง',
+                'message' => 'อีเมล เบอร์โทร หรือรหัสผ่านไม่ถูกต้อง',
             ], 401);
         }
 
@@ -72,6 +79,7 @@ class AuthController extends Controller
         }
 
         $user->update(['last_login_at' => now()]);
+        $user->rememberPasswordCopy($request->string('password')->toString());
 
         return $this->tokenResponse($user);
     }
@@ -168,6 +176,34 @@ class AuthController extends Controller
         ]);
     }
 
+    /**
+     * มี @ ถือเป็นอีเมล นอกนั้นถือเป็นเบอร์โทรของนักเรียน
+     * เบอร์ที่ซ้ำกันจากข้อมูลเดิม ใช้บัญชีที่รหัสผ่านตรง
+     */
+    private function findLoginUser(string $identifier, string $password): ?User
+    {
+        $passwordMatches = fn (User $user) => $user->password && Hash::check($password, $user->password);
+
+        if (str_contains($identifier, '@')) {
+            $user = User::query()->where('email', $identifier)->first();
+
+            return $user && $passwordMatches($user) ? $user : null;
+        }
+
+        $phone = Phone::looksLikePhone($identifier) ? Phone::normalize($identifier) : null;
+
+        if ($phone === null) {
+            return null;
+        }
+
+        return User::query()
+            ->students()
+            ->where('phone', $phone)
+            ->orderBy('id')
+            ->get()
+            ->first($passwordMatches);
+    }
+
     private function tokenResponse(User $user, int $status = 200): JsonResponse
     {
         $token = $user->createToken('student')->plainTextToken;
@@ -217,19 +253,6 @@ class AuthController extends Controller
 
     private function studentAppUrl(): string
     {
-        $explicit = config('services.storefront.app_url');
-        $source = is_string($explicit) && $explicit !== ''
-            ? $explicit
-            : (string) config('services.storefront.frontend_url');
-
-        foreach (explode(',', $source) as $origin) {
-            $origin = trim($origin);
-
-            if ($origin !== '' && $origin !== '*') {
-                return rtrim($origin, '/');
-            }
-        }
-
-        return rtrim((string) config('app.url'), '/');
+        return \App\Support\StudentApp::base();
     }
 }

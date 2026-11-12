@@ -9,7 +9,9 @@ use Symfony\Component\HttpFoundation\Response;
 use App\Http\Requests\Api\GuestOrderRequest;
 use App\Http\Requests\Api\SubmitPaymentSlipRequest;
 use App\Http\Resources\Student\OrderResource;
+use App\Http\Resources\Student\StudentResource;
 use App\Models\Order;
+use App\Models\User;
 use App\Support\GuestCheckout;
 use App\Support\Payments\OnlinePayment;
 use App\Support\Payments\PaymentFees;
@@ -32,9 +34,10 @@ class GuestCheckoutController extends Controller
 
         return response()->json([
             'data' => $this->checkout->quote(
-                $this->guests->quoteCustomer($data['email']),
+                filled($data['email'] ?? null) ? $this->guests->quoteCustomer($data['email']) : new User,
                 $data['items'],
                 $data['coupon_code'] ?? null,
+                (bool) ($data['auto_coupon'] ?? false),
             ),
         ]);
     }
@@ -44,7 +47,13 @@ class GuestCheckoutController extends Controller
         $data = $request->validated();
 
         $result = $this->guests->place(
-            ['email' => $data['email'], 'name' => $data['name'] ?? null, 'phone' => $data['phone'] ?? null],
+            [
+                'email' => $data['email'],
+                'name' => $data['name'] ?? null,
+                'phone' => $data['phone'] ?? null,
+                'school_name' => $data['school_name'],
+                'school_province' => $data['province'],
+            ],
             $data['items'],
             $data['coupon_code'] ?? null,
             $data['notes'] ?? null,
@@ -78,12 +87,21 @@ class GuestCheckoutController extends Controller
         return response()->json([
             'data' => [
                 'order' => OrderResource::make($order)->resolve(request()),
-                'payment_options' => array_values(PaymentFees::quote($order, array_values(array_unique([
-                    ...$this->payments->enabledMethods(),
-                    PaymentMethod::BankTransfer->value,
-                ])))),
+                'payment_options' => array_values(PaymentFees::quote($order, $this->payments->enabledMethods())),
+                'auto_login' => $this->guests->canAutoLogin($order),
                 ...$this->paymentLink($order),
             ],
+        ]);
+    }
+
+    public function login(string $token): JsonResponse
+    {
+        $user = $this->guests->autoLogin($this->order($token));
+
+        return response()->json([
+            'token' => $user->createToken('student')->plainTextToken,
+            'token_type' => 'Bearer',
+            'user' => StudentResource::make($user->refresh())->resolve(),
         ]);
     }
 
@@ -127,6 +145,11 @@ class GuestCheckoutController extends Controller
         return response()->json(['data' => $this->payments->payload($payment, $order)]);
     }
 
+    public function wallet(Request $request, string $token, PaymentController $payments): JsonResponse
+    {
+        return response()->json(['data' => $payments->startWallet($request, $this->order($token))]);
+    }
+
     public function paymentStatus(string $token): JsonResponse
     {
         $order = $this->order($token);
@@ -157,7 +180,7 @@ class GuestCheckoutController extends Controller
     {
         $order = $this->guests->findByToken($token);
 
-        if (! $order || ! $order->user) {
+        if (! $order || ! $order->user || $order->isHiddenFromStudentApi()) {
             abort(404, 'ไม่พบคำสั่งซื้อนี้');
         }
 

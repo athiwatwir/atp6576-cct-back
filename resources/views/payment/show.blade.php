@@ -15,6 +15,8 @@
             'quotes' => $quotes,
             'fakeCard' => $fakeCard,
             'omisePublicKey' => $omisePublicKey,
+            'merchantName' => $merchantName,
+            'orderNo' => $order->order_no,
             'fakeTokens' => $fakeTokens,
             'urls' => [
                 'thaiQr' => route('payment.thai-qr', $link->token),
@@ -204,8 +206,19 @@
                     </div>
                 </section>
 
-                {{-- บัตรเครดิต / เดบิต ผ่าน Omise.js --}}
-                <section x-show="method === 'credit_card'" x-cloak class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                {{-- บัตรเครดิต / เดบิต: บัตรจริงใช้หน้าต่าง OmiseCard (Omise.js), โหมดจำลองใช้ฟอร์มในหน้า --}}
+                <section x-show="method === 'credit_card' && usesCardPopup" x-cloak class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                    <h2 class="text-sm font-semibold">ชำระด้วยบัตรเครดิต / เดบิต</h2>
+                    <p class="mt-1 text-xs text-gray-500">กดปุ่มด้านล่างเพื่อกรอกข้อมูลบัตรในหน้าต่างของผู้ให้บริการชำระเงิน (Omise) ระบบของเราไม่เห็นและไม่เก็บเลขบัตร</p>
+                    <button type="button" @click="openCardPopup()" :disabled="busy"
+                        class="bg-brand-500 hover:bg-brand-600 mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg px-5 py-3 text-sm font-medium text-white disabled:opacity-60">
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+                        <span x-text="busy ? 'กำลังชำระเงิน...' : 'กรอกข้อมูลบัตรและชำระ ' + amountText(cardTotal)"></span>
+                    </button>
+                    <p class="mt-3 text-center text-xs text-gray-400">รองรับ Visa, Mastercard, JCB · บัตรบางใบจะพาไปหน้ายืนยัน OTP ของธนาคาร (3-D Secure)</p>
+                </section>
+
+                <section x-show="method === 'credit_card' && !usesCardPopup" x-cloak class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
                     <h2 class="text-sm font-semibold">ข้อมูลบัตร</h2>
                     <p class="mt-1 text-xs text-gray-500">ข้อมูลบัตรส่งตรงไปยังผู้ให้บริการชำระเงิน ระบบของเราไม่เก็บเลขบัตร</p>
                     <form class="mt-4 space-y-4" @submit.prevent="payCard()" autocomplete="on">

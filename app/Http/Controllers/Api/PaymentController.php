@@ -20,6 +20,7 @@ class PaymentController extends Controller
         return response()->json([
             'data' => [
                 'methods' => $this->payments->enabledMethods(),
+                'available' => $this->payments->catalog(),
                 'test_mode' => [
                     'thai_qr' => $this->payments->isFake(PaymentMethod::ThaiQr),
                     'credit_card' => $this->payments->isFake(PaymentMethod::CreditCard),
@@ -35,10 +36,8 @@ class PaymentController extends Controller
     {
         $this->owned($request, $order);
 
-        $methods = [...$this->payments->enabledMethods(), PaymentMethod::BankTransfer->value];
-
         return response()->json([
-            'data' => array_values(PaymentFees::quote($order, array_values(array_unique($methods)))),
+            'data' => array_values(PaymentFees::quote($order, $this->payments->enabledMethods())),
         ]);
     }
 
@@ -82,6 +81,37 @@ class PaymentController extends Controller
         return response()->json(['data' => $this->payments->payload($payment, $order)]);
     }
 
+    public function wallet(Request $request, Order $order): JsonResponse
+    {
+        $this->owned($request, $order);
+
+        return response()->json(['data' => $this->startWallet($request, $order)]);
+    }
+
+    /**
+     * ใช้ร่วมกับ guest checkout
+     *
+     * @return array<string, mixed>
+     */
+    public function startWallet(Request $request, Order $order): array
+    {
+        $data = $request->validate([
+            'method' => ['required', 'string', 'in:'.implode(',', array_map(fn (PaymentMethod $m) => $m->value, PaymentMethod::wallets()))],
+            'platform' => ['nullable', 'in:desktop,mobile'],
+        ], [
+            'method.in' => 'วิธีชำระนี้ไม่ใช่ e-Wallet',
+        ]);
+
+        $payment = $this->payments->startWallet(
+            $order,
+            PaymentMethod::from($data['method']),
+            $data['platform'] ?? 'desktop',
+            $request->ip(),
+        );
+
+        return $this->payments->payload($payment, $order);
+    }
+
     public function simulate(Request $request, Order $order): JsonResponse
     {
         $this->owned($request, $order);
@@ -107,7 +137,7 @@ class PaymentController extends Controller
 
     private function owned(Request $request, Order $order): void
     {
-        if ((int) $order->user_id !== (int) $request->user()->id) {
+        if ((int) $order->user_id !== (int) $request->user()->id || $order->isHiddenFromStudentApi()) {
             abort(404, 'ไม่พบออเดอร์นี้');
         }
     }

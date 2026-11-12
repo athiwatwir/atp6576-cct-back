@@ -7,6 +7,7 @@ use App\Models\Assessment;
 use App\Models\AssessmentAttempt;
 use App\Models\Question;
 use App\Support\ExamAccess;
+use App\Support\ExamLeaderboard;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -159,6 +160,14 @@ class ExamAttemptController extends Controller
         }
 
         return response()->json(['data' => $this->resultPayload($exam, $attempt)]);
+    }
+
+    public function leaderboard(Request $request, string $slug, ExamLeaderboard $leaderboard): JsonResponse
+    {
+        $userId = (int) $request->user()->id;
+        $exam = $this->exam($slug, $userId);
+
+        return response()->json(['data' => $leaderboard->board($exam, $userId)]);
     }
 
     private function exam(string $slug, int $userId): Assessment
@@ -326,6 +335,7 @@ class ExamAttemptController extends Controller
         return [
             ...$this->attemptSummary($attempt),
             'passing_score' => $exam->passing_score !== null ? (float) $exam->passing_score : null,
+            'ranking' => app(ExamLeaderboard::class)->rankOf($exam, $attempt),
             'correct_count' => $answers->where('is_correct', true)->count(),
             'question_count' => $questions->count(),
             'review' => $questions->values()->map(function (Question $question, int $index) use ($answers) {

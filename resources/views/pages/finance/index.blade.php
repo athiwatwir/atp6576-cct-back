@@ -9,6 +9,25 @@ $presets = [
 'month' => ['label' => 'เดือนนี้', 'from' => now()->startOfMonth()->toDateString(), 'to' => now()->toDateString()],
 'year' => ['label' => 'ปีนี้', 'from' => now()->startOfYear()->toDateString(), 'to' => now()->toDateString()],
 ];
+$typeStyles = [
+'course' => ['active' => 'border-brand-500 bg-brand-500 text-white', 'icon' => '<path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5z"/><path d="m10 9 5 3-5 3z"/>'],
+'curriculum' => ['active' => 'border-blue-light-500 bg-blue-light-500 text-white', 'icon' => '<path d="M5 7h14M5 12h14M5 17h9"/>'],
+'exam' => ['active' => 'border-warning-500 bg-warning-500 text-white', 'icon' => '<path d="M9 5h6M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="m9 13 2 2 4-4"/>'],
+'book' => ['active' => 'border-success-500 bg-success-500 text-white', 'icon' => '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M4 5.5v16"/>'],
+];
+$typeOf = fn ($item) => match (true) {
+    $item->product_id !== null => 'book',
+    $item->course_id !== null => 'course',
+    $item->curriculum_id !== null => 'curriculum',
+    $item->assessment_id !== null => 'exam',
+    default => null,
+};
+$filterQuery = fn (array $override = []) => array_filter(array_merge([
+    'preset' => $preset ?: null,
+    'from' => $from->toDateString(),
+    'to' => $to->toDateString(),
+    'type' => $type ?: null,
+], $override), fn ($value) => filled($value));
 @endphp
 
 <x-common.page-breadcrumb pageTitle="การเงิน" />
@@ -33,7 +52,7 @@ $presets = [
     <form method="GET" action="{{ route('finance.index') }}" class="flex flex-col gap-3 lg:flex-row lg:items-end">
         <div class="flex flex-wrap gap-2 lg:mr-auto">
             @foreach ($presets as $key => $item)
-            <a href="{{ route('finance.index', ['preset' => $key, 'from' => $item['from'], 'to' => $item['to']]) }}" class="inline-flex items-center rounded-lg px-3 py-2 text-xs font-medium {{ $preset === $key || ($from->toDateString() === $item['from'] && $to->toDateString() === $item['to']) ? 'bg-brand-500 text-white' : 'border border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/5' }}">
+            <a href="{{ route('finance.index', $filterQuery(['preset' => $key, 'from' => $item['from'], 'to' => $item['to']])) }}" class="inline-flex items-center rounded-lg px-3 py-2 text-xs font-medium {{ $preset === $key || ($from->toDateString() === $item['from'] && $to->toDateString() === $item['to']) ? 'bg-brand-500 text-white' : 'border border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/5' }}">
                 {{ $item['label'] }}
             </a>
             @endforeach
@@ -42,10 +61,31 @@ $presets = [
             <x-form.date-picker name="from" label="จากวันที่" :value="$from" />
             <x-form.date-picker name="to" label="ถึงวันที่" :value="$to" />
             <div class="flex items-end gap-2">
+                @if ($type)
+                <input type="hidden" name="type" value="{{ $type }}">
+                @endif
                 <button type="submit" class="bg-brand-500 hover:bg-brand-600 inline-flex h-11 flex-1 items-center justify-center rounded-lg px-4 text-sm font-medium text-white">ดูรายงาน</button>
             </div>
         </div>
     </form>
+
+    <div class="mt-4 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-4 dark:border-gray-800">
+        <span class="mr-1 text-xs font-medium text-gray-500 dark:text-gray-400">ประเภทรายการ:</span>
+        <a href="{{ route('finance.index', $filterQuery(['type' => null])) }}"
+            class="inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium {{ $type === '' ? 'border-gray-800 bg-gray-800 text-white dark:border-white/30 dark:bg-white/20' : 'border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/5' }}">
+            ทั้งหมด
+        </a>
+        @foreach ($itemTypes as $value => $label)
+        <a href="{{ route('finance.index', $filterQuery(['type' => $type === $value ? null : $value])) }}"
+            class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium {{ $type === $value ? $typeStyles[$value]['active'] : 'border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/5' }}">
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{!! $typeStyles[$value]['icon'] !!}</svg>
+            {{ $label }}
+        </a>
+        @endforeach
+        @if ($type)
+        <span class="text-xs text-gray-400">แสดงเฉพาะออเดอร์ที่มี{{ $itemTypes[$type] }} ยอดเป็นยอดทั้งออเดอร์</span>
+        @endif
+    </div>
 </div>
 
 {{-- Summary cards --}}
@@ -98,6 +138,7 @@ $presets = [
                 @php
                     $order = $payment->order;
                     $items = $order?->items->pluck('item_name')->filter()->join(', ');
+                    $rowTypes = $order?->items->map($typeOf)->filter()->unique()->values() ?? collect();
                 @endphp
                 <tr>
                     <td class="px-5 py-3 text-sm text-gray-500 whitespace-nowrap">{{ $payment->created_at?->format('d/m/Y H:i') }}</td>
@@ -105,7 +146,14 @@ $presets = [
                         <span class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium {{ $payment->sourceLabel() === 'สมัครเรียน' ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400' : 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300' }}">{{ $payment->sourceLabel() }}</span>
                         @if ($order)
                         <div class="mt-1">
-                            <a href="{{ route('orders.show', $order) }}" class="text-sm font-medium text-brand-600 hover:underline dark:text-brand-400">{{ $order->order_no }}</a>
+                            <a href="{{ $order->adminUrl() }}" class="text-sm font-medium text-brand-600 hover:underline dark:text-brand-400">{{ $order->order_no }}</a>
+                        </div>
+                        @endif
+                        @if ($rowTypes->isNotEmpty())
+                        <div class="mt-1 flex flex-wrap gap-1">
+                            @foreach ($rowTypes as $rowType)
+                            <span class="inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium {{ $type === $rowType ? $typeStyles[$rowType]['active'] : 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300' }}">{{ $itemTypes[$rowType] }}</span>
+                            @endforeach
                         </div>
                         @endif
                         @if ($items)
@@ -144,6 +192,9 @@ $presets = [
                             <input type="hidden" name="to" value="{{ $to->toDateString() }}">
                             @if ($preset)
                             <input type="hidden" name="preset" value="{{ $preset }}">
+                            @endif
+                            @if ($type)
+                            <input type="hidden" name="type" value="{{ $type }}">
                             @endif
                             <select name="status" class="dark:bg-dark-900 h-9 rounded-lg border border-gray-300 bg-transparent px-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                                 @foreach ($paymentStatuses as $value => $label)

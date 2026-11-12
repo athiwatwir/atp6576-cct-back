@@ -5,6 +5,15 @@
     $selectedCourses = array_map('strval', old('course_ids', $article?->courses?->pluck('id')->all() ?? []));
     $selectedCurriculums = array_map('strval', old('curriculum_ids', $article?->curriculums?->pluck('id')->all() ?? []));
     $selectedExams = array_map('strval', old('assessment_ids', $article?->assessments?->pluck('id')->all() ?? []));
+    $statusMeta = fn (?string $status) => $status !== 'published' ? \App\Enums\ContentStatus::labelFor($status) : null;
+    $courseItems = $courses->map(fn ($course) => [
+        'id' => $course->id,
+        'label' => $course->name,
+        'meta' => collect([$course->code, $statusMeta($course->status)])->filter()->implode(' · '),
+        'chip' => $course->code ? $course->name.' ('.$course->code.')' : $course->name,
+    ])->all();
+    $curriculumItems = $curriculums->map(fn ($curriculum) => ['id' => $curriculum->id, 'label' => $curriculum->name, 'meta' => $statusMeta($curriculum->status)])->all();
+    $examItems = $exams->map(fn ($exam) => ['id' => $exam->id, 'label' => $exam->title, 'meta' => $statusMeta($exam->status)])->all();
 @endphp
 
 <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -105,38 +114,11 @@
 
     <div class="md:col-span-2 rounded-xl border border-gray-200 p-4 dark:border-gray-800">
         <h4 class="text-sm font-semibold text-gray-800 dark:text-white/90">รายการที่เกี่ยวข้อง</h4>
-        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">เลือกวิชา หลักสูตร หรือข้อสอบขายแยกได้หลายรายการ เพื่อแสดงลิงก์ในหน้ารายละเอียดบทความบนเว็บนักเรียน กด Ctrl (หรือ Cmd) ค้างเพื่อเลือกหลายรายการ</p>
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">กด "เลือก" เพื่อเลือกวิชา หลักสูตร หรือข้อสอบขายแยกได้หลายรายการ ใช้แสดงลิงก์ในหน้ารายละเอียดบทความบนเว็บนักเรียน (แสดงเฉพาะรายการที่เผยแพร่อยู่)</p>
         <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-            <div>
-                <label for="course_ids" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">วิชา</label>
-                <select id="course_ids" name="course_ids[]" multiple class="{{ $inputClass }} h-40">
-                    @foreach ($courses as $course)
-                        <option value="{{ $course->id }}" @selected(in_array((string) $course->id, $selectedCourses, true))>{{ $course->name }}</option>
-                    @endforeach
-                </select>
-                @error('course_ids') <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p> @enderror
-                @error('course_ids.*') <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p> @enderror
-            </div>
-            <div>
-                <label for="curriculum_ids" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">หลักสูตร</label>
-                <select id="curriculum_ids" name="curriculum_ids[]" multiple class="{{ $inputClass }} h-40">
-                    @foreach ($curriculums as $curriculum)
-                        <option value="{{ $curriculum->id }}" @selected(in_array((string) $curriculum->id, $selectedCurriculums, true))>{{ $curriculum->name }}</option>
-                    @endforeach
-                </select>
-                @error('curriculum_ids') <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p> @enderror
-                @error('curriculum_ids.*') <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p> @enderror
-            </div>
-            <div>
-                <label for="assessment_ids" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">ข้อสอบขายแยก</label>
-                <select id="assessment_ids" name="assessment_ids[]" multiple class="{{ $inputClass }} h-40">
-                    @foreach ($exams as $exam)
-                        <option value="{{ $exam->id }}" @selected(in_array((string) $exam->id, $selectedExams, true))>{{ $exam->title }}</option>
-                    @endforeach
-                </select>
-                @error('assessment_ids') <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p> @enderror
-                @error('assessment_ids.*') <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p> @enderror
-            </div>
+            <x-form.item-picker name="course_ids" label="วิชา" :items="$courseItems" :selected="$selectedCourses" modal-title="เลือกวิชาที่เกี่ยวข้อง" />
+            <x-form.item-picker name="curriculum_ids" label="หลักสูตร" :items="$curriculumItems" :selected="$selectedCurriculums" modal-title="เลือกหลักสูตรที่เกี่ยวข้อง" />
+            <x-form.item-picker name="assessment_ids" label="ข้อสอบขายแยก" :items="$examItems" :selected="$selectedExams" modal-title="เลือกข้อสอบที่เกี่ยวข้อง" />
         </div>
     </div>
 </div>

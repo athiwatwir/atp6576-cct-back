@@ -4,10 +4,10 @@ namespace App\Http\Requests\Students;
 
 use App\Enums\AccountStatus;
 use App\Models\User;
+use App\Rules\StudentPhone;
+use App\Support\ThaiProvinces;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
-
 class UpdateStudentRequest extends FormRequest
 {
     public function authorize(): bool
@@ -22,6 +22,8 @@ class UpdateStudentRequest extends FormRequest
                 $this->merge([$field => null]);
             }
         }
+
+        $this->merge(['school_province' => ThaiProvinces::normalize($this->input('school_province'))]);
     }
 
     /**
@@ -35,20 +37,22 @@ class UpdateStudentRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:150'],
             'email' => [
-                'required',
+                'nullable',
+                'required_without:phone',
                 'string',
                 'email',
                 'max:255',
                 Rule::unique('users', 'email')->ignore($student->id),
             ],
-            'phone' => ['nullable', 'string', 'max:30'],
+            'phone' => ['nullable', 'required_without:email', 'string', 'max:30', new StudentPhone($student->id)],
             'school_name' => ['nullable', 'string', 'max:255'],
+            'school_province' => ['nullable', 'string', Rule::in(ThaiProvinces::all())],
             'address_line1' => ['nullable', 'string', 'max:255'],
             'subdistrict' => ['nullable', 'string', 'max:100'],
             'district' => ['nullable', 'string', 'max:100'],
             'province' => ['nullable', 'string', 'max:100'],
             'postal_code' => ['nullable', 'string', 'regex:/^\d{5}$/'],
-            'password' => ['nullable', 'confirmed', Password::defaults()],
+            'password' => ['nullable', 'string', 'min:6', 'max:100'],
             'status' => ['required', Rule::in(array_column(AccountStatus::cases(), 'value'))],
         ];
     }
@@ -59,6 +63,10 @@ class UpdateStudentRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'email.required_without' => 'กรอกอีเมลหรือเบอร์โทรอย่างน้อยหนึ่งอย่าง',
+            'phone.required_without' => 'กรอกอีเมลหรือเบอร์โทรอย่างน้อยหนึ่งอย่าง',
+            'school_province.in' => 'กรุณาเลือกจังหวัดจากรายการ',
+            'password.min' => 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร',
             'postal_code.regex' => 'รหัสไปรษณีย์ต้องเป็นตัวเลข 5 หลัก',
         ];
     }
@@ -70,6 +78,7 @@ class UpdateStudentRequest extends FormRequest
     {
         return [
             'school_name' => 'ชื่อโรงเรียน',
+            'school_province' => 'จังหวัดที่เรียน',
             'address_line1' => 'ที่อยู่',
             'subdistrict' => 'ตำบล/แขวง',
             'district' => 'อำเภอ/เขต',

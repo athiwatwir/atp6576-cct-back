@@ -21,10 +21,19 @@
     <input type="number" name="duration_seconds" min="0" placeholder="เว้นว่างให้ระบบอ่านจากไฟล์" :disabled="uploadingVideo"
         class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm shadow-theme-xs disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
 </div>
-<label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-    <input type="checkbox" name="is_free" value="1" class="rounded border-gray-300" :disabled="uploadingVideo" />
-    เปิดให้เรียนฟรี
-</label>
+<div x-data="{ trialOn: false }" class="space-y-2">
+    <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+        <input type="checkbox" name="is_free" value="1" class="rounded border-gray-300" x-model="trialOn" :disabled="uploadingVideo" />
+        เปิดให้ทดลองเรียน (ดูได้ก่อนซื้อ)
+    </label>
+    <div x-show="trialOn" x-cloak class="flex flex-wrap items-center gap-2 pl-6">
+        <span class="text-xs text-gray-500 dark:text-gray-400">ดูได้</span>
+        <input type="number" name="trial_minutes" min="0.5" max="1440" step="0.5" placeholder="ทั้งคลิป" :disabled="uploadingVideo || !trialOn"
+            class="dark:bg-dark-900 h-9 w-28 rounded-lg border border-gray-300 bg-transparent px-3 text-sm shadow-theme-xs disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+        <span class="text-xs text-gray-500 dark:text-gray-400">นาที</span>
+        <span class="w-full text-[11px] text-gray-400">เว้นว่าง = ดูได้ทั้งคลิป · ใส่ทศนิยมได้ เช่น 1.5 = 1 นาที 30 วินาที</span>
+    </div>
+</div>
 
 <div x-show="uploadingVideo || uploadStage === 'done'" x-cloak class="space-y-2 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-white/[0.03]">
     <div class="flex items-center justify-between text-xs text-gray-600 dark:text-gray-300">

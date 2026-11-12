@@ -8,6 +8,7 @@ use App\Models\Category;
 use App\Models\Course;
 use App\Models\Instructor;
 use App\Models\Subject;
+use App\Support\Audit;
 use App\Support\CourseDeletion;
 use App\Support\DocumentSequence;
 use App\Support\MediaStorage;
@@ -16,7 +17,9 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use InvalidArgumentException;
 use Throwable;
@@ -44,8 +47,9 @@ class CourseController extends Controller
             ->when($status !== '', fn($query) => $query->where('status', $status))
             ->when($subjectId, fn($query) => $query->where('subject_id', $subjectId))
             ->when($categoryId, fn($query) => $query->where('category_id', $categoryId))
-            ->latest()
-            ->paginate(15)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->paginate(50)
             ->withQueryString();
 
         return view('pages.courses.index', [
@@ -78,6 +82,7 @@ class CourseController extends Controller
         $plans = $data['plans'];
         unset($data['plans']);
         $data['slug'] = $this->uniqueSlug($data['name']);
+        $data['sort_order'] = ((int) Course::query()->max('sort_order')) + 1;
         $data['code'] = DocumentSequence::nextCourse();
 
         $course = Course::query()->create($data);
@@ -192,7 +197,7 @@ class CourseController extends Controller
     public function updateStatus(Request $request, Course $course): RedirectResponse
     {
         $data = $request->validate([
-            'status' => ['required', 'in:draft,published,inactive'],
+            'status' => ['required', Rule::in(Course::STATUSES)],
         ]);
 
         if ($data['status'] === 'published') {
@@ -206,6 +211,51 @@ class CourseController extends Controller
         return redirect()
             ->route('courses.show', $course)
             ->with('success', 'อัปเดตสถานะวิชาเรียบร้อยแล้ว');
+    }
+
+    public function toggleFeatured(Course $course): JsonResponse
+    {
+        $course->update(['is_featured' => ! $course->is_featured]);
+
+        return response()->json([
+            'is_featured' => $course->is_featured,
+            'message' => $course->is_featured ? 'ตั้งเป็นวิชาแนะนำแล้ว' : 'ยกเลิกวิชาแนะนำแล้ว',
+        ]);
+    }
+
+    /**
+     * รับลำดับ id ของวิชาที่แสดงอยู่ (หน้าที่ลากหรือผลกรอง) แล้วสลับเฉพาะตำแหน่งของวิชาเหล่านั้นในลำดับรวม
+     * วิชาที่ไม่ได้แสดงอยู่คงตำแหน่งเดิม
+     */
+    public function reorder(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'order' => ['required', 'array', 'min:1'],
+            'order.*' => ['integer', 'distinct'],
+        ]);
+
+        $moved = array_map('intval', $data['order']);
+
+        DB::transaction(function () use ($moved) {
+            $all = Course::query()->orderBy('sort_order')->orderBy('id')->lockForUpdate()->pluck('id')->all();
+
+            abort_unless(array_diff($moved, $all) === [], 422, 'มีวิชาที่ไม่พบในระบบ');
+
+            $movedSet = array_flip($moved);
+            $slots = array_keys(array_filter($all, fn (int $id) => isset($movedSet[$id])));
+
+            foreach ($slots as $index => $slot) {
+                $all[$slot] = $moved[$index];
+            }
+
+            foreach ($all as $index => $id) {
+                Course::query()->whereKey($id)->where('sort_order', '!=', $index + 1)->update(['sort_order' => $index + 1]);
+            }
+        });
+
+        Audit::event('course.reordered', 'เรียงลำดับวิชา', ['order' => $moved]);
+
+        return response()->json(['message' => 'เรียงลำดับวิชาเรียบร้อยแล้ว']);
     }
 
     public function deletionSummary(Course $course): JsonResponse

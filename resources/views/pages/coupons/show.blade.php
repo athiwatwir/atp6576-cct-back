@@ -19,6 +19,10 @@
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $coupon->discountLabel() }}</p>
         </div>
         <div class="flex gap-2">
+            <a href="{{ route('coupons.index') }}" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-white/5">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+                กลับ
+            </a>
             <a href="{{ route('coupons.edit', $coupon) }}" class="inline-flex items-center justify-center rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">แก้ไข</a>
             <form method="POST" action="{{ route('coupons.destroy', $coupon) }}" onsubmit="return confirm('ต้องการลบคูปองนี้หรือไม่?')">
                 @csrf
@@ -50,7 +54,7 @@
                                     <td class="px-5 py-4 text-sm text-gray-800 dark:text-white/90">{{ $usage->user?->name ?? '-' }}</td>
                                     <td class="px-5 py-4 text-sm">
                                         @if ($usage->order)
-                                            <a href="{{ route('orders.show', $usage->order) }}" class="text-brand-500 hover:text-brand-600">{{ $usage->order->order_no }}</a>
+                                            <a href="{{ $usage->order->adminUrl() }}" class="text-brand-500 hover:text-brand-600">{{ $usage->order->order_no }}</a>
                                         @else
                                             -
                                         @endif
@@ -74,6 +78,11 @@
                     <div><dt class="text-gray-500">จำกัดต่อคน</dt><dd class="font-medium text-gray-800 dark:text-white/90">{{ $coupon->per_user_limit ?? 'ไม่จำกัด' }}</dd></div>
                     <div><dt class="text-gray-500">วันเริ่ม</dt><dd class="font-medium text-gray-800 dark:text-white/90">{{ $coupon->start_at?->format('d/m/Y H:i') ?? 'ไม่กำหนด' }}</dd></div>
                     <div><dt class="text-gray-500">วันสิ้นสุด</dt><dd class="font-medium text-gray-800 dark:text-white/90">{{ $coupon->end_at?->format('d/m/Y H:i') ?? 'ไม่กำหนด' }}</dd></div>
+                    <div><dt class="text-gray-500">กลุ่มนักเรียน</dt><dd class="font-medium text-gray-800 dark:text-white/90">{{ $coupon->studentGroupLabel() }}</dd></div>
+                    <div><dt class="text-gray-500">ประเภทการซื้อ</dt><dd class="font-medium text-gray-800 dark:text-white/90">{{ $coupon->purchaseTypeLabel() }}</dd></div>
+                    <div><dt class="text-gray-500">ต้องเคยซื้อ</dt><dd class="font-medium text-gray-800 dark:text-white/90">{{ $coupon->requiredPurchaseLabel() }}</dd></div>
+                    <div><dt class="text-gray-500">ต้องดูวิดีโอ</dt><dd class="font-medium text-gray-800 dark:text-white/90">{{ $coupon->requiredVideoLabel() }}</dd></div>
+                    <div><dt class="text-gray-500">ของแถม</dt><dd class="font-medium text-gray-800 dark:text-white/90">{{ $coupon->giftLabel() }}</dd></div>
                     <div><dt class="text-gray-500">ขอบเขต</dt><dd class="font-medium text-gray-800 dark:text-white/90">{{ $coupon->isRestricted() ? 'เฉพาะสินค้าที่เลือก' : 'ทุกรายการในออเดอร์' }}</dd></div>
                     <div><dt class="text-gray-500">วิชา</dt><dd class="font-medium text-gray-800 dark:text-white/90">{{ $coupon->courses->pluck('name')->join(', ') ?: '-' }}</dd></div>
                     <div><dt class="text-gray-500">หลักสูตร</dt><dd class="font-medium text-gray-800 dark:text-white/90">{{ $coupon->curriculums->pluck('name')->join(', ') ?: '-' }}</dd></div>

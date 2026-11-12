@@ -25,6 +25,7 @@ class CourseVideoUpload
             'description' => ['nullable', 'string'],
             'duration_seconds' => ['nullable', 'integer', 'min:0'],
             'is_free' => ['nullable', 'boolean'],
+            'trial_minutes' => self::trialMinutesRules(),
             'video_file' => array_merge(['required_without:upload_token'], array_slice(MediaType::CourseVideo->rules(), 1)),
             'upload_token' => ['nullable', 'string', 'size:40'],
         ];
@@ -42,6 +43,10 @@ class CourseVideoUpload
             'video_file.uploaded' => 'อัปโหลดไฟล์วิดีโอไม่สำเร็จ (ไฟล์อาจใหญ่เกินขีดจำกัดของเซิร์ฟเวอร์ หรือไฟล์เสียหาย)',
             'video_file.mimetypes' => 'รองรับเฉพาะไฟล์ mp4, webm, mov',
             'video_file.max' => 'ขนาดไฟล์วิดีโอต้องไม่เกิน 500MB',
+            'trial_minutes.numeric' => 'เวลาทดลองเรียนต้องเป็นจำนวนนาที',
+            'trial_minutes.min' => 'เวลาทดลองเรียนต้องอย่างน้อย 0.5 นาที',
+            'trial_minutes.max' => 'เวลาทดลองเรียนต้องไม่เกิน 1,440 นาที',
+            'trial_minutes.multiple_of' => 'เวลาทดลองเรียนใส่ทศนิยมได้ทีละ 0.5 นาที',
         ];
     }
 
@@ -131,9 +136,44 @@ class CourseVideoUpload
             'description' => $data['description'] ?? null,
             'duration_seconds' => $data['duration_seconds'] ?? 0,
             'is_free' => (bool) ($data['is_free'] ?? false),
+            'trial_seconds' => self::trialSeconds($data),
             'storage_provider' => MediaStorage::disk(),
             'storage_key' => $storageKey,
         ]);
+    }
+
+    /**
+     * แอดมินกรอกเป็นนาที (ทศนิยมได้ทีละ 0.5) เก็บเป็นวินาทีใน videos.trial_seconds
+     *
+     * @return list<string>
+     */
+    public static function trialMinutesRules(): array
+    {
+        return ['nullable', 'numeric', 'min:0.5', 'max:1440', 'multiple_of:0.5'];
+    }
+
+    /**
+     * เก็บเวลาทดลองเรียนเฉพาะคลิปที่เปิดทดลองเรียน เว้นว่าง = ดูได้ทั้งคลิป
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public static function trialSeconds(array $data): ?int
+    {
+        $seconds = (int) round((float) ($data['trial_minutes'] ?? 0) * 60);
+
+        return ! empty($data['is_free']) && $seconds > 0 ? $seconds : null;
+    }
+
+    /**
+     * ค่าเริ่มต้นของช่องนาทีในฟอร์มแก้ไข เช่น 90 วินาที = "1.5"
+     */
+    public static function trialMinutesValue(?int $seconds): string
+    {
+        if (! $seconds) {
+            return '';
+        }
+
+        return rtrim(rtrim(number_format($seconds / 60, 2, '.', ''), '0'), '.');
     }
 
     public static function guard(Request $request): JsonResponse|RedirectResponse|null

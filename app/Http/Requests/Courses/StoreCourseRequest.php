@@ -43,7 +43,7 @@ class StoreCourseRequest extends FormRequest
             'description' => ['nullable', 'string'],
             'thumbnail' => MediaType::CourseThumbnail->rules(),
             'banner' => MediaType::CourseBanner->rules(),
-            'status' => ['required', Rule::in(['draft', 'published', 'inactive'])],
+            'status' => ['required', Rule::in(\App\Models\Course::STATUSES)],
             'is_featured' => ['boolean'],
             'is_trial_available' => ['boolean'],
             ...PricePlans::rules(),

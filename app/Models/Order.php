@@ -7,6 +7,7 @@ use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\ShippingStatus;
 use App\Models\Concerns\LogsActivity;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -30,7 +31,9 @@ class Order extends Model
         'kind',
         'user_id',
         'guest_token',
+        'guest_account_created',
         'coupon_id',
+        'gift_for_order_id',
         'subtotal',
         'discount_amount',
         'shipping_amount',
@@ -64,6 +67,7 @@ class Order extends Model
             'shipping_amount' => 'decimal:2',
             'total_amount' => 'decimal:2',
             'requires_shipping' => 'boolean',
+            'guest_account_created' => 'boolean',
             'paid_at' => 'datetime',
             'cancelled_at' => 'datetime',
             'shipped_at' => 'datetime',
@@ -74,6 +78,17 @@ class Order extends Model
     public function isBook(): bool
     {
         return $this->kind === OrderKind::Book->value;
+    }
+
+    /** หน้ารายละเอียดในหลังบ้าน ออเดอร์หนังสือกับสมัครเรียนแยกหน้ากัน */
+    public function adminUrl(): string
+    {
+        return route($this->isBook() ? 'orders.show' : 'enrollments.show', $this);
+    }
+
+    public function adminEditUrl(): string
+    {
+        return route($this->isBook() ? 'orders.edit' : 'enrollments.edit', $this);
     }
 
     public function user(): BelongsTo
@@ -116,9 +131,38 @@ class Order extends Model
         return $this->belongsTo(Coupon::class)->withTrashed();
     }
 
+    /** ออเดอร์หนังสือแถมนี้มาจากคูปองของออเดอร์ไหน */
+    public function giftFor(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'gift_for_order_id');
+    }
+
+    public function giftOrders(): HasMany
+    {
+        return $this->hasMany(self::class, 'gift_for_order_id');
+    }
+
     public function couponUsages(): HasMany
     {
         return $this->hasMany(CouponUsage::class);
+    }
+
+    /**
+     * ออเดอร์ที่มีวิชาสถานะ TFH ไม่ส่งผ่าน API นักเรียนทุกกรณี
+     */
+    public function scopeVisibleInStudentApi(Builder $query): Builder
+    {
+        return $query->whereDoesntHave('items', fn (Builder $items) => $items->whereIn('course_id', self::tfhCourseIds()));
+    }
+
+    public function isHiddenFromStudentApi(): bool
+    {
+        return $this->items()->whereIn('course_id', self::tfhCourseIds())->exists();
+    }
+
+    private static function tfhCourseIds(): Builder
+    {
+        return Course::withTrashed()->where('status', Course::STATUS_TFH)->select('id');
     }
 
     public function getStatusLabelAttribute(): string

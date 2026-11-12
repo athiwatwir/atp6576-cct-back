@@ -96,6 +96,9 @@
                         <tr>
                             <td class="px-5 py-4">
                                 <div class="font-medium text-gray-800 dark:text-white/90">{{ $order->order_no }}</div>
+                                @if ($order->gift_for_order_id)
+                                <span class="mt-1 inline-flex rounded-full bg-success-50 px-2 py-0.5 text-[11px] font-medium text-success-700 dark:bg-success-500/15 dark:text-success-400">ของแถมจากคูปอง</span>
+                                @endif
                                 <div class="mt-1 text-xs text-gray-400">{{ $order->created_at?->format('d/m/Y H:i') }}</div>
                                 <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $order->items->count() }} รายการ</div>
                             </td>
@@ -139,6 +142,13 @@
                                         class="inline-flex items-center rounded-lg border border-blue-light-300 bg-blue-light-50 px-3 py-2 text-xs font-medium text-blue-light-700 hover:bg-blue-light-100 dark:border-blue-light-500/40 dark:bg-blue-light-500/10 dark:text-blue-light-400">
                                         ดู
                                     </a>
+                                    @if ($isBook && $order->requires_shipping)
+                                    <a href="{{ route('orders.shipping-label', $order) }}" target="_blank" rel="noopener" data-no-loading title="ปริ้นใบปะหน้าพัสดุ A6"
+                                        class="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-transparent dark:text-gray-300 dark:hover:bg-white/5">
+                                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/></svg>
+                                        ใบปะหน้า
+                                    </a>
+                                    @endif
                                     <a href="{{ route('orders.edit', $order) }}"
                                         class="inline-flex items-center rounded-lg border border-warning-300 bg-warning-50 px-3 py-2 text-xs font-medium text-warning-700 hover:bg-warning-100 dark:border-warning-500/40 dark:bg-warning-500/10 dark:text-warning-400">
                                         แก้ไข

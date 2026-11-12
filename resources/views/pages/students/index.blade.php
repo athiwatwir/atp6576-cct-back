@@ -69,7 +69,7 @@
                         <tr>
                             <td class="px-5 py-4">
                                 <a href="{{ route('students.show', $student) }}" class="font-medium text-gray-800 hover:text-brand-500 dark:text-white/90">{{ $student->name }}</a>
-                                <div class="text-sm text-gray-500 dark:text-gray-400">{{ $student->email }}</div>
+                                <div class="text-sm text-gray-500 dark:text-gray-400">{{ $student->email ?: $student->phone }}</div>
                                 @if ($student->school_name)
                                     <div class="text-xs text-gray-400">{{ $student->school_name }}</div>
                                 @endif

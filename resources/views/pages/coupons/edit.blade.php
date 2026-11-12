@@ -7,7 +7,7 @@
         <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
             <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">แก้ไขคูปอง</h3>
         </div>
-        <form method="POST" action="{{ route('coupons.update', $coupon) }}" class="space-y-6 p-5 sm:p-6">
+        <form method="POST" action="{{ route('coupons.update', $coupon) }}" class="space-y-4 p-5 sm:p-6">
             @csrf
             @method('PUT')
             @include('pages.coupons._form')

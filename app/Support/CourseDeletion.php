@@ -69,7 +69,7 @@ class CourseDeletion
                 self::item('learning_progress', 'ความคืบหน้าการเรียน', 'ลบประวัติความคืบหน้าของผู้เรียน', $progressCount, true),
                 self::item('reviews', 'รีวิว', 'ลบรีวิวของวิชานี้', $reviewCount, true),
                 self::item('trial_access', 'สิทธิ์ทดลองเรียน', 'ลบสิทธิ์ทดลองเรียนที่ผูกกับวิชา', $trialCount, true),
-                self::item('cart_items', 'รายการในตะกร้า', 'ลบวิชานี้ออกจากตะกร้าผู้ใช้', $cartCount, true),
+                self::item('cart_items', 'รายการที่เลือก', 'ลบวิชานี้ออกจากรายการที่เลือกของผู้ใช้', $cartCount, true),
                 self::item('relations', 'ความสัมพันธ์อื่น', 'ถอดออกจากหลักสูตร / โปรโมชัน / เนื้อหา', $relationCount, true),
                 self::item(
                     'enrollments',
@@ -288,7 +288,7 @@ class CourseDeletion
         $deleted = $course->cartItems()->count();
         $course->cartItems()->delete();
 
-        return self::result('cart_items', 'รายการในตะกร้า', $deleted, "ลบจากตะกร้า {$deleted} รายการ");
+        return self::result('cart_items', 'รายการที่เลือก', $deleted, "ลบจากรายการที่เลือก {$deleted} รายการ");
     }
 
     private static function detachRelations(Course $course): array

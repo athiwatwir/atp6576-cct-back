@@ -340,10 +340,11 @@ $btn = [
                     <div>
                         <label class="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">สถานะ</label>
                         <select name="status" class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 shadow-theme-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                            @foreach (\App\Enums\ContentStatus::options(['draft', 'published', 'inactive']) as $value => $label)
+                            @foreach (\App\Enums\ContentStatus::options(\App\Models\Course::STATUSES) as $value => $label)
                             <option value="{{ $value }}" @selected($course->status === $value)>{{ $label }}</option>
                             @endforeach
                         </select>
+                        <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">TFH: ขายผ่านระบบหลังบ้านเท่านั้น ไม่แสดงและไม่ส่งข้อมูลผ่าน API ทุกกรณี</p>
                     </div>
                     <button type="submit" class="{{ $btn['successSolid'] }} w-full">บันทึกสถานะ</button>
                 </form>
@@ -372,9 +373,12 @@ $btn = [
                     <form method="POST" action="{{ route('courses.status', $course) }}">
                         @csrf
                         @method('PUT')
-                        <input type="hidden" name="status" value="{{ $course->status === 'published' ? 'inactive' : 'published' }}">
+                        @php
+                            $courseOpen = in_array($course->status, \App\Models\Course::ADMIN_SALE_STATUSES, true);
+                        @endphp
+                        <input type="hidden" name="status" value="{{ $courseOpen ? 'inactive' : 'published' }}">
                         <button type="submit" class="{{ $btn['warning'] }} w-full">
-                            {{ $course->status === 'published' ? 'ปิดใช้งานวิชา' : 'เปิดใช้งานวิชา' }}
+                            {{ $courseOpen ? 'ปิดใช้งานวิชา' : 'เปิดใช้งานวิชา' }}
                         </button>
                     </form>
                     <button type="button" data-no-loading @click="$dispatch('open-course-delete-modal', { id: {{ $course->id }}, name: @js($course->name), code: @js($course->code) })" class="{{ $btn['dangerMd'] }} w-full">

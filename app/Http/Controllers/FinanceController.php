@@ -17,8 +17,22 @@ use Illuminate\View\View;
 
 class FinanceController extends Controller
 {
+    /** ตัวกรองประเภทรายการ => คอลัมน์ใน order_items */
+    private const ITEM_TYPES = [
+        'course' => ['label' => 'วิชา', 'column' => 'course_id'],
+        'curriculum' => ['label' => 'หลักสูตร', 'column' => 'curriculum_id'],
+        'exam' => ['label' => 'ข้อสอบ', 'column' => 'assessment_id'],
+        'book' => ['label' => 'หนังสือ', 'column' => 'product_id'],
+    ];
+
     public function index(Request $request): View
     {
+        $type = $request->string('type')->toString();
+        $type = array_key_exists($type, self::ITEM_TYPES) ? $type : '';
+        $typeColumn = self::ITEM_TYPES[$type]['column'] ?? null;
+        // ออเดอร์ที่มีรายการประเภทนี้อย่างน้อย 1 รายการ (ยอดเป็นยอดทั้งออเดอร์)
+        $ofType = fn ($query) => $query->when($typeColumn, fn ($inner) => $inner->whereHas('items', fn ($items) => $items->whereNotNull($typeColumn)));
+
         $from = $this->parseDate($request->input('from'), now()->startOfMonth()->startOfDay());
         $to = $this->parseDate($request->input('to'), now()->endOfDay(), endOfDay: true);
 
@@ -29,9 +43,11 @@ class FinanceController extends Controller
         $preset = $request->string('preset')->toString();
 
         $ordersInPeriod = Order::query()
+            ->tap($ofType)
             ->whereBetween('created_at', [$from, $to]);
 
         $paidOrders = Order::query()
+            ->tap($ofType)
             ->where('payment_status', PaymentStatus::Paid->value)
             ->whereBetween('paid_at', [$from, $to]);
 
@@ -43,22 +59,27 @@ class FinanceController extends Controller
             'shipping' => (float) (clone $paidOrders)->sum('shipping_amount'),
             'discount' => (float) (clone $paidOrders)->sum('discount_amount'),
             'awaiting' => (float) Order::query()
+                ->tap($ofType)
                 ->where('payment_status', PaymentStatus::AwaitingVerification->value)
                 ->whereBetween('created_at', [$from, $to])
                 ->sum('total_amount'),
             'pending' => (float) Order::query()
+                ->tap($ofType)
                 ->where('payment_status', PaymentStatus::Pending->value)
                 ->whereBetween('created_at', [$from, $to])
                 ->sum('total_amount'),
             'refunded' => (float) Order::query()
+                ->tap($ofType)
                 ->where('payment_status', PaymentStatus::Refunded->value)
                 ->whereBetween('updated_at', [$from, $to])
                 ->sum('total_amount'),
             'cancelled_orders' => Order::query()
+                ->tap($ofType)
                 ->whereNotNull('cancelled_at')
                 ->whereBetween('cancelled_at', [$from, $to])
                 ->count(),
             'fees' => (float) Payment::query()
+                ->when($typeColumn, fn ($query) => $query->whereHas('order', $ofType))
                 ->where('status', PaymentStatus::Paid->value)
                 ->whereBetween('paid_at', [$from, $to])
                 ->sum('fee_amount'),
@@ -66,6 +87,7 @@ class FinanceController extends Controller
 
         $byPaymentStatus = Order::query()
             ->select('payment_status', DB::raw('COUNT(*) as total_orders'), DB::raw('COALESCE(SUM(total_amount), 0) as total_amount'))
+            ->tap($ofType)
             ->whereBetween('created_at', [$from, $to])
             ->groupBy('payment_status')
             ->orderBy('payment_status')
@@ -79,6 +101,7 @@ class FinanceController extends Controller
 
         $byPaymentMethod = Payment::query()
             ->select('payment_method', DB::raw('COUNT(*) as total_payments'), DB::raw('COALESCE(SUM(amount), 0) as total_amount'))
+            ->when($typeColumn, fn ($query) => $query->whereHas('order', $ofType))
             ->where('status', PaymentStatus::Paid->value)
             ->whereBetween('paid_at', [$from, $to])
             ->groupBy('payment_method')
@@ -95,6 +118,7 @@ class FinanceController extends Controller
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
             ->where('orders.payment_status', PaymentStatus::Paid->value)
             ->whereBetween('orders.paid_at', [$from, $to])
+            ->when($typeColumn, fn ($query) => $query->whereNotNull('order_items.'.$typeColumn))
             ->selectRaw("
                 CASE
                     WHEN order_items.product_id IS NOT NULL THEN 'book'
@@ -126,6 +150,7 @@ class FinanceController extends Controller
 
         $dailyRevenue = Order::query()
             ->select(DB::raw('DATE(paid_at) as day'), DB::raw('COUNT(*) as orders'), DB::raw('COALESCE(SUM(total_amount), 0) as amount'))
+            ->tap($ofType)
             ->where('payment_status', PaymentStatus::Paid->value)
             ->whereBetween('paid_at', [$from, $to])
             ->groupBy(DB::raw('DATE(paid_at)'))
@@ -138,7 +163,8 @@ class FinanceController extends Controller
             ]);
 
         $payments = Payment::query()
-            ->with(['order.user:id,name,email', 'order.items:id,order_id,item_name', 'order.receipt:id,order_id,receipt_no'])
+            ->with(['order.user:id,name,email', 'order.items:id,order_id,item_name,product_id,course_id,curriculum_id,assessment_id', 'order.receipt:id,order_id,receipt_no'])
+            ->when($typeColumn, fn ($query) => $query->whereHas('order', $ofType))
             ->whereBetween('created_at', [$from, $to])
             ->latest('id')
             ->paginate(20)
@@ -149,6 +175,8 @@ class FinanceController extends Controller
             'from' => $from,
             'to' => $to,
             'preset' => $preset,
+            'type' => $type,
+            'itemTypes' => array_map(fn (array $item) => $item['label'], self::ITEM_TYPES),
             'summary' => $summary,
             'byPaymentStatus' => $byPaymentStatus,
             'byPaymentMethod' => $byPaymentMethod,
@@ -173,6 +201,7 @@ class FinanceController extends Controller
                 'from' => $request->input('from'),
                 'to' => $request->input('to'),
                 'preset' => $request->input('preset'),
+                'type' => $request->input('type'),
             ], fn ($value) => filled($value)))
             ->with('success', 'บันทึกสถานะการชำระเงินแล้ว');
     }
