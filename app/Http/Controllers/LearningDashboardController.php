@@ -7,6 +7,7 @@ use App\Models\Course;
 use App\Models\Enrollment;
 use App\Models\User;
 use App\Support\MediaStorage;
+use App\Support\ThaiProvinces;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -28,6 +29,8 @@ class LearningDashboardController extends Controller
     private const ONLINE_MINUTES = 5;
 
     private const ONLINE_LIST_LIMIT = 50;
+
+    private const ALL_LIST_LIMIT = 500;
 
     public function index(Request $request): View
     {
@@ -122,21 +125,23 @@ class LearningDashboardController extends Controller
             'expiredWindow' => self::EXPIRED_WINDOW_DAYS,
             'courseOptions' => Course::query()->whereIn('id', $rows->pluck('course_id')->unique())->orderBy('name')->get(['id', 'name']),
             'online' => $this->onlineSnapshot(),
+            'thailandMap' => self::thailandMap(),
         ]);
     }
 
-    public function online(): JsonResponse
+    public function online(Request $request): JsonResponse
     {
-        return response()->json($this->onlineSnapshot());
+        return response()->json($this->onlineSnapshot($request->string('scope')->toString() === 'all' ? 'all' : 'online'));
     }
 
     /**
      * นักเรียนออนไลน์ = เรียก API ด้วย token ภายใน ONLINE_MINUTES นาที (personal_access_tokens.last_used_at)
      * กำลังเรียน = บันทึกความคืบหน้าวิดีโอภายในช่วงเดียวกัน (learning_progress.last_activity_at ระบุวิชา)
+     * scope=all รวมนักเรียนที่ออฟไลน์ในรายชื่อด้วย ส่วนจำนวนรายจังหวัดนับทั้งออนไลน์และทั้งหมดเสมอ
      *
      * @return array<string, mixed>
      */
-    private function onlineSnapshot(): array
+    private function onlineSnapshot(string $scope = 'online'): array
     {
         $now = now();
         $since = $now->copy()->subMinutes(self::ONLINE_MINUTES);
@@ -165,15 +170,25 @@ class LearningDashboardController extends Controller
             ->unique('user_id')
             ->pluck('title', 'user_id');
 
-        $users = User::query()
-            ->students()
-            ->whereIn('id', $seen->keys()->merge($studying->keys())->unique())
-            ->get(['id', 'name', 'email', 'avatar', 'updated_at']);
+        $onlineIds = $seen->keys()->merge($studying->keys())->unique();
 
-        $students = $users
-            ->map(function (User $user) use ($seen, $studying, $videos) {
-                $course = $studying->get($user->id);
-                $lastSeen = collect([$seen->get($user->id), $course?->last_activity_at])
+        $everyone = User::query()
+            ->students()
+            ->get(['id', 'name', 'email', 'phone', 'avatar', 'school_province', 'province', 'last_login_at', 'updated_at']);
+
+        $lastUsed = $scope === 'all'
+            ? DB::table('personal_access_tokens')
+                ->where('tokenable_type', User::class)
+                ->groupBy('tokenable_id')
+                ->selectRaw('tokenable_id as user_id, MAX(last_used_at) as last_used_at')
+                ->pluck('last_used_at', 'user_id')
+            : collect();
+
+        $rows = $everyone
+            ->map(function (User $user) use ($seen, $studying, $videos, $onlineIds, $lastUsed) {
+                $isOnline = $onlineIds->contains($user->id);
+                $course = $isOnline ? $studying->get($user->id) : null;
+                $lastSeen = collect([$seen->get($user->id), $course?->last_activity_at, $lastUsed->get($user->id), $isOnline ? null : $user->last_login_at])
                     ->filter()
                     ->map(fn ($value) => Carbon::parse($value))
                     ->sortDesc()
@@ -182,9 +197,11 @@ class LearningDashboardController extends Controller
                 return [
                     'id' => $user->id,
                     'name' => (string) $user->name,
-                    'email' => (string) $user->email,
+                    'email' => (string) ($user->email ?: $user->phone),
                     'avatar_url' => self::avatarUrl($user),
                     'url' => route('students.show', $user->id),
+                    'online' => $isOnline,
+                    'province' => self::studentProvince($user),
                     'course_id' => $course?->course_id,
                     'course_name' => $course?->course_name,
                     'course_code' => $course?->course_code,
@@ -192,8 +209,18 @@ class LearningDashboardController extends Controller
                     'last_seen_at' => $lastSeen?->toIso8601String(),
                     'last_seen_human' => $lastSeen?->locale('th')->diffForHumans(),
                 ];
-            })
-            ->sortBy(fn (array $row) => [$row['course_id'] === null ? 1 : 0, -strtotime((string) $row['last_seen_at'])])
+            });
+
+        $provinces = $rows
+            ->groupBy(fn (array $row) => $row['province'] ?? '')
+            ->map(fn (Collection $group) => [
+                'online' => $group->where('online', true)->count(),
+                'total' => $group->count(),
+            ]);
+
+        $students = $rows
+            ->when($scope === 'online', fn (Collection $c) => $c->where('online', true))
+            ->sortBy(fn (array $row) => [$row['online'] ? 0 : 1, $row['course_id'] === null ? 1 : 0, -strtotime((string) $row['last_seen_at'])])
             ->values();
 
         $courses = $students
@@ -210,13 +237,42 @@ class LearningDashboardController extends Controller
             ->values();
 
         return [
+            'scope' => $scope,
             'minutes' => self::ONLINE_MINUTES,
-            'online' => $students->count(),
-            'studying' => $students->whereNotNull('course_id')->count(),
+            'online' => $rows->where('online', true)->count(),
+            'total' => $rows->count(),
+            'studying' => $rows->whereNotNull('course_id')->count(),
             'courses' => $courses->all(),
-            'students' => $students->take(self::ONLINE_LIST_LIMIT)->all(),
+            'students' => $students->take($scope === 'all' ? self::ALL_LIST_LIMIT : self::ONLINE_LIST_LIMIT)->all(),
+            'listed' => $students->count(),
+            'provinces' => $provinces->except([''])->all(),
+            'unknown_province' => $provinces->get('', ['online' => 0, 'total' => 0]),
             'checked_at' => $now->copy()->timezone('Asia/Bangkok')->format('H:i:s'),
         ];
+    }
+
+    /**
+     * จังหวัดที่เรียน ถ้าไม่มีใช้จังหวัดในที่อยู่ ชื่อต้องตรงกับ 77 จังหวัด ไม่ตรงถือว่าไม่ระบุ
+     */
+    private static function studentProvince(User $user): ?string
+    {
+        foreach ([$user->school_province, $user->province] as $value) {
+            $name = ThaiProvinces::normalize($value);
+
+            if ($name !== null && in_array($name, ThaiProvinces::all(), true)) {
+                return $name;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{viewBox: string, provinces: list<array{code: string, name: string, d: string, x: float, y: float}>}
+     */
+    private static function thailandMap(): array
+    {
+        return json_decode((string) file_get_contents(resource_path('data/thailand-provinces.json')), true);
     }
 
     /**

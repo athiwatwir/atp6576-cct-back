@@ -81,15 +81,51 @@ $stateTabs = [
     x-data="{
         data: @js($online),
         loading: false,
-        async refresh() {
-            if (document.hidden || this.loading) return;
+        scope: 'online',
+        province: null,
+        hover: null,
+        async refresh(force = false) {
+            if ((document.hidden && !force) || this.loading) return;
             this.loading = true;
             try {
-                const res = await fetch(@js(route('learning-dashboard.online')), { headers: { Accept: 'application/json' } });
+                const url = @js(route('learning-dashboard.online')) + '?scope=' + this.scope;
+                const res = await fetch(url, { headers: { Accept: 'application/json' } });
                 if (res.ok) this.data = await res.json();
             } finally {
                 this.loading = false;
             }
+        },
+        setScope(value) {
+            if (this.scope === value) return;
+            this.scope = value;
+            this.refresh(true);
+        },
+        stat(name) {
+            return this.data.provinces?.[name] ?? { online: 0, total: 0 };
+        },
+        mapValue(name) {
+            const s = this.stat(name);
+            return this.scope === 'all' ? s.total : s.online;
+        },
+        get mapMax() {
+            return Math.max(1, ...Object.keys(this.data.provinces || {}).map((name) => this.mapValue(name)));
+        },
+        fillOpacity(name) {
+            const value = this.mapValue(name);
+            return value > 0 ? (0.25 + 0.75 * value / this.mapMax).toFixed(2) : 1;
+        },
+        get rankedProvinces() {
+            return Object.entries(this.data.provinces || {})
+                .map(([name, s]) => ({ name, ...s }))
+                .filter((p) => this.scope === 'all' ? p.total > 0 : p.online > 0)
+                .sort((a, b) => (this.scope === 'all' ? b.total - a.total : b.online - a.online) || b.online - a.online || a.name.localeCompare(b.name, 'th'));
+        },
+        get visibleStudents() {
+            if (!this.province) return this.data.students;
+            return this.data.students.filter((s) => this.province === '__none' ? !s.province : s.province === this.province);
+        },
+        pickProvince(name) {
+            this.province = this.province === name ? null : name;
         },
     }"
     x-init="setInterval(() => refresh(), 30000)">
@@ -165,17 +201,27 @@ $stateTabs = [
                     <p class="text-xs text-gray-400">นักเรียนที่ใช้งานเว็บภายใน <span x-text="data.minutes"></span> นาทีล่าสุด อัปเดตอัตโนมัติทุก 30 วินาที</p>
                 </div>
             </div>
-            <div class="flex items-center gap-2 text-xs text-gray-400">
+            <div class="flex flex-wrap items-center gap-2 text-xs text-gray-400">
+                <div class="flex rounded-lg bg-gray-100 p-0.5 dark:bg-white/5">
+                    <button type="button" data-no-loading @click="setScope('online')" class="rounded-md px-3 py-1.5 font-medium transition"
+                        :class="scope === 'online' ? 'bg-white text-success-700 shadow-theme-xs dark:bg-gray-800 dark:text-success-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'">
+                        ออนไลน์ <span x-text="data.online.toLocaleString()"></span>
+                    </button>
+                    <button type="button" data-no-loading @click="setScope('all')" class="rounded-md px-3 py-1.5 font-medium transition"
+                        :class="scope === 'all' ? 'bg-white text-brand-700 shadow-theme-xs dark:bg-gray-800 dark:text-brand-300' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'">
+                        ทั้งหมด <span x-text="data.total.toLocaleString()"></span>
+                    </button>
+                </div>
                 <span>ล่าสุด <span x-text="data.checked_at"></span> น.</span>
-                <button type="button" @click="refresh()" :disabled="loading" class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-gray-200 px-3 font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/5">
+                <button type="button" data-no-loading @click="refresh(true)" :disabled="loading" class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-gray-200 px-3 font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/5">
                     <svg class="h-3.5 w-3.5" :class="loading && 'animate-spin'" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
                     รีเฟรช
                 </button>
             </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3">
-            <div class="space-y-4 border-b border-gray-100 p-5 lg:border-b-0 lg:border-r dark:border-gray-800">
+        <div class="grid grid-cols-1 lg:grid-cols-12">
+            <div class="space-y-4 border-b border-gray-100 p-5 lg:col-span-4 xl:col-span-3 lg:border-b-0 lg:border-r dark:border-gray-800">
                 <div>
                     <div class="mb-2 flex items-center justify-between text-xs font-medium text-gray-500 dark:text-gray-400">
                         <span>กำลังเรียนวิชา</span>
@@ -202,22 +248,29 @@ $stateTabs = [
                 </div>
             </div>
 
-            <div class="lg:col-span-2">
-                <template x-if="data.students.length === 0">
+            <div class="border-b border-gray-100 lg:col-span-8 xl:col-span-5 xl:border-b-0 xl:border-r dark:border-gray-800">
+                <div class="flex items-center justify-between gap-2 border-b border-gray-100 px-5 py-2.5 text-xs dark:border-gray-800" x-show="province" x-cloak>
+                    <span class="text-gray-500 dark:text-gray-400">
+                        จังหวัด <span class="font-semibold text-gray-800 dark:text-white/90" x-text="province === '__none' ? 'ไม่ระบุ' : province"></span>
+                        · <span x-text="visibleStudents.length"></span> คน
+                    </span>
+                    <button type="button" data-no-loading @click="province = null" class="font-medium text-brand-600 hover:underline dark:text-brand-400">ล้างตัวกรอง</button>
+                </div>
+                <template x-if="visibleStudents.length === 0">
                     <div class="px-5 py-12 text-center">
                         <span class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-400 dark:bg-white/5">{!! $icon('users', 'h-6 w-6') !!}</span>
-                        <p class="mt-3 text-sm text-gray-500">ไม่มีนักเรียนออนไลน์ในขณะนี้</p>
+                        <p class="mt-3 text-sm text-gray-500" x-text="province ? 'ไม่มีนักเรียนในจังหวัดนี้' + (scope === 'online' ? 'ที่ออนไลน์อยู่' : '') : (scope === 'online' ? 'ไม่มีนักเรียนออนไลน์ในขณะนี้' : 'ยังไม่มีนักเรียน')"></p>
                     </div>
                 </template>
-                <ul class="max-h-96 divide-y divide-gray-100 overflow-y-auto dark:divide-gray-800" x-show="data.students.length > 0">
-                    <template x-for="student in data.students" :key="student.id">
+                <ul class="max-h-[30rem] divide-y divide-gray-100 overflow-y-auto dark:divide-gray-800" x-show="visibleStudents.length > 0">
+                    <template x-for="student in visibleStudents" :key="student.id">
                         <li class="flex items-center gap-3 px-5 py-3">
                             <span class="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-semibold text-gray-600 dark:bg-white/5 dark:text-gray-300">
                                 <template x-if="student.avatar_url">
                                     <img :src="student.avatar_url" alt="" loading="lazy" class="h-9 w-9 rounded-full object-cover" />
                                 </template>
                                 <span x-show="!student.avatar_url" x-text="(student.name || '?').trim().charAt(0).toUpperCase()"></span>
-                                <span class="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-success-500 dark:border-gray-900"></span>
+                                <span class="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white dark:border-gray-900" :class="student.online ? 'bg-success-500' : 'bg-gray-300 dark:bg-gray-600'"></span>
                             </span>
                             <div class="min-w-0 flex-1">
                                 <a :href="student.url" class="block truncate text-sm font-medium text-gray-800 hover:text-brand-600 dark:text-white/90 dark:hover:text-brand-400" x-text="student.name || student.email"></a>
@@ -228,14 +281,95 @@ $stateTabs = [
                                     </div>
                                 </template>
                                 <template x-if="!student.course_id">
-                                    <div class="mt-0.5 truncate text-xs text-gray-400">ออนไลน์ ยังไม่ได้ดูวิดีโอ</div>
+                                    <div class="mt-0.5 truncate text-xs text-gray-400" x-text="student.online ? 'ออนไลน์ ยังไม่ได้ดูวิดีโอ' : 'ออฟไลน์'"></div>
                                 </template>
                             </div>
-                            <span class="shrink-0 text-[11px] text-gray-400" x-text="student.last_seen_human"></span>
+                            <div class="shrink-0 text-right">
+                                <span class="block text-[11px] text-gray-500 dark:text-gray-400" x-text="student.province || 'ไม่ระบุจังหวัด'"></span>
+                                <span class="block text-[11px] text-gray-400" x-text="student.last_seen_human || 'ยังไม่เคยเข้า'"></span>
+                            </div>
                         </li>
                     </template>
                 </ul>
-                <p class="border-t border-gray-100 px-5 py-2 text-[11px] text-gray-400 dark:border-gray-800" x-show="data.online > data.students.length">แสดง <span x-text="data.students.length"></span> จาก <span x-text="data.online"></span> คน</p>
+                <p class="border-t border-gray-100 px-5 py-2 text-[11px] text-gray-400 dark:border-gray-800" x-show="!province && data.listed > data.students.length">แสดง <span x-text="data.students.length"></span> จาก <span x-text="data.listed"></span> คน</p>
+            </div>
+
+            <div class="p-5 lg:col-span-12 xl:col-span-4">
+                <div class="mb-3 flex items-center justify-between gap-2">
+                    <div>
+                        <h4 class="text-sm font-semibold text-gray-800 dark:text-white/90">นักเรียนแยกตามจังหวัด</h4>
+                        <p class="text-[11px] text-gray-400" x-text="scope === 'all' ? 'สีตามจำนวนนักเรียนทั้งหมด จุดเขียวคือคนที่ออนไลน์' : 'สีตามจำนวนนักเรียนที่ออนไลน์'"></p>
+                    </div>
+                    <span class="text-[11px] text-gray-400">กดจังหวัดเพื่อกรองรายชื่อ</span>
+                </div>
+
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+                    <div class="relative">
+                        <div class="pointer-events-none absolute right-0 bottom-8 z-10 min-w-36 rounded-lg border border-gray-200 bg-white/95 px-3 py-2 text-xs shadow-theme-xs dark:border-gray-700 dark:bg-gray-900/95"
+                            x-show="hover || province" x-cloak>
+                            <template x-for="name in [hover || province]" :key="name">
+                                <div>
+                                    <div class="font-semibold text-gray-800 dark:text-white/90" x-text="name === '__none' ? 'ไม่ระบุจังหวัด' : name"></div>
+                                    <div class="mt-0.5 text-success-600 dark:text-success-400">ออนไลน์ <span x-text="(name === '__none' ? data.unknown_province : stat(name)).online"></span> คน</div>
+                                    <div class="text-gray-500 dark:text-gray-400">ทั้งหมด <span x-text="(name === '__none' ? data.unknown_province : stat(name)).total"></span> คน</div>
+                                </div>
+                            </template>
+                        </div>
+                        <svg viewBox="{{ $thailandMap['viewBox'] }}" class="mx-auto h-auto max-h-[30rem] w-full" role="img" aria-label="แผนที่ประเทศไทยแยกตามจังหวัด" @mouseleave="hover = null">
+                            @foreach ($thailandMap['provinces'] as $mapProvince)
+                                <path d="{{ $mapProvince['d'] }}" stroke-width="0.4" stroke-linejoin="round"
+                                    class="cursor-pointer stroke-white transition-colors dark:stroke-gray-900"
+                                    :class="mapValue(@js($mapProvince['name'])) > 0 ? (scope === 'all' ? 'fill-brand-500' : 'fill-success-500') : 'fill-gray-200 hover:fill-gray-300 dark:fill-gray-700 dark:hover:fill-gray-600'"
+                                    :style="{ fillOpacity: fillOpacity(@js($mapProvince['name'])), stroke: province === @js($mapProvince['name']) ? '#f79009' : null, strokeWidth: province === @js($mapProvince['name']) ? 1.6 : null }"
+                                    @mouseenter="hover = @js($mapProvince['name'])" @click="pickProvince(@js($mapProvince['name']))">
+                                    <title>{{ $mapProvince['name'] }}</title>
+                                </path>
+                            @endforeach
+                            @foreach ($thailandMap['provinces'] as $mapProvince)
+                                <g x-show="stat(@js($mapProvince['name'])).online > 0" class="pointer-events-none">
+                                    <circle cx="{{ $mapProvince['x'] }}" cy="{{ $mapProvince['y'] }}" r="7.5" class="fill-success-500 stroke-white dark:stroke-gray-900" stroke-width="1.2" />
+                                    <text x="{{ $mapProvince['x'] }}" y="{{ $mapProvince['y'] }}" dy="3" text-anchor="middle" class="fill-white text-[8.5px] font-bold" x-text="stat(@js($mapProvince['name'])).online"></text>
+                                </g>
+                            @endforeach
+                        </svg>
+                        <p class="mt-1 text-center text-[10px] text-gray-400">แผนที่ © OpenStreetMap contributors (ODbL) ผ่าน geoBoundaries</p>
+                    </div>
+
+                    <div>
+                        <div class="mb-2 flex items-center justify-between text-xs font-medium text-gray-500 dark:text-gray-400">
+                            <span>จังหวัด</span>
+                            <span>ออนไลน์ / ทั้งหมด</span>
+                        </div>
+                        <ul class="max-h-80 space-y-1 overflow-y-auto pr-1">
+                            <template x-for="p in rankedProvinces" :key="p.name">
+                                <li>
+                                    <button type="button" data-no-loading @click="pickProvince(p.name)" @mouseenter="hover = p.name" @mouseleave="hover = null"
+                                        class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition"
+                                        :class="province === p.name ? 'bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300' : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/5'">
+                                        <span class="min-w-0 flex-1 truncate" x-text="p.name"></span>
+                                        <span class="inline-flex items-center gap-1 text-xs font-semibold text-success-600 dark:text-success-400">
+                                            <span class="h-1.5 w-1.5 rounded-full" :class="p.online > 0 ? 'bg-success-500' : 'bg-gray-300 dark:bg-gray-600'"></span>
+                                            <span x-text="p.online"></span>
+                                        </span>
+                                        <span class="w-10 text-right text-xs text-gray-400">/ <span x-text="p.total"></span></span>
+                                    </button>
+                                </li>
+                            </template>
+                            <li x-show="(scope === 'all' ? data.unknown_province.total : data.unknown_province.online) > 0">
+                                <button type="button" data-no-loading @click="pickProvince('__none')" @mouseenter="hover = '__none'" @mouseleave="hover = null"
+                                    class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm italic transition"
+                                    :class="province === '__none' ? 'bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300' : 'text-gray-500 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-white/5'">
+                                    <span class="min-w-0 flex-1 truncate">ไม่ระบุจังหวัด</span>
+                                    <span class="text-xs font-semibold text-success-600 not-italic dark:text-success-400" x-text="data.unknown_province.online"></span>
+                                    <span class="w-10 text-right text-xs text-gray-400 not-italic">/ <span x-text="data.unknown_province.total"></span></span>
+                                </button>
+                            </li>
+                        </ul>
+                        <p class="rounded-lg bg-gray-50 px-3 py-4 text-center text-xs text-gray-400 dark:bg-white/[0.02]"
+                            x-show="rankedProvinces.length === 0 && (scope === 'all' ? data.unknown_province.total : data.unknown_province.online) === 0"
+                            x-text="scope === 'all' ? 'ยังไม่มีนักเรียน' : 'ยังไม่มีใครออนไลน์'"></p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
