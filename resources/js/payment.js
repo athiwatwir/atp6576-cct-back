@@ -62,7 +62,7 @@ function paymentPage(config) {
                     frameLabel: this.config.merchantName,
                     submitLabel: 'ชำระ',
                     defaultPaymentMethod: 'credit_card',
-                    // QR ใช้ KGP และ e-Wallet ใช้ผ่านเว็บนักเรียน หน้าต่างนี้จึงรับเฉพาะบัตร
+                    // QR ใช้ KGP ส่วน e-Wallet เลือกในหน้านี้เอง หน้าต่าง Omise จึงรับเฉพาะบัตร
                     otherPaymentMethods: [],
                 });
             } else if (this.config.omisePublicKey && window.Omise) {
@@ -70,15 +70,27 @@ function paymentPage(config) {
             }
 
             const payment = this.state.payment;
+            const preferred = this.config.preferredMethod;
 
             if (payment?.status === 'pending' && payment.method === 'thai_qr' && payment.qr_image) {
                 this.method = 'thai_qr';
                 this.watchQr();
+            } else if (payment?.status === 'pending' && payment.type === 'wallet' && (payment.qr_image || payment.authorize_uri)) {
+                this.method = payment.method;
+                if (payment.qr_image) {
+                    this.watchStatus();
+                }
             } else if (payment?.status === 'failed' && payment.failure_code !== 'superseded' && payment.failure_message) {
-                this.method = payment.method === 'thai_qr' ? 'thai_qr' : 'credit_card';
+                this.method = this.config.methods.includes(payment.method) ? payment.method : (this.config.methods[0] ?? null);
                 this.error = payment.failure_message;
+            } else if (preferred && this.config.methods.includes(preferred)) {
+                this.method = preferred;
             } else if (this.config.methods.length === 1) {
                 this.method = this.config.methods[0];
+            }
+
+            if (new URLSearchParams(window.location.search).get('payment_return') === 'wallet') {
+                this.watchStatus();
             }
         },
 
@@ -135,6 +147,27 @@ function paymentPage(config) {
             return payment?.method === 'thai_qr' && payment.status === 'pending' && payment.qr_image ? payment : null;
         },
 
+        get isWalletMethod() {
+            return (this.config.walletMethods || []).includes(this.method);
+        },
+
+        get walletLabel() {
+            return this.state.payment?.method_label
+                || this.quotes[this.method]?.label
+                || this.method;
+        },
+
+        get walletQr() {
+            const payment = this.state.payment;
+
+            return this.isWalletMethod
+                && payment?.method === this.method
+                && payment.status === 'pending'
+                && payment.qr_image
+                ? payment
+                : null;
+        },
+
         get qrExpired() {
             return this.qr !== null && this.remaining <= 0;
         },
@@ -186,6 +219,12 @@ function paymentPage(config) {
             this.pollTimer = setInterval(() => this.poll(), 4000);
         },
 
+        watchStatus() {
+            this.stopTimers();
+            this.pollTimer = setInterval(() => this.poll(), 4000);
+            this.poll();
+        },
+
         tick() {
             const expiresAt = this.qr?.expires_at ? new Date(this.qr.expires_at).getTime() : 0;
             this.remaining = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
@@ -215,6 +254,43 @@ function paymentPage(config) {
         stopTimers() {
             clearInterval(this.countdownTimer);
             clearInterval(this.pollTimer);
+        },
+
+        platform() {
+            return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'mobile' : 'desktop';
+        },
+
+        async startWallet() {
+            if (!this.isWalletMethod || this.busy) return;
+
+            this.busy = true;
+            this.error = '';
+
+            try {
+                const next = await request(this.config.urls.wallet, {
+                    method: 'POST',
+                    body: JSON.stringify({ method: this.method, platform: this.platform() }),
+                });
+                this.state = next;
+
+                if (next.payment?.authorize_uri) {
+                    window.location.href = next.payment.authorize_uri;
+                    return;
+                }
+
+                if (next.payment?.qr_image) {
+                    this.watchStatus();
+                    return;
+                }
+
+                if (!next.paid) {
+                    this.error = next.payment?.failure_message || 'เปิดหน้าชำระไม่สำเร็จ กรุณาลองใหม่';
+                }
+            } catch (exception) {
+                this.error = exception.message;
+            } finally {
+                this.busy = false;
+            }
         },
 
         saveQr() {

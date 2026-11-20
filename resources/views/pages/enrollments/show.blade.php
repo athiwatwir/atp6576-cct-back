@@ -60,6 +60,16 @@
             ดูนักเรียน
         </a>
         @endif
+        @include('pages.orders.partials.payment-link', ['order' => $order, 'variant' => 'button'])
+        @if (! $isPaid && $student && (float) $order->total_amount <= 0)
+        <a href="{{ route('students.orders.payment', [$student, $order]) }}" class="inline-flex items-center justify-center rounded-lg border border-brand-300 bg-brand-50 px-4 py-2.5 text-sm font-medium text-brand-700 dark:border-brand-500/40 dark:bg-brand-500/10 dark:text-brand-400">
+            ยืนยันชำระเงินฟรี
+        </a>
+        @elseif (! $isPaid && $student)
+        <a href="{{ route('students.orders.payment', [$student, $order]) }}" class="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+            ยืนยันชำระเงิน
+        </a>
+        @endif
         <a href="{{ route('enrollments.edit', $order) }}" class="inline-flex items-center justify-center rounded-lg border border-warning-300 bg-warning-50 px-4 py-2.5 text-sm font-medium text-warning-700 hover:bg-warning-100 dark:border-warning-500/40 dark:bg-warning-500/10 dark:text-warning-400">
             แก้ไข
         </a>

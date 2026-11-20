@@ -203,6 +203,7 @@ class OnlinePayment
                 ...($payment->metadata ?? []),
                 'qr_image' => $qr->image,
                 'account_name' => $qr->accountName,
+                'gateway_response' => $qr->raw,
             ],
         ]);
 
@@ -237,6 +238,7 @@ class OnlinePayment
                 ...($payment->metadata ?? []),
                 'authorize_uri' => $charge->authorizeUri,
                 'card' => $charge->raw['card'] ?? null,
+                'gateway_response' => $charge->raw,
             ],
         ], fn ($value) => $value !== null));
 
@@ -249,7 +251,7 @@ class OnlinePayment
      * เริ่มชำระด้วย e-Wallet ผ่าน Omise
      * platform = mobile เปิดแอปของผู้ให้บริการ, desktop แสดง QR (TrueMoney, WeChat Pay) หรือหน้าเว็บของผู้ให้บริการ
      */
-    public function startWallet(Order $order, PaymentMethod $method, string $platform, ?string $ip = null): Payment
+    public function startWallet(Order $order, PaymentMethod $method, string $platform, ?string $ip = null, ?string $returnUri = null): Payment
     {
         if (! $method->isWallet()) {
             throw ValidationException::withMessages(['method' => 'วิธีชำระนี้ไม่ใช่ e-Wallet']);
@@ -265,7 +267,13 @@ class OnlinePayment
         $payment = $this->newAttempt($order, $method, 'omise');
 
         try {
-            $result = $gateway->chargeSource($payment, $order, $sourceType, $this->walletReturnUrl($order), $ip);
+            $result = $gateway->chargeSource(
+                $payment,
+                $order,
+                $sourceType,
+                $returnUri ?: $this->walletReturnUrl($order),
+                $ip,
+            );
         } catch (GatewayException $exception) {
             $this->markFailed($payment, $exception->failureCode, $exception->getMessage(), 'wallet.create_failed', $exception->raw);
 
@@ -284,6 +292,7 @@ class OnlinePayment
                 'flow' => $result['flow'],
                 'authorize_uri' => $charge->authorizeUri,
                 'qr_image' => $result['qr_image'],
+                'gateway_response' => $charge->raw,
             ],
         ], fn ($value) => $value !== null));
 
@@ -353,6 +362,7 @@ class OnlinePayment
             return true;
         }
 
+        $this->rememberCallback($payment, 'notify', $payload);
         $this->apply($payment, $gateway->chargeFromPayload($payload), 'notify');
 
         return true;
@@ -387,14 +397,26 @@ class OnlinePayment
         $confirmed = app(KgpQrGateway::class)->inquireRefund($refundId);
 
         if ($confirmed === null || (string) ($confirmed['charge_id'] ?? '') !== $chargeId) {
-            $this->log($payment, 'refund.unverified', null, $refundId, $this->refundFields($payload));
+            $this->rememberCallback($payment, 'refund.unverified', $payload);
+            $this->log($payment, 'refund.unverified', null, $refundId, [
+                'notify' => $payload,
+                'fields' => $this->refundFields($payload),
+            ]);
             Log::warning('KGP refund notify: ยืนยันกับ Refund Inquiry ไม่ได้', ['refund_id' => $refundId]);
 
             return 'unverified';
         }
 
         $fields = $this->refundFields($confirmed);
-        $this->log($payment, 'refund.notify', $fields['status'], $refundId, $fields);
+        $this->rememberCallback($payment, 'refund.notify', [
+            'notify' => $payload,
+            'inquiry' => $confirmed,
+        ]);
+        $this->log($payment, 'refund.notify', $fields['status'], $refundId, [
+            'notify' => $payload,
+            'inquiry' => $confirmed,
+            'fields' => $fields,
+        ]);
 
         DB::transaction(function () use ($payment, $refundId, $fields) {
             $payment = Payment::query()->whereKey($payment->id)->lockForUpdate()->firstOrFail();
@@ -455,9 +477,10 @@ class OnlinePayment
             ->first();
 
         if ($payment) {
-            $this->log($payment, 'webhook.'.(string) ($payload['key'] ?? 'event'), null, (string) $chargeId, [
-                'event_id' => $payload['id'] ?? null,
-            ]);
+            $event = 'webhook.'.(string) ($payload['key'] ?? 'event');
+            $sanitized = OmiseCardGateway::sanitize($payload);
+            $this->rememberCallback($payment, $event, $sanitized);
+            $this->log($payment, $event, null, (string) $chargeId, $sanitized);
             $this->refresh($payment);
         }
     }
@@ -704,15 +727,44 @@ class OnlinePayment
             return;
         }
 
-        $payment->update([
+        $payload = [
             'status' => PaymentStatus::Failed->value,
             'failure_code' => $code !== null ? Str::limit($code, 50, '') : null,
             'failure_message' => $message !== null ? Str::limit($message, 250, '') : null,
-        ]);
+        ];
+
+        if ($raw !== [] && in_array($event, ['qr.create_failed', 'card.charge_failed', 'wallet.create_failed'], true)) {
+            $payload['metadata'] = [
+                ...($payment->metadata ?? []),
+                'gateway_response' => $raw,
+            ];
+        }
+
+        $payment->update($payload);
 
         if ($event !== null) {
             $this->log($payment, $event, 'failed', $payment->transaction_id, $raw);
         }
+    }
+
+    /**
+     * เก็บ callback ล่าสุดบนแถว payment และรายละเอียดเต็มอยู่ใน payment_transactions
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function rememberCallback(Payment $payment, string $event, array $payload): void
+    {
+        $payment->refresh();
+        $payment->update([
+            'metadata' => [
+                ...($payment->metadata ?? []),
+                'last_callback' => [
+                    'event' => $event,
+                    'received_at' => now()->toIso8601String(),
+                    'payload' => $payload,
+                ],
+            ],
+        ]);
     }
 
     /**

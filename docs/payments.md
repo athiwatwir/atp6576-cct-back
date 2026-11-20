@@ -100,10 +100,16 @@ OMISE_SECRET_KEY=
 
 หน้าเว็บของ Laravel ที่ลูกค้าเปิดเพื่อจ่าย ไม่ต้องล็อกอิน ใช้ token จากตาราง `payment_links` (อายุตาม `PAYMENT_LINK_TTL_MINUTES`) เว็บนักเรียนไม่ใช้หน้านี้แล้ว ยังเปิดได้จาก
 
-1. แอดมินกด **สร้างลิงก์ชำระเงินออนไลน์** ในหน้าออเดอร์ แล้วคัดลอกลิงก์ส่งให้ลูกค้า
+1. แอดมินกด **สร้างลิงก์ชำระเงินออนไลน์** ในหน้าออเดอร์หนังสือ หน้าสมัครเรียน (`/enrollments/{order}`) หน้ายืนยันชำระเงินนักเรียน (`/students/.../payment`) แล้วคัดลอกลิงก์ส่งให้ลูกค้า (ออเดอร์ยอด 0 บาทสร้างลิงก์ไม่ได้ ระบบแสดงคำอธิบายแทน)
 2. `POST /api/v1/orders/{id}/payment-link` หรือ `payment_url` ของ `POST /api/v1/guest/orders` (ถ้าต้องการส่งลิงก์ให้จ่ายนอกเว็บ)
 
-ในหน้ามีสรุปรายการ ให้เลือกวิธีชำระ แสดง QR หรือฟอร์มบัตร พอชำระสำเร็จจะมีปุ่มกลับไปที่ `PAYMENT_RETURN_URL` เมื่อออเดอร์ชำระแล้ว ลิงก์จะเปลี่ยนเป็น `used` แต่ยังเปิดดูหน้าชำระสำเร็จได้ ลิงก์ที่หมดอายุจะแสดงหน้าแจ้งให้กลับไปขอลิงก์ใหม่
+ในหน้ามีสรุปรายการ ให้เลือกวิธีชำระที่เปิดอยู่ (QR พร้อมเพย์, บัตร, e-Wallet — ไม่รวมโอน/COD) แสดง QR ฟอร์มบัตร หรือเปิดหน้ากระเป๋าเงิน พอชำระสำเร็จจะมีปุ่มกลับไปที่ `PAYMENT_RETURN_URL` เมื่อออเดอร์ชำระแล้ว ลิงก์จะเปลี่ยนเป็น `used` แต่ยังเปิดดูหน้าชำระสำเร็จได้ ลิงก์ที่หมดอายุจะแสดงหน้าแจ้งให้กลับไปขอลิงก์ใหม่
+
+แอดมินเลือก QR / บัตร / e-Wallet จากหน้า `/students/.../payment` จะสร้างลิงก์แล้วเปิด `/pay/{token}?method=...` ให้เลือกวิธีนั้นไว้ล่วงหน้า
+
+### ส่วน e-Wallet
+
+`POST /pay/{token}/wallet` ส่ง `method` (`truemoney` / `shopeepay` / `rabbit_linepay` / `wechat_pay`) และ `platform` (`desktop` / `mobile`) แล้ว `OnlinePayment::startWallet()` สร้าง charge กับ Omise โดย `return_uri` เป็นหน้า `/pay/{token}?payment_return=wallet` ถ้าได้ `authorize_uri` หน้าจะพาไปแอปหรือหน้าผู้ให้บริการ ถ้าได้ `qr_image` จะแสดง QR ในหน้าและถามสถานะทุก 4 วินาที
 
 ### ส่วน QR ตามคู่มือ KGP (`KGP QR UXUI_Instruction_Guideline _v2_SA_20260713.pdf`)
 
@@ -144,7 +150,7 @@ OMISE_SECRET_KEY=
 - ค่าเริ่มต้นหลัง migrate: QR และบัตรตาม `PAYMENT_*_ENABLED` เดิม (ปกติเปิด) โอนเงินเปิด e-Wallet ปิด
 - วิธีที่เปิดแต่ระบบยังไม่พร้อม (เช่น e-Wallet ตอน `PAYMENT_CARD_DRIVER=fake`) ไม่แสดงให้ลูกค้า หน้าตั้งค่าขึ้นคำเตือน (`OnlinePayment::isAvailable()`)
 - หน้าแสดงผู้ให้บริการ โหมดทดสอบ / คีย์ทดสอบ และคำเตือนเมื่อบัญชี Omise ยังไม่เปิดช่องทาง e-Wallet นั้น
-- หน้า `/pay/{token}` ของ Laravel แสดงเฉพาะ QR พร้อมเพย์และบัตรที่เปิดอยู่
+- หน้า `/pay/{token}` ของ Laravel แสดง QR พร้อมเพย์ บัตร และ e-Wallet ที่เปิดอยู่ (ไม่รวมโอนเงิน)
 
 ค่าธรรมเนียมตั้งแยกต่อวิธี ค่าเริ่มต้นคือไม่เก็บ
 
@@ -213,25 +219,55 @@ Refund Notification หาออเดอร์จาก `payments.metadata.char
 | `metadata.qr_image` | รูป QR (data URI) |
 | `metadata.charge_id` | charge id ของ KGP หลังจ่ายแล้ว |
 | `metadata.card` | ยี่ห้อและเลข 4 ตัวท้ายของบัตรจาก Omise |
+| `metadata.gateway_response` | JSON ตอบกลับล่าสุดตอนสร้างรายการกับ gateway (สร้าง QR / ตัดบัตร / เปิด e-Wallet) |
+| `metadata.last_callback` | callback ล่าสุด (`event`, `received_at`, `payload`) จาก KGP notify หรือ Omise webhook |
 
-ทุกเหตุการณ์ (สร้าง QR, ตัดบัตร, inquiry, notify, webhook) บันทึกใน `payment_transactions` พร้อม payload ไม่มีเลขบัตรหรือ secret key
+ทุกเหตุการณ์ (สร้าง QR, ตัดบัตร, เปิด e-Wallet, inquiry, notify, refund notify, webhook) บันทึกใน `payment_transactions.payload` เป็น JSON จากระบบชำระเงิน
+
+| `event_type` | ความหมาย | แหล่ง JSON |
+|------|------|------|
+| `qr.created` / `qr.create_failed` | สร้าง QR กับ KGP | ตอบกลับ Create QR |
+| `card.charge` / `card.charge_failed` | ตัดบัตรกับ Omise | ตอบกลับ Charges API |
+| `wallet.created` / `wallet.create_failed` | เปิด e-Wallet กับ Omise | ตอบกลับ Charges API (source) |
+| `inquiry` | ถามสถานะ (หน้าชำระ / ปุ่มแอดมิน / หลัง webhook) | ตอบกลับ Inquiry / GET charge |
+| `notify` | KGP Payment Notification | body ของ callback |
+| `webhook.*` | Omise webhook (เช่น `webhook.charge.complete`) | body ของ event (sanitize แล้ว) |
+| `refund.notify` / `refund.unverified` | KGP Refund Notification | body notify + ผล Refund Inquiry |
+
+Omise ตัดเลขบัตรเต็มออกก่อนเก็บ (เหลือ brand / last_digits) และไม่เก็บ binary ของรูป QR e-Wallet ใน JSON (เหลือแค่ `download_uri`) หน้าออเดอร์/สมัครเรียนแสดงรายการนี้ใต้กล่องการชำระเงิน
 
 ## แอดมิน
 
 หน้าออเดอร์ (`orders.show`) ส่วน **การชำระเงิน**
 
-- แสดงผู้ให้บริการ เลขอ้างอิง รหัสรายการ เวลา QR หมดอายุ และเหตุผลที่ไม่สำเร็จ
+- แสดงผู้ให้บริการ เลขอ้างอิง รหัสรายการ เวลา QR หมดอายุ และเหตุผลที่ไม่สำเร็จ (Omise แสดงเป็น «บัตร» หรือ «e-Wallet» ตาม `payment_method`)
+- แสดงบันทึก JSON จากระบบชำระเงิน / callback (`payment_transactions`) กดขยายดูได้
 - **ตรวจสถานะกับผู้ให้บริการ** `POST /orders/{order}/payments/{payment}/refresh`
 - **จำลองชำระสำเร็จ** (เฉพาะโหมดทดสอบ) `POST /orders/{order}/payments/{payment}/simulate`
 - **สร้างลิงก์ชำระเงินออนไลน์** `POST /orders/{order}/payment-link`
 
-หน้าการเงินรวมยอดตามวิธีชำระจาก `payments.payment_method` อยู่แล้ว จึงมี QR พร้อมเพย์และบัตรเครดิตแยกบรรทัดให้เอง
+หน้าการเงินรวมยอดตามวิธีชำระจาก `payments.payment_method` อยู่แล้ว จึงมี QR พร้อมเพย์ บัตร และ e-Wallet แยกบรรทัดให้เอง
+
+### เอกสาร UAT Omise / KGP
+
+ไฟล์ `docs/omise/ATP_UAT_Result_Form_20261009_ATP_KPN-CardFull-JS-Logs_v3.xlsx`
+
+| Sheet | สถานะ |
+|-------|--------|
+| `PGW-API` | กรอก 20/11/2026 กับ KGP UAT — Create QR / Inquiry unpaid-cancelled / checksum notify; Complete Paid รอสแกน PromptPay (PASSED WITH CONDITION); **Refund ทั้งชุดเป็น N/A** |
+| `KPN-CardFull-API` / `KPN-CardFull-JS-Logs` | กรอกจาก Omise test mode แล้ว; **Void / Refund เป็น N/A** |
+| `KPN-Wallet-API` | กรอก 20/11/2026 จาก Omise test mode (TrueMoney, LINE Pay, ShopeePay, WeChat charge); Alipay/SPAY later เป็น N/A; **Void / Refund ทั้งชุดเป็น N/A** |
+| `KPN-Installment-API` | กรอก 20/11/2026 จาก Omise test mode (KBANK/BAY/KCF/KTC/TTB/SCB/UOB charge); ยังไม่เปิดผ่อนใน storefront; **Void ทั้งชุดเป็น N/A** |
+
+ขอบเขต UAT รอบนี้**ไม่รวม Refund / Void** — เคสที่เกี่ยวข้องในทุกชีตตั้งเป็น `N/A`
 
 ## ยังไม่ได้ทำ
 
 - สั่งคืนเงินจากระบบ (KGP `POST /api/v2/refund/{charge_id}` กับ Omise Refunds API) ตอนนี้ยังต้องคืนผ่าน portal ของผู้ให้บริการ ฝั่ง Thai QR รับ Refund Notification จาก KGP ได้แล้ว ฝั่ง Omise ยังไม่รับ event คืนเงิน
-- ผ่อนชำระ, TrueMoney, ShopeePay, LINE Pay, บันทึกบัตรไว้ใช้ครั้งหน้า
-- ยังไม่ได้ทดสอบกับ UAT ของ KGP ต้องรอคีย์ ส่วนบัตรทดสอบกับ Omise test mode แล้ว (สำเร็จ / ไม่ผ่าน) ยังไม่ได้ทดสอบบัตรที่ต้องยืนยัน 3-D Secure และ webhook ของ Omise เพราะเครื่อง dev ไม่มี URL สาธารณะ
+- ผ่อนชำระในเว็บนักเรียน / หน้า `/pay/{token}` (บัญชี Omise เปิด installment แล้ว ทดสอบ API ในชีต UAT แล้ว แต่ยังไม่ต่อ UI)
+- บันทึกบัตรไว้ใช้ครั้งหน้า
+- KGP PGW: Create QR / Inquiry / Cancel / checksum ทดสอบกับคีย์ UAT แล้ว — เคส Paid ต้องสแกน PromptPay บน QR UAT แล้วค่อย inquiry ซ้ำ (Refund ไม่อยู่ในขอบเขต UAT รอบนี้)
+- webhook ของ Omise บนเครื่อง dev ยังไม่มี URL สาธารณะ
 
 ## สิ่งที่ต้องส่งให้ KGP / ทำเมื่อได้คีย์
 

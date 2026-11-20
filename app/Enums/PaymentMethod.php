@@ -54,6 +54,12 @@ enum PaymentMethod: string
         return $this->type() === 'wallet';
     }
 
+    /** โอน/COD — แอดมินยืนยันเอง ไม่เปิดหน้า /pay */
+    public function isManual(): bool
+    {
+        return $this->type() === 'transfer';
+    }
+
     /**
      * ประเภท source ของ Omise ตามอุปกรณ์ mobile = เปิดแอป, desktop = แสดง QR หรือหน้าเว็บของผู้ให้บริการ
      */

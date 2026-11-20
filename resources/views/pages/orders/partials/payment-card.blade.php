@@ -42,7 +42,12 @@
             <div class="flex justify-between gap-3">
                 <span class="shrink-0 text-gray-500">ผู้ให้บริการ</span>
                 <span class="text-right font-medium text-gray-800 dark:text-white/90">
-                    {{ match ($latestPayment->provider) { 'kgp' => 'KGP (Thai QR)', 'omise' => 'Omise (บัตร)', default => 'โหมดทดสอบ' } }}
+                    {{ match (true) {
+                        $latestPayment->provider === 'kgp' => 'KGP (Thai QR)',
+                        $latestPayment->provider === 'omise' && \App\Enums\PaymentMethod::tryFrom((string) $latestPayment->payment_method)?->isWallet() => 'Omise (e-Wallet)',
+                        $latestPayment->provider === 'omise' => 'Omise (บัตร)',
+                        default => 'โหมดทดสอบ',
+                    } }}
                 </span>
             </div>
             <div class="flex justify-between gap-3">
@@ -81,32 +86,40 @@
                     @endif
                 </div>
             @endif
+            @php
+                $gatewayEvents = ($latestPayment->relationLoaded('transactions')
+                    ? $latestPayment->transactions
+                    : $latestPayment->transactions()->latest('id')->limit(20)->get()
+                )->sortByDesc('id')->take(20)->values();
+            @endphp
+            @if ($gatewayEvents->isNotEmpty())
+                <div class="mt-3 border-t border-gray-100 pt-3 dark:border-gray-800" x-data="{ open: false }">
+                    <button type="button" @click="open = !open" class="flex w-full items-center justify-between text-left text-xs font-medium text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200">
+                        <span>บันทึก JSON จากระบบชำระเงิน ({{ $gatewayEvents->count() }})</span>
+                        <span x-text="open ? 'ซ่อน' : 'แสดง'"></span>
+                    </button>
+                    <div x-show="open" x-cloak class="mt-2 max-h-80 space-y-2 overflow-y-auto">
+                        @foreach ($gatewayEvents as $event)
+                            <details class="rounded-lg border border-gray-100 bg-gray-50 p-2 dark:border-gray-800 dark:bg-white/[0.02]">
+                                <summary class="cursor-pointer text-xs text-gray-700 dark:text-gray-300">
+                                    <span class="font-mono">{{ $event->event_type }}</span>
+                                    @if ($event->status)
+                                        <span class="text-gray-400">· {{ $event->status }}</span>
+                                    @endif
+                                    <span class="text-gray-400">· {{ $event->processed_at?->format('d/m H:i:s') ?? $event->created_at?->format('d/m H:i:s') }}</span>
+                                </summary>
+                                <pre class="mt-2 overflow-x-auto whitespace-pre-wrap break-all text-[11px] leading-4 text-gray-600 dark:text-gray-400">{{ json_encode($event->payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) }}</pre>
+                            </details>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
         @endif
     </div>
 
-    @if (! in_array($order->payment_status, ['paid', 'refunded'], true) && (float) $order->total_amount > 0 && $order->status !== 'cancelled')
+    @if (! in_array($order->payment_status, ['paid', 'refunded'], true) && $order->status !== 'cancelled')
         <div class="mt-4 border-t border-gray-100 pt-4 dark:border-gray-800">
-            @if (session('payment_link'))
-                <div x-data="{ copied: false }" class="space-y-2">
-                    <p class="text-xs text-gray-500">ลิงก์ชำระเงิน (QR พร้อมเพย์ / บัตร)</p>
-                    <input type="text" readonly value="{{ session('payment_link') }}" x-ref="link" @focus="$el.select()"
-                        class="h-10 w-full rounded-lg border border-gray-300 bg-gray-50 px-3 font-mono text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" />
-                    <div class="flex gap-2">
-                        <button type="button" data-no-loading @click="navigator.clipboard.writeText($refs.link.value); copied = true; setTimeout(() => copied = false, 2000)"
-                            class="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">
-                            <span x-text="copied ? 'คัดลอกแล้ว' : 'คัดลอกลิงก์'"></span>
-                        </button>
-                        <a href="{{ session('payment_link') }}" target="_blank" rel="noopener" class="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">เปิดหน้าชำระ</a>
-                    </div>
-                </div>
-            @else
-                <form method="POST" action="{{ route('orders.payment-link', $order) }}">
-                    @csrf
-                    <button type="submit" class="inline-flex w-full items-center justify-center rounded-lg border border-brand-300 bg-brand-50 px-4 py-2.5 text-sm font-medium text-brand-700 dark:border-brand-500/40 dark:bg-brand-500/10 dark:text-brand-400">
-                        สร้างลิงก์ชำระเงินออนไลน์
-                    </button>
-                </form>
-            @endif
+            @include('pages.orders.partials.payment-link', ['order' => $order, 'variant' => 'card'])
         </div>
     @endif
 </div>

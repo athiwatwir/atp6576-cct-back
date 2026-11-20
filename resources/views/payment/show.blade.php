@@ -9,18 +9,34 @@
 @section('content')
     @php
         $thaiQrLogo = file_exists(public_path('images/payment/thai-qr-payment.png')) ? asset('images/payment/thai-qr-payment.png') : null;
+        $walletMethods = array_values(array_filter($methods, fn (string $m) => in_array($m, ['truemoney', 'shopeepay', 'rabbit_linepay', 'wechat_pay'], true)));
+        $walletLabels = [
+            'truemoney' => 'TrueMoney Wallet',
+            'shopeepay' => 'ShopeePay',
+            'rabbit_linepay' => 'Rabbit LINE Pay',
+            'wechat_pay' => 'WeChat Pay',
+        ];
+        $walletIcons = [
+            'truemoney' => 'TM',
+            'shopeepay' => 'SP',
+            'rabbit_linepay' => 'LP',
+            'wechat_pay' => 'WC',
+        ];
         $config = [
             'state' => $state,
             'methods' => $methods,
+            'preferredMethod' => $preferredMethod ?? '',
             'quotes' => $quotes,
             'fakeCard' => $fakeCard,
             'omisePublicKey' => $omisePublicKey,
             'merchantName' => $merchantName,
             'orderNo' => $order->order_no,
             'fakeTokens' => $fakeTokens,
+            'walletMethods' => $walletMethods,
             'urls' => [
                 'thaiQr' => route('payment.thai-qr', $link->token),
                 'card' => route('payment.card', $link->token),
+                'wallet' => route('payment.wallet', $link->token),
                 'status' => route('payment.status', $link->token),
                 'simulate' => route('payment.simulate', $link->token),
             ],
@@ -118,6 +134,20 @@
                                 </span>
                             </button>
                         @endif
+                        @foreach ($walletMethods as $wallet)
+                            <button type="button" @click="select('{{ $wallet }}')"
+                                :class="method === '{{ $wallet }}' ? 'border-brand-500 ring-2 ring-brand-500/20' : 'border-gray-200 hover:border-gray-300'"
+                                class="flex items-center gap-3 rounded-xl border bg-white p-4 text-left transition">
+                                <span class="flex h-8 w-12 items-center justify-center rounded-md bg-gray-900 text-[10px] font-bold tracking-wide text-white">{{ $walletIcons[$wallet] ?? 'W' }}</span>
+                                <span>
+                                    <span class="block text-sm font-medium">{{ $walletLabels[$wallet] ?? $wallet }}</span>
+                                    <span class="block text-xs text-gray-500">เปิดแอปหรือสแกน QR ของกระเป๋าเงิน</span>
+                                    @if (($quotes[$wallet]['fee_amount'] ?? 0) > 0)
+                                        <span class="mt-0.5 block text-xs text-warning-600">+ ค่าธรรมเนียม {{ number_format($quotes[$wallet]['fee_amount'], 2) }} บาท</span>
+                                    @endif
+                                </span>
+                            </button>
+                        @endforeach
                     </div>
                     @if ($methods === [])
                         <p class="mt-3 text-sm text-gray-500">ยังไม่เปิดช่องทางชำระออนไลน์ กรุณาติดต่อแอดมิน</p>
@@ -250,6 +280,35 @@
                         </button>
                         <p class="text-center text-xs text-gray-400">บัตรบางใบจะพาไปหน้ายืนยัน OTP ของธนาคาร (3-D Secure)</p>
                     </form>
+                </section>
+
+                {{-- e-Wallet: พาไปแอปหรือแสดง QR ของผู้ให้บริการ --}}
+                <section x-show="isWalletMethod" x-cloak class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                    <template x-if="!walletQr">
+                        <div class="text-center">
+                            <h2 class="text-sm font-semibold" x-text="'ชำระด้วย ' + (walletLabel || 'e-Wallet')"></h2>
+                            <p class="mt-1 text-xs text-gray-500">กดปุ่มด้านล่างเพื่อเปิดหน้าชำระของกระเป๋าเงิน (มือถือจะเปิดแอป / คอมพิวเตอร์อาจแสดง QR)</p>
+                            <button type="button" @click="startWallet()" :disabled="busy"
+                                class="bg-brand-500 hover:bg-brand-600 mt-4 inline-flex w-full items-center justify-center rounded-lg px-5 py-3 text-sm font-medium text-white disabled:opacity-60">
+                                <span x-text="busy ? 'กำลังเปิดหน้าชำระ...' : 'ชำระ ' + amountText(payableTotal)"></span>
+                            </button>
+                        </div>
+                    </template>
+                    <template x-if="walletQr">
+                        <div class="flex flex-col items-center">
+                            <h2 class="text-sm font-semibold" x-text="'สแกน QR ' + (walletLabel || 'e-Wallet')"></h2>
+                            <img :src="walletQr.qr_image" alt="Wallet QR" class="mt-4 h-64 w-64 rounded-lg border border-gray-100 bg-white object-contain p-2" />
+                            <p class="mt-3 text-2xl font-bold" x-text="amountText(walletQr.amount)"></p>
+                            <p class="mt-3 flex items-center gap-2 text-xs text-gray-500">
+                                <span class="inline-block h-2 w-2 animate-pulse rounded-full bg-success-500"></span>
+                                รอการชำระเงิน ระบบจะอัปเดตให้อัตโนมัติ
+                            </p>
+                            <button type="button" @click="startWallet()" :disabled="busy"
+                                class="mt-4 inline-flex w-full items-center justify-center rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60">
+                                สร้างรายการใหม่
+                            </button>
+                        </div>
+                    </template>
                 </section>
 
                 <p class="text-center">

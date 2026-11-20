@@ -44,16 +44,23 @@ class PaymentPageController extends Controller
 
         $latest = $order->payments()->latest('id')->first();
         $state = $this->payments->payload($this->payments->activeQr($order) ?? $latest, $order);
-        // หน้านี้รองรับเฉพาะ QR พร้อมเพย์และบัตร (e-Wallet และโอนเงินใช้ผ่านเว็บนักเรียน)
-        $methods = array_values(array_intersect($this->payments->enabledMethods(), [PaymentMethod::ThaiQr->value, PaymentMethod::CreditCard->value]));
+        $online = array_values(array_filter(
+            $this->payments->enabledMethods(),
+            fn (string $method) => ! PaymentMethod::from($method)->isManual(),
+        ));
+        $preferred = request()->string('method')->toString();
+        if ($preferred !== '' && ! in_array($preferred, $online, true)) {
+            $preferred = '';
+        }
 
         return view('payment.show', [
             'title' => 'ชำระเงิน '.$order->order_no,
             'link' => $link,
             'order' => $order,
             'state' => $state,
-            'methods' => $methods,
-            'quotes' => PaymentFees::quote($order, $methods),
+            'methods' => $online,
+            'preferredMethod' => $preferred,
+            'quotes' => PaymentFees::quote($order, $online),
             'fakeQr' => $this->payments->isFake(PaymentMethod::ThaiQr),
             'fakeCard' => $this->payments->isFake(PaymentMethod::CreditCard),
             'omisePublicKey' => $this->payments->cardGateway()->publicKey(),
@@ -86,6 +93,27 @@ class PaymentPageController extends Controller
             $link->order,
             $data['token'],
             fn (Payment $payment) => $this->payments->returnUri($payment, route('payment.page', $link->token)),
+        );
+
+        return response()->json($this->payments->payload($payment, $link->order));
+    }
+
+    public function wallet(Request $request, string $token): JsonResponse
+    {
+        $link = $this->usableLink($token);
+        $data = $request->validate([
+            'method' => ['required', 'string', 'in:'.implode(',', array_map(fn (PaymentMethod $m) => $m->value, PaymentMethod::wallets()))],
+            'platform' => ['nullable', 'in:desktop,mobile'],
+        ], [
+            'method.in' => 'วิธีชำระนี้ไม่ใช่ e-Wallet',
+        ]);
+
+        $payment = $this->payments->startWallet(
+            $link->order,
+            PaymentMethod::from($data['method']),
+            $data['platform'] ?? 'desktop',
+            $request->ip(),
+            route('payment.page', ['token' => $link->token, 'payment_return' => 'wallet']),
         );
 
         return response()->json($this->payments->payload($payment, $link->order));

@@ -215,7 +215,7 @@ Online payment (details in `docs/payments.md`): each Thai QR or card attempt is 
 
 | Column | Notes |
 |--------|--------|
-| `payment_method` | `bank_transfer`, `thai_qr`, `credit_card`, `cod` |
+| `payment_method` | `bank_transfer`, `thai_qr`, `credit_card`, `cod`, `truemoney`, `shopeepay`, `rabbit_linepay`, `wechat_pay` |
 | `provider` | `kgp` (Thai QR), `omise` (card), `fake` (test mode), `null` for slip transfer |
 | `transaction_id` | KGP `qr_id` or Omise charge id; unique with `provider` |
 | `reference` | Our reference `CCT` + 10-digit payment id, sent to KGP as `reference_order`; unique |
@@ -226,7 +226,7 @@ Receipts (details in `docs/receipts.md`): `receipts` holds one receipt per paid 
 
 Payment methods and fees: `payment_fees` has one row per customer payment method (`payment_method` unique: `thai_qr`, `credit_card`, `truemoney`, `shopeepay`, `rabbit_linepay`, `wechat_pay`, `bank_transfer`) with `is_active` (customers can choose this method), `is_enabled` (charge a fee), `percent`, `fixed_amount`, `min_amount`, `max_amount`, `label`, `updated_by`. A method without a row is inactive. When a fee is enabled, `payments.amount` = order total + fee and `payments.fee_amount` stores the fee; `orders.total_amount` is unchanged. E-wallet payments use `provider = omise` and keep `source_type`, `platform`, `flow`, `authorize_uri`, `qr_image` in `payments.metadata`.
 
-`payment_transactions` logs every gateway event (create QR, charge, inquiry, notify, refund notify, webhook). KGP refund notifications are stored under `payments.metadata.refunds.{refund_id}`; a confirmed full refund sets `payments.status` and `orders.payment_status` to `refunded`. `payment_links` holds the public `/pay/{token}` page token per order (`active` → `used` once the order is paid).
+`payment_transactions` logs every gateway event (create QR, charge, wallet, inquiry, notify, refund notify, webhook) with the JSON payload from the payment provider in `payload`. The latest create response is also mirrored on `payments.metadata.gateway_response`, and the latest callback on `payments.metadata.last_callback`. KGP refund notifications are stored under `payments.metadata.refunds.{refund_id}`; a confirmed full refund sets `payments.status` and `orders.payment_status` to `refunded`. `payment_links` holds the public `/pay/{token}` page token per order (`active` → `used` once the order is paid).
 
 ### Promotion / Coupon
 

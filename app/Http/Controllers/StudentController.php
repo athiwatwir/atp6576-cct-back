@@ -15,18 +15,21 @@ use App\Models\User;
 use App\Support\Audit;
 use App\Support\Phone;
 use App\Support\SimplePassword;
+use App\Support\Payments\OnlinePayment;
 use App\Support\StudentApp;
 use App\Support\StudentPurchase;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class StudentController extends Controller
 {
     public function __construct(
         private readonly StudentPurchase $purchases,
+        private readonly OnlinePayment $payments,
     ) {}
 
     public function index(Request $request): View
@@ -233,7 +236,23 @@ class StudentController extends Controller
     {
         $this->ensureOwnedOrder($student, $order);
 
-        $result = $this->purchases->pay($student, $order, $request->validated('payment_method'));
+        $method = PaymentMethod::from($request->validated('payment_method'));
+
+        // QR / บัตร / e-Wallet → สร้างลิงก์แล้วเปิดหน้า /pay/{token} ให้ชำระจริง
+        if (! $method->isManual()) {
+            try {
+                $link = $this->payments->linkFor($order, $request->user()?->id);
+            } catch (ValidationException $exception) {
+                return back()->with('error', collect($exception->errors())->flatten()->first());
+            }
+
+            return redirect()->route('payment.page', [
+                'token' => $link->token,
+                'method' => $method->value,
+            ]);
+        }
+
+        $result = $this->purchases->pay($student, $order, $method->value);
 
         if ($result['already_paid']) {
             return redirect()

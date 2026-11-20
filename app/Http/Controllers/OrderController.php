@@ -224,7 +224,7 @@ class OrderController extends Controller
             return redirect()->route('enrollments.show', $order);
         }
 
-        $order->load(['user', 'items.product', 'payments', 'latestPayment', 'coupon', 'receipt']);
+        $order->load(['user', 'items.product', 'payments.transactions', 'latestPayment.transactions', 'coupon', 'receipt']);
 
         return view('pages.orders.show', [
             'title' => $order->order_no,

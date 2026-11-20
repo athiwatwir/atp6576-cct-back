@@ -202,8 +202,47 @@ class OmiseCardGateway implements CardGateway
             authorizeUri: $status === GatewayCharge::PENDING ? ($data['authorize_uri'] ?? null) : null,
             failureCode: $failureCode,
             failureMessage: $this->failureMessage($failureCode, $data['failure_message'] ?? null),
-            raw: $this->safe($data),
+            raw: self::sanitize($data),
         );
+    }
+
+    /**
+     * เก็บ JSON จาก Omise ไว้ตรวจย้อนหลัง ตัดเลขบัตรเต็มและข้อมูลใหญ่เกินจำเป็น
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public static function sanitize(array $data): array
+    {
+        if (isset($data['card']) && is_array($data['card'])) {
+            $card = $data['card'];
+            $data['card'] = array_filter([
+                'object' => $card['object'] ?? null,
+                'brand' => $card['brand'] ?? null,
+                'last_digits' => $card['last_digits'] ?? null,
+                'bank' => $card['bank'] ?? null,
+                'financing' => $card['financing'] ?? null,
+                'type' => $card['type'] ?? null,
+                'expiration_month' => $card['expiration_month'] ?? null,
+                'expiration_year' => $card['expiration_year'] ?? null,
+            ], fn ($value) => $value !== null);
+        }
+
+        if (isset($data['data']) && is_array($data['data']) && ($data['data']['object'] ?? null) === 'charge') {
+            $data['data'] = self::sanitize($data['data']);
+        }
+
+        // รูป QR ของ e-Wallet เก็บแค่ URI ไม่ดึง binary มาใส่ JSON
+        $image = data_get($data, 'source.scannable_code.image');
+        if (is_array($image)) {
+            data_set($data, 'source.scannable_code.image', array_filter([
+                'object' => $image['object'] ?? null,
+                'download_uri' => $image['download_uri'] ?? null,
+                'type' => $image['type'] ?? null,
+            ], fn ($value) => $value !== null));
+        }
+
+        return $data;
     }
 
     private function failureMessage(?string $code, ?string $fallback): ?string
@@ -246,28 +285,4 @@ class OmiseCardGateway implements CardGateway
         }
     }
 
-    /**
-     * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
-     */
-    private function safe(array $data): array
-    {
-        $card = $data['card'] ?? null;
-
-        return [
-            'id' => $data['id'] ?? null,
-            'status' => $data['status'] ?? null,
-            'amount' => $data['amount'] ?? null,
-            'currency' => $data['currency'] ?? null,
-            'authorized' => $data['authorized'] ?? null,
-            'paid' => $data['paid'] ?? null,
-            'failure_code' => $data['failure_code'] ?? null,
-            'failure_message' => $data['failure_message'] ?? null,
-            'card' => is_array($card) ? [
-                'brand' => $card['brand'] ?? null,
-                'last_digits' => $card['last_digits'] ?? null,
-                'bank' => $card['bank'] ?? null,
-            ] : null,
-        ];
-    }
 }

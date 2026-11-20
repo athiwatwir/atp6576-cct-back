@@ -48,6 +48,7 @@ Route::prefix('pay')->name('payment.')->middleware('throttle:60,1')->group(funct
     Route::get('{token}', [PaymentPageController::class, 'show'])->name('page');
     Route::post('{token}/thai-qr', [PaymentPageController::class, 'thaiQr'])->middleware('throttle:10,1,pay-page-qr')->name('thai-qr');
     Route::post('{token}/card', [PaymentPageController::class, 'card'])->middleware('throttle:10,1,pay-page-card')->name('card');
+    Route::post('{token}/wallet', [PaymentPageController::class, 'wallet'])->middleware('throttle:10,1,pay-page-wallet')->name('wallet');
     Route::get('{token}/status', [PaymentPageController::class, 'status'])->name('status');
     Route::post('{token}/simulate', [PaymentPageController::class, 'simulate'])->name('simulate');
 });
