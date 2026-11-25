@@ -101,6 +101,31 @@
             <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p>
         @enderror
     </div>
+
+    <div class="md:col-span-2">
+        <label for="description_image" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+            รูปประกอบรายละเอียด
+        </label>
+        <input type="file" id="description_image" name="description_image" accept="image/jpeg,image/png,image/webp,image/gif"
+            class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 block w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+        <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+            ไม่บังคับ JPG/PNG/WebP/GIF ไม่เกิน 4MB — เก็บที่
+            <code class="rounded bg-gray-100 px-1 dark:bg-white/10">exams/{id}/description.webp</code>
+        </p>
+        @error('description_image')
+            <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p>
+        @enderror
+
+        @if ($exam?->description_image)
+            <div class="mt-3 flex items-center gap-3">
+                <img src="{{ $exam->description_image_url }}" alt="" class="max-h-40 rounded-xl border border-gray-200 object-contain dark:border-gray-700" />
+                <label class="inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                    <input type="checkbox" name="remove_description_image" value="1" class="text-brand-500 focus:ring-brand-500/20 h-4 w-4 rounded border-gray-300 dark:border-gray-700" />
+                    ลบรูปปัจจุบัน
+                </label>
+            </div>
+        @endif
+    </div>
 </div>
 
 <p class="mt-4 rounded-xl border border-blue-light-200 bg-blue-light-50 px-4 py-3 text-sm text-blue-light-700 dark:border-blue-light-500/30 dark:bg-blue-light-500/10 dark:text-blue-light-400">

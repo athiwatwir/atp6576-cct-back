@@ -621,6 +621,7 @@ await api('/profile', { method: 'POST', body: form })
       "name": "ข้อสอบท้ายวิชา",
       "slug": "physics-quiz",
       "description": null,
+      "description_image_url": null,
       "duration_minutes": 30,
       "question_count": 10,
       "chapter_id": null
@@ -738,6 +739,7 @@ await api('/profile', { method: 'POST', body: form })
   "slug": "physics-exam",
   "name": "ข้อสอบฟิสิกส์",
   "description": "แนวข้อสอบกลางภาค",
+  "description_image_url": null,
   "thumbnail_url": null,
   "price": 490,
   "sale_price": null,
@@ -753,6 +755,8 @@ await api('/profile', { method: 'POST', body: form })
 ```
 
 `duration_minutes` คือเวลาทำข้อสอบต่อครั้ง ส่วน `price_plans[].duration_days` คือจำนวนวันที่มีสิทธิ์ทำข้อสอบ
+
+`description` เป็นข้อความธรรมดา (อาจเป็น `null`) รูปประกอบรายละเอียดอยู่ที่ `description_image_url` แยกต่างหาก (อาจเป็น `null`)
 
 ## ทำข้อสอบ
 
@@ -772,7 +776,8 @@ await api('/profile', { method: 'POST', body: form })
     "id": 9,
     "slug": "physics-quiz",
     "name": "ข้อสอบท้ายวิชา",
-    "description": null,
+    "description": "ทบทวนบทที่ 1",
+    "description_image_url": null,
     "type": "quiz",
     "duration_minutes": 30,
     "passing_score": 60,
@@ -807,6 +812,8 @@ await api('/profile', { method: 'POST', body: form })
 | ฟิลด์ | หมายเหตุ |
 |------|----------|
 | `type` | `quiz` แบบฝึกหัด หรือ `primary_exam` ข้อสอบหลัก |
+| `description` | ข้อความรายละเอียดข้อสอบ อาจเป็น `null` |
+| `description_image_url` | URL รูปประกอบรายละเอียด อาจเป็น `null` |
 | `duration_minutes` | เวลาต่อครั้ง `null` คือไม่จับเวลา |
 | `passing_score` | เกณฑ์ผ่านเป็นเปอร์เซ็นต์ `null` คือไม่กำหนด และ `passed` ของแต่ละครั้งเป็น `null` |
 | `max_attempts`, `attempts_remaining` | `null` คือทำได้ไม่จำกัด |
@@ -897,6 +904,7 @@ await api('/profile', { method: 'POST', body: form })
         "image_url": null,
         "points": 1,
         "explanation": "แรงมีหน่วยเป็นนิวตัน",
+        "explanation_image_url": null,
         "selected_choice_id": 501,
         "correct_choice_id": 501,
         "is_correct": true,
@@ -910,6 +918,8 @@ await api('/profile', { method: 'POST', body: form })
   }
 }
 ```
+
+`review[].explanation` เป็นข้อความคำอธิบายเฉลย อาจเป็น `null` รูปประกอบเฉลยอยู่ที่ `review[].explanation_image_url` (อาจเป็น `null`)
 
 ส่งซ้ำหลังส่งแล้วได้ผลเดิม ไม่ตรวจใหม่ ส่งหลัง `deadline_at` ได้อีก 60 วินาทีเผื่อเน็ตช้า เกินกว่านั้นระบบปิดเป็น `expired` ไม่ได้คะแนน และตอบ `422` ข้อความ `หมดเวลาทำข้อสอบแล้ว ครั้งนี้ไม่ได้คะแนน` พร้อม `data` เป็นผลรูปแบบเดียวกัน `attempt` ที่ไม่ใช่ของนักเรียนคนนี้หรือไม่ใช่ของข้อสอบนี้ตอบ `404`
 

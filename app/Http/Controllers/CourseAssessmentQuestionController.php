@@ -26,9 +26,12 @@ class CourseAssessmentQuestionController extends Controller
             'choices.*.choice_text' => ['nullable', 'string'],
             'correct_index' => ['required', 'integer', 'min:0'],
             'image' => MediaType::QuestionImage->rules(),
+            'explanation_image' => MediaType::QuestionExplanationImage->rules(),
         ], [
             'image.image' => 'รูปคำถามต้องเป็นไฟล์รูปภาพ',
             'image.max' => 'รูปคำถามต้องไม่เกิน 4 MB',
+            'explanation_image.image' => 'รูปเฉลยต้องเป็นไฟล์รูปภาพ',
+            'explanation_image.max' => 'รูปเฉลยต้องไม่เกิน 4 MB',
         ]);
 
         $choices = $this->normalizedChoices($data['choices'], (int) $data['correct_index']);
@@ -39,16 +42,28 @@ class CourseAssessmentQuestionController extends Controller
             $question = $assessment->questions()->create([
                 'question_text' => $data['question_text'],
                 'question_type' => 'single_choice',
-                'explanation' => $data['explanation'] ?? null,
+                'explanation' => filled(trim((string) ($data['explanation'] ?? ''))) ? trim((string) $data['explanation']) : null,
                 'points' => $data['points'] ?? 1,
                 'sort_order' => $sortOrder,
                 'status' => 'active',
             ]);
 
+            $media = [];
+
             if ($request->hasFile('image')) {
-                $question->update([
-                    'image' => MediaStorage::storeQuestionImage($request->file('image'), $assessment->id, $question->id),
-                ]);
+                $media['image'] = MediaStorage::storeQuestionImage($request->file('image'), $assessment->id, $question->id);
+            }
+
+            if ($request->hasFile('explanation_image')) {
+                $media['explanation_image'] = MediaStorage::storeQuestionExplanationImage(
+                    $request->file('explanation_image'),
+                    $assessment->id,
+                    $question->id
+                );
+            }
+
+            if ($media !== []) {
+                $question->update($media);
             }
 
             foreach ($choices as $index => $choice) {
@@ -78,9 +93,13 @@ class CourseAssessmentQuestionController extends Controller
             'correct_index' => ['required', 'integer', 'min:0'],
             'image' => MediaType::QuestionImage->rules(),
             'remove_image' => ['nullable', 'boolean'],
+            'explanation_image' => MediaType::QuestionExplanationImage->rules(),
+            'remove_explanation_image' => ['nullable', 'boolean'],
         ], [
             'image.image' => 'รูปคำถามต้องเป็นไฟล์รูปภาพ',
             'image.max' => 'รูปคำถามต้องไม่เกิน 4 MB',
+            'explanation_image.image' => 'รูปเฉลยต้องเป็นไฟล์รูปภาพ',
+            'explanation_image.max' => 'รูปเฉลยต้องไม่เกิน 4 MB',
         ]);
 
         $choices = $this->normalizedChoices($data['choices'], (int) $data['correct_index']);
@@ -88,7 +107,7 @@ class CourseAssessmentQuestionController extends Controller
         DB::transaction(function () use ($request, $assessment, $question, $data, $choices) {
             $payload = [
                 'question_text' => $data['question_text'],
-                'explanation' => $data['explanation'] ?? null,
+                'explanation' => filled(trim((string) ($data['explanation'] ?? ''))) ? trim((string) $data['explanation']) : null,
                 'points' => $data['points'] ?? $question->points,
             ];
 
@@ -105,6 +124,25 @@ class CourseAssessmentQuestionController extends Controller
                 }
 
                 $payload['image'] = MediaStorage::storeQuestionImage($request->file('image'), $assessment->id, $question->id);
+            }
+
+            if ($request->boolean('remove_explanation_image') && $question->explanation_image) {
+                MediaStorage::delete($question->explanation_image);
+                $payload['explanation_image'] = null;
+            }
+
+            if ($request->hasFile('explanation_image')) {
+                $newPath = MediaStorage::questionExplanationImagePath($assessment->id, $question->id);
+
+                if ($question->explanation_image && $question->explanation_image !== $newPath) {
+                    MediaStorage::delete($question->explanation_image);
+                }
+
+                $payload['explanation_image'] = MediaStorage::storeQuestionExplanationImage(
+                    $request->file('explanation_image'),
+                    $assessment->id,
+                    $question->id
+                );
             }
 
             $question->update($payload);
@@ -130,6 +168,7 @@ class CourseAssessmentQuestionController extends Controller
         $this->ensureQuestionBelongsToAssessment($assessment, $question);
 
         MediaStorage::delete($question->image);
+        MediaStorage::delete($question->explanation_image);
         $question->delete();
 
         return $this->redirectBack($course, $assessment)

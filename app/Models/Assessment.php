@@ -23,6 +23,7 @@ class Assessment extends Model
         'title',
         'slug',
         'description',
+        'description_image',
         'thumbnail',
         'type',
         'status',
@@ -112,5 +113,10 @@ class Assessment extends Model
     public function getThumbnailUrlAttribute(): ?string
     {
         return \App\Support\MediaStorage::url($this->thumbnail, $this->updated_at?->getTimestamp());
+    }
+
+    public function getDescriptionImageUrlAttribute(): ?string
+    {
+        return \App\Support\MediaStorage::url($this->description_image, $this->updated_at?->getTimestamp());
     }
 }

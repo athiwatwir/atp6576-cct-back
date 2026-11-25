@@ -30,6 +30,7 @@ class UpdateExamRequest extends FormRequest
 
         $this->merge([
             'remove_thumbnail' => $this->boolean('remove_thumbnail'),
+            'remove_description_image' => $this->boolean('remove_description_image'),
             'plans' => PricePlans::normalizeInput($this->input('plans')),
         ]);
     }
@@ -48,6 +49,8 @@ class UpdateExamRequest extends FormRequest
             'max_attempts' => ['nullable', 'integer', 'min:1', 'max:100'],
             'thumbnail' => MediaType::ExamThumbnail->rules(),
             'remove_thumbnail' => ['nullable', 'boolean'],
+            'description_image' => MediaType::ExamDescriptionImage->rules(),
+            'remove_description_image' => ['nullable', 'boolean'],
             ...PricePlans::rules(),
         ];
     }
@@ -73,6 +76,7 @@ class UpdateExamRequest extends FormRequest
             'passing_score' => 'คะแนนผ่าน',
             'max_attempts' => 'จำนวนครั้งที่ทำได้',
             'thumbnail' => 'หน้าปก',
+            'description_image' => 'รูปประกอบรายละเอียด',
             ...PricePlans::attributes(),
         ];
     }

@@ -42,9 +42,12 @@ $choiceLabels = ['ก', 'ข', 'ค', 'ง'];
                             </span>
                         </div>
                         <p class="mt-1 font-mono text-xs text-gray-400">{{ $exam->slug }}</p>
-                        <p class="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-400">
+                        <p class="mt-3 whitespace-pre-line text-sm leading-6 text-gray-600 dark:text-gray-400">
                             {{ $exam->description ?: 'ยังไม่มีรายละเอียด' }}
                         </p>
+                        @if ($exam->description_image_url)
+                            <img src="{{ $exam->description_image_url }}" alt="" class="mt-3 max-h-56 rounded-xl border border-gray-200 object-contain dark:border-gray-700" />
+                        @endif
                     </div>
                 </div>
                 <div class="flex shrink-0 flex-wrap gap-2">
@@ -129,7 +132,10 @@ $choiceLabels = ['ก', 'ข', 'ค', 'ง'];
                                 @endforeach
                             </div>
                             @if ($question->explanation)
-                                <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">คำอธิบาย: {{ $question->explanation }}</p>
+                                <p class="mt-2 whitespace-pre-line text-xs text-gray-500 dark:text-gray-400">คำอธิบาย: {{ $question->explanation }}</p>
+                            @endif
+                            @if ($question->explanation_image_url)
+                                <img src="{{ $question->explanation_image_url }}" alt="" class="mt-2 max-h-40 rounded-lg border border-gray-200 object-contain dark:border-gray-700" />
                             @endif
                             <p class="mt-1 text-[11px] text-gray-400">{{ number_format((float) $question->points, 1) }} คะแนน</p>
                         </div>
@@ -198,6 +204,23 @@ $choiceLabels = ['ก', 'ข', 'ค', 'ง'];
                                 </div>
                             </div>
                             <div>
+                                <label class="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">รูปประกอบเฉลย</label>
+                                <input type="file" name="explanation_image" accept="image/jpeg,image/png,image/webp,image/gif" class="dark:bg-dark-900 block w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                                <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">ไม่บังคับ JPG/PNG/WebP/GIF ไม่เกิน 4 MB</p>
+                                @error('explanation_image')
+                                    <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p>
+                                @enderror
+                                @if ($question->explanation_image_url)
+                                    <div class="mt-3">
+                                        <img src="{{ $question->explanation_image_url }}" alt="" class="max-h-40 rounded-lg border border-gray-200 object-contain dark:border-gray-700" />
+                                        <label class="mt-2 inline-flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                                            <input type="checkbox" name="remove_explanation_image" value="1" class="rounded border-gray-300" />
+                                            ลบรูปเฉลยปัจจุบัน
+                                        </label>
+                                    </div>
+                                @endif
+                            </div>
+                            <div>
                                 <label class="mb-2 block text-xs font-medium text-gray-500 dark:text-gray-400">ตัวเลือกคำตอบ (เลือก 1 ข้อเป็นเฉลย)</label>
                                 <div class="space-y-2">
                                     @foreach ($choiceLabels as $index => $label)
@@ -263,6 +286,14 @@ $choiceLabels = ['ก', 'ข', 'ค', 'ง'];
                         <label class="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">คำอธิบายเฉลย (ถ้ามี)</label>
                         <input type="text" name="explanation" placeholder="อธิบายทำไมถึงถูก" class="dark:bg-dark-900 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                     </div>
+                </div>
+                <div>
+                    <label class="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">รูปประกอบเฉลย</label>
+                    <input type="file" name="explanation_image" accept="image/jpeg,image/png,image/webp,image/gif" class="dark:bg-dark-900 block w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">ไม่บังคับ JPG/PNG/WebP/GIF ไม่เกิน 4 MB</p>
+                    @error('explanation_image')
+                        <p class="mt-1.5 text-sm text-error-500">{{ $message }}</p>
+                    @enderror
                 </div>
                 <div>
                     <label class="mb-2 block text-xs font-medium text-gray-500 dark:text-gray-400">ตัวเลือกคำตอบ (เลือก 1 ข้อเป็นเฉลย)</label>

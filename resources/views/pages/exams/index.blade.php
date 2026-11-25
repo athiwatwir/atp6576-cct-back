@@ -74,7 +74,7 @@
                             <div class="min-w-0">
                                 <div class="font-medium text-gray-800 dark:text-white/90"><a href="{{ route('exams.show', $exam) }}" class="hover:underline">{{ $exam->title }}</a></div>
                                 @if ($exam->description)
-                                <div class="mt-0.5 line-clamp-1 text-sm text-gray-500 dark:text-gray-400">{{ $exam->description }}</div>
+                                <div class="mt-0.5 line-clamp-1 text-sm text-gray-500 dark:text-gray-400">{{ \Illuminate\Support\Str::limit(trim(preg_replace('/\s+/', ' ', strip_tags($exam->description))), 120) }}</div>
                                 @endif
                                 <div class="mt-1 font-mono text-[11px] text-gray-400">{{ $exam->code ?? $exam->slug }}</div>
                             </div>

@@ -59,13 +59,13 @@ class ExamController extends Controller
     {
         $data = $request->validated();
 
-        unset($data['thumbnail'], $data['remove_thumbnail']);
+        unset($data['thumbnail'], $data['remove_thumbnail'], $data['description_image'], $data['remove_description_image']);
 
         $exam = Assessment::query()->create([
             'code' => DocumentSequence::nextExam(),
             'title' => $data['title'],
             'slug' => $this->uniqueSlug($data['title']),
-            'description' => $data['description'] ?? null,
+            'description' => filled(trim((string) ($data['description'] ?? ''))) ? trim((string) $data['description']) : null,
             'type' => 'primary_exam',
             'status' => $data['status'],
             'duration_minutes' => $data['duration_minutes'] ?? null,
@@ -76,13 +76,24 @@ class ExamController extends Controller
         ]);
         PricePlans::sync($exam, $data['plans']);
 
+        $media = [];
+
         if ($request->hasFile('thumbnail')) {
-            $exam->update([
-                'thumbnail' => MediaStorage::storeExamThumbnail(
-                    $request->file('thumbnail'),
-                    $exam->id
-                ),
-            ]);
+            $media['thumbnail'] = MediaStorage::storeExamThumbnail(
+                $request->file('thumbnail'),
+                $exam->id
+            );
+        }
+
+        if ($request->hasFile('description_image')) {
+            $media['description_image'] = MediaStorage::storeExamDescriptionImage(
+                $request->file('description_image'),
+                $exam->id
+            );
+        }
+
+        if ($media !== []) {
+            $exam->update($media);
         }
 
         return redirect()
@@ -120,7 +131,7 @@ class ExamController extends Controller
 
         $payload = [
             'title' => $data['title'],
-            'description' => $data['description'] ?? null,
+            'description' => filled(trim((string) ($data['description'] ?? ''))) ? trim((string) $data['description']) : null,
             'type' => 'primary_exam',
             'status' => $data['status'],
             'duration_minutes' => $data['duration_minutes'] ?? null,
@@ -154,7 +165,25 @@ class ExamController extends Controller
             );
         }
 
-        unset($data['thumbnail'], $data['remove_thumbnail']);
+        if ($request->boolean('remove_description_image') && $assessment->description_image) {
+            MediaStorage::delete($assessment->description_image);
+            $payload['description_image'] = null;
+        }
+
+        if ($request->hasFile('description_image')) {
+            $newPath = MediaStorage::examDescriptionImagePath($assessment->id);
+
+            if ($assessment->description_image && $assessment->description_image !== $newPath) {
+                MediaStorage::delete($assessment->description_image);
+            }
+
+            $payload['description_image'] = MediaStorage::storeExamDescriptionImage(
+                $request->file('description_image'),
+                $assessment->id
+            );
+        }
+
+        unset($data['thumbnail'], $data['remove_thumbnail'], $data['description_image'], $data['remove_description_image']);
 
         $assessment->update($payload);
         PricePlans::sync($assessment, $data['plans']);
@@ -169,9 +198,11 @@ class ExamController extends Controller
         $this->ensureIndependentExam($assessment);
 
         MediaStorage::delete($assessment->thumbnail);
+        MediaStorage::delete($assessment->description_image);
 
         $assessment->questions()->each(function (Question $question) {
             MediaStorage::delete($question->image);
+            MediaStorage::delete($question->explanation_image);
             $question->delete();
         });
 

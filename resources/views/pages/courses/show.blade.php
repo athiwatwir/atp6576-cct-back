@@ -56,7 +56,7 @@ $btn = [
         showDocumentForm: {{ old('_form') === 'document' && $errors->any() ? 'true' : 'false' }},
         showQuizForm: false,
         showExamForm: false,
-        showQuestionForm: {{ ($errors->hasAny(['question_text', 'choices', 'correct_index', 'image', 'points', 'explanation']) && ! old('_question_id')) ? 'true' : 'false' }},
+        showQuestionForm: {{ ($errors->hasAny(['question_text', 'choices', 'correct_index', 'image', 'points', 'explanation', 'explanation_image']) && ! old('_question_id')) ? 'true' : 'false' }},
         editingVideoId: null,
         editingChapter: false,
         editingQuestionId: {{ old('_question_id') ? (int) old('_question_id') : 'null' }},

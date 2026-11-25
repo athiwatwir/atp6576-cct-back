@@ -142,6 +142,7 @@ class CourseResource extends JsonResource
             'name' => $exam->title,
             'slug' => $exam->slug,
             'description' => $exam->description,
+            'description_image_url' => $exam->description_image_url,
             'duration_minutes' => $exam->duration_minutes !== null ? (int) $exam->duration_minutes : null,
             'question_count' => (int) ($exam->questions_count ?? 0),
             'chapter_id' => $exam->pivot->chapter_id ? (int) $exam->pivot->chapter_id : null,

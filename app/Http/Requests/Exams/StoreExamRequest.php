@@ -46,6 +46,7 @@ class StoreExamRequest extends FormRequest
             'passing_score' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'max_attempts' => ['nullable', 'integer', 'min:1', 'max:100'],
             'thumbnail' => MediaType::ExamThumbnail->rules(),
+            'description_image' => MediaType::ExamDescriptionImage->rules(),
             ...PricePlans::rules(),
         ];
     }
@@ -71,6 +72,7 @@ class StoreExamRequest extends FormRequest
             'passing_score' => 'คะแนนผ่าน',
             'max_attempts' => 'จำนวนครั้งที่ทำได้',
             'thumbnail' => 'หน้าปก',
+            'description_image' => 'รูปประกอบรายละเอียด',
             ...PricePlans::attributes(),
         ];
     }

@@ -238,6 +238,26 @@ class MediaStorage
         return self::storeWebp($file, self::questionImagePath($examId, $questionId));
     }
 
+    public static function examDescriptionImagePath(int $examId): string
+    {
+        return "exams/{$examId}/description.webp";
+    }
+
+    public static function storeExamDescriptionImage(UploadedFile $file, int $examId): string
+    {
+        return self::storeWebp($file, self::examDescriptionImagePath($examId));
+    }
+
+    public static function questionExplanationImagePath(int $examId, int $questionId): string
+    {
+        return "exams/{$examId}/questions/{$questionId}-explanation.webp";
+    }
+
+    public static function storeQuestionExplanationImage(UploadedFile $file, int $examId, int $questionId): string
+    {
+        return self::storeWebp($file, self::questionExplanationImagePath($examId, $questionId));
+    }
+
     /**
      * Convert image to WebP, then upload as books/{id}/{id}.webp
      */

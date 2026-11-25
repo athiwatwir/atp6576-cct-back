@@ -96,7 +96,9 @@ The `type` column distinguishes the assessment type.
 
 An assessment can be attached to a Course, Chapter, or Video and can also be independent.
 
-`questions.image` stores one optional image for a question. Admin screens for independent exams, course exams, and course quizzes upload it. The student storefront API does not return questions or question images.
+`questions.image` stores one optional image for a question. Admin screens for independent exams, course exams, and course quizzes upload it. The student storefront API does not return questions or question images during an attempt; after submit, `review[]` includes plain-text `explanation` and optional `explanation_image_url`.
+
+`assessments.description` and `questions.explanation` are plain text. Optional companion images are `assessments.description_image` (`exams/{id}/description.webp`) and `questions.explanation_image` (`exams/{id}/questions/{question_id}-explanation.webp`).
 
 ### Student profile
 

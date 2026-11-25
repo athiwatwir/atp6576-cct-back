@@ -23,6 +23,7 @@ class ExamResource extends JsonResource
             'slug' => $this->slug,
             'name' => $this->title,
             'description' => $this->description,
+            'description_image_url' => $this->description_image_url,
             'thumbnail_url' => $this->thumbnail_url,
             'price' => (float) $this->price,
             'sale_price' => null,

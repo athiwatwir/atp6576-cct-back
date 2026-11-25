@@ -112,11 +112,17 @@ class ArticleController extends Controller
 
     public function uploadImage(Request $request): JsonResponse
     {
-        $request->validate([
+        $data = $request->validate([
             'image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:4096'],
+            'context' => ['nullable', 'in:article,exam,page'],
         ]);
 
-        $path = MediaStorage::storeImage($request->file('image'), 'articles/body');
+        $directory = match ($data['context'] ?? 'article') {
+            'exam' => 'exams/body',
+            default => 'articles/body',
+        };
+
+        $path = MediaStorage::storeImage($request->file('image'), $directory);
 
         return response()->json([
             'url' => MediaStorage::url($path),

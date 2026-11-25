@@ -5,10 +5,32 @@ import Placeholder from '@tiptap/extension-placeholder';
 import TextAlign from '@tiptap/extension-text-align';
 
 export function initArticleEditors() {
-    document.querySelectorAll('[data-article-editor]').forEach((root) => mountEditor(root));
+    document.querySelectorAll('[data-article-editor]').forEach((root) => {
+        if (root.hasAttribute('data-editor-lazy')) {
+            return;
+        }
+
+        mountEditor(root);
+    });
+
+    window.ensureArticleEditor = ensureArticleEditor;
+}
+
+export function ensureArticleEditor(target) {
+    const root = typeof target === 'string' ? document.querySelector(target) : target;
+
+    if (!root) {
+        return;
+    }
+
+    mountEditor(root);
 }
 
 function mountEditor(root) {
+    if (root.dataset.editorReady === '1') {
+        return;
+    }
+
     const source = document.getElementById(root.dataset.source || 'content');
     const surface = root.querySelector('[data-editor-root]');
     const status = root.querySelector('[data-editor-status]');
@@ -39,7 +61,7 @@ function mountEditor(root) {
                 types: ['heading', 'paragraph'],
             }),
             Placeholder.configure({
-                placeholder: 'เขียนเนื้อหาบทความที่นี่...',
+                placeholder: root.dataset.placeholder || 'เขียนเนื้อหาที่นี่...',
             }),
         ],
         editorProps: {
@@ -57,6 +79,7 @@ function mountEditor(root) {
     source.value = editor.getHTML();
     source.hidden = true;
     root.hidden = false;
+    root.dataset.editorReady = '1';
 
     source.form?.addEventListener('submit', () => {
         source.value = editor.getHTML();
@@ -124,6 +147,9 @@ function pickImage(editor, root, status) {
 
         const body = new FormData();
         body.append('image', file);
+        if (root.dataset.uploadContext) {
+            body.append('context', root.dataset.uploadContext);
+        }
         if (status) {
             status.textContent = 'กำลังอัปโหลดรูป...';
         }

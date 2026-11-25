@@ -27,7 +27,9 @@ videos/{uuid}.{ext}                                                # วิด�
 videos/{video_id}.{ext}                                            # วิดีโอเดี่ยวผ่าน PHP
 instructors/{instructor_id}/{instructor_id}.webp
 exams/{exam_id}/{exam_id}.webp
+exams/{exam_id}/description.webp            # รูปประกอบรายละเอียดข้อสอบ
 exams/{exam_id}/questions/{question_id}.webp
+exams/{exam_id}/questions/{question_id}-explanation.webp  # รูปประกอบเฉลย
 books/{book_id}/{book_id}.webp
 books/{book_id}/gallery/{uuid}.webp
 books/{book_id}/video/{book_id}.{ext}
@@ -42,6 +44,8 @@ documents/{course_id}/{chapter_id}/{uuid}.{ext}   # เอกสารบทเ�
 
 รูปทุกชนิดที่อัปโหลดผ่านแอดมินหรือ API แปลงเป็น WebP ก่อนเก็บ ยกเว้น GIF ในเนื้อหาบทความ (เก็บเดิมเพื่อให้ภาพเคลื่อนไหวยังเล่นได้) และสลิปโอนเงิน (เป็นหลักฐาน และรับ PDF) รูปที่ใช้ path คงที่ (เช่น `banners/{id}/{id}.webp`) ต่อท้าย URL ด้วย `?v={updated_at}` เพื่อให้ CDN ไม่แสดงรูปเก่าหลังเปลี่ยนรูป
 
+รูปประกอบรายละเอียดข้อสอบและรูปประกอบเฉลยอัปโหลดเป็นฟิลด์แยกจากข้อความ (`description_image`, `explanation_image`) ไม่ฝังใน HTML
+
 แบนเนอร์และบทความที่อัปโหลดก่อนวันที่ 19 ต.ค. 2026 เคยเก็บเป็นไฟล์เดิม (`banners/{id}/{uuid}.png` ฯลฯ) ระบบแปลงรายการที่ยังใช้งาน (#11–#14) เป็น WebP แล้ว ไฟล์เดิมยังอยู่บน R2 ลบได้เมื่อแน่ใจว่าไม่ต้องย้อนกลับ
 
 ## API ที่เรียกใช้ได้ทั้งโปรเจค
@@ -54,7 +58,9 @@ documents/{course_id}/{chapter_id}/{uuid}.{ext}   # เอกสารบทเ�
 | `MediaStorage::storeCourseThumbnail($file, $courseId)` | แปลง WebP + อัปโหลดปกวิชา |
 | `MediaStorage::storeInstructorImage($file, $instructorId)` | แปลง WebP + อัปโหลดรูปครู |
 | `MediaStorage::storeExamThumbnail($file, $examId)` | แปลง WebP + อัปโหลดปกข้อสอบขายแยก |
+| `MediaStorage::storeExamDescriptionImage($file, $examId)` | แปลง WebP + อัปโหลดรูปประกอบรายละเอียดข้อสอบ |
 | `MediaStorage::storeQuestionImage($file, $examId, $questionId)` | แปลง WebP + อัปโหลดรูปประกอบคำถามข้อสอบ |
+| `MediaStorage::storeQuestionExplanationImage($file, $examId, $questionId)` | แปลง WebP + อัปโหลดรูปประกอบเฉลย |
 | `MediaStorage::storeBookThumbnail($file, $bookId)` | แปลง WebP + อัปโหลดปกหนังสือ |
 | `MediaStorage::storeBookImage($file, $bookId)` | แปลง WebP + อัปโหลดรูปเพิ่มเติมของหนังสือ |
 | `MediaStorage::storeBookVideo($file, $bookId)` | อัปโหลดวิดีโอของหนังสือ (มีได้หนึ่งไฟล์) |

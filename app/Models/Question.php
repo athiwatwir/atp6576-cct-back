@@ -15,6 +15,7 @@ class Question extends Model
         'image',
         'question_type',
         'explanation',
+        'explanation_image',
         'points',
         'sort_order',
         'status',
@@ -30,6 +31,11 @@ class Question extends Model
     public function getImageUrlAttribute(): ?string
     {
         return MediaStorage::url($this->image, $this->updated_at?->getTimestamp());
+    }
+
+    public function getExplanationImageUrlAttribute(): ?string
+    {
+        return MediaStorage::url($this->explanation_image, $this->updated_at?->getTimestamp());
     }
 
     public function assessment(): BelongsTo
