@@ -18,7 +18,7 @@ use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    /** วันที่ในตัวกรองเป็นวันตามเวลาไทย ฐานข้อมูลเก็บเวลา UTC */
+    /** วันที่ในตัวกรองและเวลาในระบบใช้ Asia/Bangkok (APP_TIMEZONE) */
     private const TIMEZONE = 'Asia/Bangkok';
 
     private const MAX_DAYS = 1100;
@@ -69,16 +69,14 @@ class DashboardController extends Controller
      */
     private function build(Carbon $from, Carbon $to, int $days): array
     {
-        $fromUtc = $from->copy()->utc();
-        $toUtc = $to->copy()->utc();
         $previousTo = $from->copy()->subSecond();
         $previousFrom = $previousTo->copy()->subDays($days - 1)->startOfDay();
 
-        $revenue = $this->paidSum($fromUtc, $toUtc);
-        $previousRevenue = $this->paidSum($previousFrom->copy()->utc(), $previousTo->copy()->utc());
-        $paidOrders = $this->paidCount($fromUtc, $toUtc);
-        $newStudents = User::students()->whereBetween('created_at', [$fromUtc, $toUtc])->count();
-        $previousNewStudents = User::students()->whereBetween('created_at', [$previousFrom->copy()->utc(), $previousTo->copy()->utc()])->count();
+        $revenue = $this->paidSum($from, $to);
+        $previousRevenue = $this->paidSum($previousFrom, $previousTo);
+        $paidOrders = $this->paidCount($from, $to);
+        $newStudents = User::students()->whereBetween('created_at', [$from, $to])->count();
+        $previousNewStudents = User::students()->whereBetween('created_at', [$previousFrom, $previousTo])->count();
 
         $students = User::students()->count();
         $activeEnrollments = Enrollment::query()->where('status', EnrollmentStatus::Active->value)->count();
@@ -103,7 +101,7 @@ class DashboardController extends Controller
         $breakdown = OrderItem::query()
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
             ->where('orders.payment_status', PaymentStatus::Paid->value)
-            ->whereBetween('orders.paid_at', [$fromUtc, $toUtc])
+            ->whereBetween('orders.paid_at', [$from, $to])
             ->selectRaw($itemType.' as item_type, COALESCE(SUM(order_items.total_price), 0) as amount, COUNT(*) as item_count')
             ->groupByRaw($itemType)
             ->orderByDesc('amount')
@@ -111,7 +109,7 @@ class DashboardController extends Controller
 
         $breakdownTotal = max(1, (float) $breakdown->sum('amount'));
 
-        $ordersInRange = Order::query()->whereBetween('created_at', [$fromUtc, $toUtc]);
+        $ordersInRange = Order::query()->whereBetween('created_at', [$from, $to]);
         $orderCount = (clone $ordersInRange)->count();
 
         $orders = (clone $ordersInRange)
@@ -202,14 +200,12 @@ class DashboardController extends Controller
     private function chart(Carbon $from, Carbon $to, int $days): array
     {
         $monthly = $days > self::DAILY_CHART_MAX_DAYS;
-        $offset = $from->format('P');
-        $localTime = "CONVERT_TZ(paid_at, '+00:00', '{$offset}')";
-        $bucket = $monthly ? "DATE_FORMAT({$localTime}, '%Y-%m')" : "DATE({$localTime})";
+        $bucket = $monthly ? "DATE_FORMAT(paid_at, '%Y-%m')" : 'DATE(paid_at)';
 
         $rows = Order::query()
             ->selectRaw("{$bucket} as bucket, COUNT(*) as orders, COALESCE(SUM(total_amount), 0) as amount")
             ->where('payment_status', PaymentStatus::Paid->value)
-            ->whereBetween('paid_at', [$from->copy()->utc(), $to->copy()->utc()])
+            ->whereBetween('paid_at', [$from, $to])
             ->groupBy('bucket')
             ->get()
             ->keyBy(fn ($row) => (string) $row->bucket);
