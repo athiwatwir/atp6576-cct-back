@@ -3,11 +3,13 @@
 namespace App\Support;
 
 use App\Enums\AccountStatus;
+use App\Enums\OrderKind;
 use App\Models\Notification;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\Mail\MailService;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class AdminNotifier
@@ -15,11 +17,21 @@ class AdminNotifier
     public static function studentRegistered(User $student): void
     {
         $name = $student->name ?: ($student->email ?: $student->phone ?: 'นักเรียนใหม่');
+        $lines = [
+            'มีนักเรียนสมัครสมาชิกใหม่',
+            '',
+            'ชื่อ: '.$name,
+            'อีเมล: '.($student->email ?: '-'),
+            'เบอร์โทร: '.($student->phone ?: '-'),
+            'โรงเรียน: '.($student->school_name ?: '-'),
+            'จังหวัดที่เรียน: '.($student->school_province ?: '-'),
+            'เวลา: '.now()->timezone(config('app.timezone'))->format('d/m/Y H:i'),
+        ];
 
         self::notifyBackend(
             type: 'student.registered',
             title: 'มีการสมัครสมาชิกใหม่',
-            message: $name.' สมัครเข้าใช้งาน',
+            message: implode("\n", $lines),
             data: [
                 'student_id' => $student->id,
                 'url' => route('students.show', $student),
@@ -39,20 +51,80 @@ class AdminNotifier
             return;
         }
 
-        $customer = $order->user?->name
-            ?: $order->shipping_name
-            ?: 'ลูกค้า';
+        $order->loadMissing(['user', 'items', 'coupon']);
+
+        $kind = OrderKind::tryFrom((string) $order->kind);
+        $isEnrollment = $kind === OrderKind::Enrollment;
+        $kindLabel = $kind?->label() ?? (string) $order->kind;
+        $customer = $order->user;
+
+        $title = $isEnrollment ? 'มีการสมัครเรียนใหม่' : 'มีออเดอร์สั่งซื้อใหม่';
+        $lines = [
+            $title,
+            '',
+            'เลขที่ออเดอร์: '.($order->order_no ?: '#'.$order->id),
+            'ประเภท: '.$kindLabel,
+            'สถานะออเดอร์: '.($order->status_label ?? $order->status),
+            'สถานะชำระเงิน: '.($order->payment_status_label ?? $order->payment_status),
+            '',
+            'ลูกค้า: '.($customer?->name ?: ($order->shipping_name ?: '-')),
+            'อีเมล: '.($customer?->email ?: '-'),
+            'เบอร์โทร: '.($customer?->phone ?: ($order->shipping_phone ?: '-')),
+            'โรงเรียน: '.($customer?->school_name ?: '-'),
+            'จังหวัดที่เรียน: '.($customer?->school_province ?: '-'),
+        ];
+
+        if ($order->requires_shipping) {
+            $lines[] = '';
+            $lines[] = 'ที่อยู่จัดส่ง:';
+            $lines[] = 'ชื่อผู้รับ: '.($order->shipping_name ?: '-');
+            $lines[] = 'เบอร์: '.($order->shipping_phone ?: '-');
+            $lines[] = 'ที่อยู่: '.($order->shipping_full_address ?: '-');
+        }
+
+        $lines[] = '';
+        $lines[] = 'รายการ:';
+
+        if ($order->items->isEmpty()) {
+            $lines[] = '- (ยังไม่มีรายการ)';
+        } else {
+            foreach ($order->items as $index => $item) {
+                $qty = (int) $item->quantity;
+                $lines[] = ($index + 1).'. '.$item->item_name
+                    .' × '.$qty
+                    .' = ฿'.number_format((float) $item->total_price, 2);
+            }
+        }
+
+        $lines[] = '';
+        $lines[] = 'ยอดรวม: ฿'.number_format((float) $order->subtotal, 2);
+        if ((float) $order->discount_amount > 0) {
+            $coupon = $order->coupon?->code ? ' (คูปอง '.$order->coupon->code.')' : '';
+            $lines[] = 'ส่วนลด: ฿'.number_format((float) $order->discount_amount, 2).$coupon;
+        }
+        if ((float) $order->shipping_amount > 0) {
+            $lines[] = 'ค่าส่ง: ฿'.number_format((float) $order->shipping_amount, 2);
+        }
+        $lines[] = 'ยอดสุทธิ: ฿'.number_format((float) $order->total_amount, 2);
+        $lines[] = 'เวลา: '.($order->created_at?->timezone(config('app.timezone'))->format('d/m/Y H:i')
+            ?? now()->timezone(config('app.timezone'))->format('d/m/Y H:i'));
+
+        if (filled($order->notes)) {
+            $lines[] = '';
+            $lines[] = 'หมายเหตุ: '.$order->notes;
+        }
 
         self::notifyBackend(
-            type: 'order.created',
-            title: 'มีออเดอร์ใหม่',
-            message: $customer.' สั่งซื้อ '.$order->order_no.' (฿'.number_format((float) $order->total_amount, 2).')',
+            type: $isEnrollment ? 'enrollment.created' : 'order.created',
+            title: $title.' '.$order->order_no,
+            message: implode("\n", $lines),
             data: [
                 'order_id' => $order->id,
                 'order_no' => $order->order_no,
+                'kind' => $order->kind,
                 'url' => $order->adminUrl(),
             ],
-            actionText: 'เปิดออเดอร์',
+            actionText: $isEnrollment ? 'เปิดใบสมัครเรียน' : 'เปิดออเดอร์',
         );
     }
 
@@ -116,6 +188,10 @@ class AdminNotifier
         $emails = SystemSettings::notificationEmails();
 
         if ($emails === []) {
+            Log::info('AdminNotifier: ไม่มีอีเมลแจ้งเตือนในตั้งค่าระบบ', [
+                'title' => $title,
+            ]);
+
             return;
         }
 
@@ -131,8 +207,12 @@ class AdminNotifier
                     actionUrl: $url,
                     actionText: $actionText,
                 );
-            } catch (Throwable) {
-                // ไม่ให้การส่งอีเมลล้มทำให้สมัคร/สั่งซื้อล้ม
+            } catch (Throwable $e) {
+                Log::warning('AdminNotifier: ส่งอีเมลแจ้งเตือนไม่สำเร็จ', [
+                    'email' => $email,
+                    'title' => $title,
+                    'error' => $e->getMessage(),
+                ]);
             }
         }
     }

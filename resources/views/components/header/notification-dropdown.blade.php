@@ -67,10 +67,11 @@
                 @php
                     $typeLabel = match ($notification->type) {
                         'student.registered' => 'สมัครสมาชิก',
-                        'order.created' => 'ออเดอร์',
+                        'enrollment.created' => 'สมัครเรียน',
+                        'order.created' => 'สั่งซื้อ',
                         default => 'ระบบ',
                     };
-                    $iconBg = $notification->type === 'order.created'
+                    $iconBg = in_array($notification->type, ['order.created', 'enrollment.created'], true)
                         ? 'bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-400'
                         : 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400';
                 @endphp
@@ -80,7 +81,7 @@
                         class="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5 {{ $notification->isUnread() ? 'bg-orange-50/60 dark:bg-white/[0.03]' : '' }}"
                     >
                         <span class="relative mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full {{ $iconBg }}">
-                            @if ($notification->type === 'order.created')
+                            @if (in_array($notification->type, ['order.created', 'enrollment.created'], true))
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                     <path d="M7 4h-2l-1 2v2h2l3.6 7.59-1.35 2.44A1 1 0 0 0 9 20h10v-2H9.42a.25.25 0 0 1-.23-.15L10 16h7.45a1 1 0 0 0 .92-.62l3.24-7.29A1 1 0 0 0 20.7 6H6.21l-.94-2H1V2h4.27L7 4Zm0 16a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm10 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z" fill="currentColor"/>
                                 </svg>

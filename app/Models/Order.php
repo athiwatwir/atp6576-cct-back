@@ -28,7 +28,10 @@ class Order extends Model
     {
         static::created(function (Order $order): void {
             DB::afterCommit(function () use ($order): void {
-                AdminNotifier::orderCreated($order->fresh(['user']) ?? $order);
+                $fresh = $order->fresh(['user', 'items', 'coupon']);
+                if ($fresh) {
+                    AdminNotifier::orderCreated($fresh);
+                }
             });
         });
     }
