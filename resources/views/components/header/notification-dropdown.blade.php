@@ -1,4 +1,15 @@
 {{-- Notification Dropdown Component --}}
+@php
+    if (! isset($notifications) || ! isset($unreadCount)) {
+        $user = auth()->user();
+        $notifications = $user
+            ? $user->appNotifications()->latest('id')->limit(20)->get()
+            : collect();
+        $unreadCount = $user
+            ? (int) $user->appNotifications()->unread()->count()
+            : 0;
+    }
+@endphp
 <div class="relative" x-data="{
     dropdownOpen: false,
     toggleDropdown() {

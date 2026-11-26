@@ -30,6 +30,9 @@ class NotificationDropdown extends Component
 
     public function render(): View|Closure|string
     {
-        return view('components.header.notification-dropdown');
+        return view('components.header.notification-dropdown', [
+            'notifications' => $this->notifications,
+            'unreadCount' => $this->unreadCount,
+        ]);
     }
 }

@@ -46,7 +46,14 @@ class ProfileController extends Controller
             $data['avatar'] = $path;
         }
 
-        $user->update($data);
+        $user->fill($data);
+
+        if ($request->hasFile('avatar')) {
+            // path คงที่ ต้อง bump updated_at เพื่อ cache-bust บน avatar_url
+            $user->updated_at = now();
+        }
+
+        $user->save();
 
         return response()->json([
             'data' => StudentResource::make($user->refresh())->resolve(),

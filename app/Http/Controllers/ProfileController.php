@@ -51,7 +51,11 @@ class ProfileController extends Controller
             MediaStorage::delete($user->avatar);
         }
 
-        $user->update(['avatar' => $path]);
+        // path คงที่ (avatars/{id}/{id}.webp) ต้อง touch เพื่อให้ ?v= บน URL เปลี่ยน ไม่งั้น CDN/เบราว์เซอร์โชว์รูปเก่า
+        $user->forceFill([
+            'avatar' => $path,
+            'updated_at' => now(),
+        ])->save();
 
         return redirect()
             ->route('profile.edit')
