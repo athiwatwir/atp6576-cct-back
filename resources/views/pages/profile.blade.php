@@ -20,12 +20,31 @@
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
             <div class="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
                 <div class="flex items-center gap-4">
-                    <div class="h-16 w-16 overflow-hidden rounded-full border border-gray-200 dark:border-gray-700">
-                        <img
-                            src="{{ $user->avatar ? asset($user->avatar) : asset('images/user/owner.png') }}"
-                            alt="{{ $user->name }}"
-                            class="h-full w-full object-cover" />
-                    </div>
+                    <form method="POST" action="{{ route('profile.avatar') }}" enctype="multipart/form-data" class="shrink-0" x-data>
+                        @csrf
+                        <input
+                            type="file"
+                            id="avatar"
+                            name="avatar"
+                            accept="image/jpeg,image/png,image/webp,image/gif"
+                            class="sr-only"
+                            @change="$el.form.requestSubmit()" />
+                        <label
+                            for="avatar"
+                            class="group relative block h-16 w-16 cursor-pointer overflow-hidden rounded-full border border-gray-200 dark:border-gray-700"
+                            title="เปลี่ยนรูปโปรไฟล์">
+                            <img
+                                src="{{ $user->avatar_url ?: asset('images/user/owner.webp') }}"
+                                alt="{{ $user->name }}"
+                                class="h-full w-full object-cover" />
+                            <span class="absolute inset-0 flex items-center justify-center bg-black/50 text-[11px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
+                                เปลี่ยน
+                            </span>
+                        </label>
+                        @error('avatar')
+                            <p class="mt-1.5 max-w-16 text-center text-xs text-error-500">{{ $message }}</p>
+                        @enderror
+                    </form>
                     <div>
                         <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ $user->name }}</h3>
                         <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{{ $user->email }}</p>

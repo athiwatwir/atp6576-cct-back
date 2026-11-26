@@ -36,6 +36,8 @@ use App\Http\Controllers\SitePageController;
 use App\Http\Controllers\ReceiptController;
 use App\Http\Controllers\ShippingLabelController;
 use App\Http\Controllers\PaymentPageController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\SystemSettingController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('pay')->name('payment.')->middleware('throttle:60,1')->group(function () {
@@ -64,6 +66,9 @@ Route::middleware('guest')->group(function () {
 
 Route::middleware(['auth', 'backend'])->group(function () {
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
+
+    Route::get('notifications/{notification}/open', [NotificationController::class, 'open'])->name('notifications.open');
+    Route::post('notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
 
     Route::get('audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
     Route::get('audit-logs/{auditLog}', [AuditLogController::class, 'show'])->name('audit-logs.show');
@@ -119,6 +124,8 @@ Route::middleware(['auth', 'backend'])->group(function () {
     Route::put('finance/payments/{payment}', [FinanceController::class, 'updatePayment'])->name('finance.payments.update');
     Route::get('settings/payment-fees', [PaymentFeeController::class, 'edit'])->name('payment-fees.edit');
     Route::put('settings/payment-fees', [PaymentFeeController::class, 'update'])->name('payment-fees.update');
+    Route::get('settings/system', [SystemSettingController::class, 'edit'])->name('settings.system.edit');
+    Route::put('settings/system', [SystemSettingController::class, 'update'])->name('settings.system.update');
     Route::permanentRedirect('promotions', '/coupons');
     Route::resource('coupons', CouponController::class);
     Route::post('banners/{banner}/move', [BannerController::class, 'move'])->name('banners.move');
@@ -172,6 +179,7 @@ Route::middleware(['auth', 'backend'])->group(function () {
     // profile pages
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::post('/profile/avatar', [ProfileController::class, 'updateAvatar'])->name('profile.avatar');
     Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
 
     // form pages

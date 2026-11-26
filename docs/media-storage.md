@@ -37,7 +37,7 @@ testimonials/{testimonial_id}/{testimonial_id}.webp
 banners/{content_id}/{content_id}.webp
 articles/{content_id}/{content_id}.webp     # รูปปกบทความ
 articles/body/{uuid}.webp                   # รูปในเนื้อหาบทความ (GIF เก็บไฟล์เดิม .gif)
-avatars/{user_id}/{user_id}.webp            # รูปโปรไฟล์นักเรียนจาก API
+avatars/{user_id}/{user_id}.webp            # รูปโปรไฟล์ (API นักเรียน + หน้าโปรไฟล์หลังบ้าน)
 payments/{order_id}/slips/{uuid}.{ext}      # สลิปโอนเงิน เก็บไฟล์เดิม (รองรับ PDF)
 documents/{course_id}/{chapter_id}/{uuid}.{ext}   # เอกสารบทเรียน (อัปโหลดตรงขึ้น R2 หรือผ่าน PHP) ไฟล์เก่าก่อน 31 ต.ค. 2026 อยู่ใน disk public ของเซิร์ฟเวอร์ ดูหัวข้อเอกสารบทเรียน
 ```

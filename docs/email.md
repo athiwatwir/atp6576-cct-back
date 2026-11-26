@@ -44,7 +44,7 @@ MAIL_USERNAME=no-reply@clickclasstutor.com
 MAIL_SMTP_PEER_NAME=ns27.hostinglotus.net
 ```
 
-`MAIL_SMTP_PEER_NAME` ต้องตรงกับชื่อในใบรับรอง TLS ของเซิร์ฟเวอร์ ใบรับรองปัจจุบันออกให้ `ns27.hostinglotus.net` (Let's Encrypt) ถ้าใส่ `mail.clickclasstutor.com` จะส่งไม่ได้ด้วยข้อความ `certificate verify failed` ถ้าโฮสติ้งเปลี่ยนเซิร์ฟเวอร์หรือใบรับรอง ให้ตรวจชื่อใหม่แล้วแก้ค่านี้ อย่าปิดการตรวจใบรับรอง
+`MAIL_SMTP_PEER_NAME` ต้องตรงกับชื่อในใบรับรอง TLS ของเซิร์ฟเวอร์ SMTP ปัจจุบันของ DirectAdmin คือ `server-119-59-113-162.da.direct` (IP `119.59.113.162`) ถ้าใส่ชื่อเก่าเช่น `ns27.hostinglotus.net` จะส่งไม่ได้ด้วย `Peer certificate subjectAltName did not match` ถ้าโฮสติ้งย้ายเซิร์ฟเวอร์ ให้ตรวจ CN/SAN ใหม่แล้วแก้ค่านี้ อย่าปิดการตรวจใบรับรอง
 
 ## วิธีเรียกใช้
 
@@ -69,6 +69,10 @@ $this->mail->sendStaffNotification(
     actionText: 'เปิดออเดอร์',
 );
 ```
+
+### แจ้งเตือนสมัครใหม่ / ออเดอร์ใหม่
+
+`App\Support\AdminNotifier` ส่งอีเมล staff ไปที่อีเมลที่ตั้งใน **ตั้งค่าระบบ** (`/settings/system`) คีย์ `admin_notification_emails` (หลายอีเมลได้) พร้อมสร้างแจ้งเตือนในกระดิ่งหลังบ้าน ถ้าไม่ตั้งอีเมลไว้จะมีแค่กระดิ่ง
 
 ### ลูกค้า / นักเรียน
 

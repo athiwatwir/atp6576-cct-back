@@ -198,7 +198,7 @@ database/migrations/
 | Manual pay | `payment_links`, `payment_slips` |
 | Promo | `promotions`, `coupons`, `coupon_usages` |
 | CMS | `contents`, `content_stats` |
-| Other | `reviews`, `notifications`, `audit_logs` |
+| Other | `reviews`, `notifications`, `settings`, `audit_logs` |
 
 จุดที่ต้องระวังตอนเขียน Eloquent:
 
@@ -207,6 +207,7 @@ database/migrations/
 - `LearningProgress` → `learning_progress`
 - `TrialAccess` → `trial_access`
 - `User::appNotifications()` สำหรับตารางแจ้งเตือนในแอป เพราะ `notifications()` ถูก trait `Notifiable` จองไว้แล้ว
+- กระดิ่งหลังบ้านดึงจากตารางนี้ (สมัครใหม่ / ออเดอร์ใหม่) ดู `docs/database.md` หัวข้อ Admin notifications
 
 รายละเอียดความสัมพันธ์และ design decision ดูที่ [database.md](database.md)
 

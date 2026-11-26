@@ -96,6 +96,10 @@ class GuestCheckout
 
         $order->forceFill(['guest_token' => Str::random(48), 'guest_account_created' => $created])->save();
 
+        if ($created) {
+            AdminNotifier::studentRegistered($student);
+        }
+
         Audit::log(
             'storefront.guest_order',
             $order,

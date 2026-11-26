@@ -117,6 +117,8 @@ An assessment can be attached to a Course, Chapter, or Video and can also be ind
 
 Admin student create/edit and the student API register/profile endpoints read and write these fields.
 
+`users.avatar` stores the profile image path (`avatars/{id}/{id}.webp` via `MediaStorage::storeAvatar`). Students upload it from the storefront API; backend staff change it from `/profile` by clicking the avatar. Public URL is `User::avatar_url`.
+
 A student needs an email or a phone. At least one is required in admin create/edit and in API register/profile. Either one can be used to log in.
 
 A student without an email:
@@ -268,6 +270,36 @@ Article SEO fields on `contents` (nullable, used when `type = article`):
 | `seo_keywords` | Comma-separated keywords; API may be `null` |
 
 `content_stats` stores impression / click events.
+
+### Admin notifications
+
+ตาราง `notifications` เก็บแจ้งเตือนในแอปหลังบ้านต่อผู้ใช้ (`user_id` ของ admin/staff) แยกจาก Laravel `Notifiable` — ใช้ `User::appNotifications()`
+
+| Column | Notes |
+|--------|--------|
+| `type` | เช่น `student.registered`, `order.created` |
+| `title` / `message` | ข้อความแสดงใน dropdown กระดิ่งมุมขวาบน |
+| `data` | JSON เช่น `url`, `student_id`, `order_id` |
+| `read_at` | `null` = ยังไม่อ่าน |
+
+สร้างผ่าน `App\Support\AdminNotifier` ส่งให้ผู้ใช้ role `admin`/`staff` ที่สถานะเปิดใช้งาน:
+
+- สมัครสมาชิกจาก API (`POST /api/v1/auth/register`) และเมื่อ guest checkout สร้างบัญชีใหม่สำเร็จ
+- ออเดอร์ใหม่จากหน้าร้าน/API นักเรียน (ไม่แจ้งเมื่อแอดมินสร้างเอง และข้ามออเดอร์ของแถม `gift_for_order_id`)
+
+กดรายการแล้วไป `GET /notifications/{id}/open` (ทำเครื่องหมายอ่านแล้วแล้ว redirect ตาม `data.url`) หรือ `POST /notifications/read-all`
+
+นอกจากกระดิ่ง ระบบส่งอีเมล staff ไปที่รายการในตั้งค่าระบบ (`settings.admin_notification_emails`) ถ้ามีค่า
+
+### System settings
+
+ตาราง `settings` เก็บค่า key/value ของหลังบ้าน
+
+| Key | Notes |
+|-----|--------|
+| `admin_notification_emails` | อีเมลรับแจ้งเตือนสมัครใหม่/ออเดอร์ใหม่ เก็บเป็นข้อความหลายบรรทัด อ่านผ่าน `App\Support\SystemSettings` |
+
+หน้าจัดการ: `/settings/system`
 
 ### Testimonials (admin reviews for storefront)
 

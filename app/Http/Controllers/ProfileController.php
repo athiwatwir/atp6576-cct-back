@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Profile\UpdatePasswordRequest;
 use App\Http\Requests\Profile\UpdateProfileRequest;
 use App\Services\Mail\MailService;
+use App\Support\MediaStorage;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
@@ -32,6 +34,28 @@ class ProfileController extends Controller
         return redirect()
             ->route('profile.edit')
             ->with('success', 'บันทึกข้อมูลโปรไฟล์เรียบร้อยแล้ว');
+    }
+
+    public function updateAvatar(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'avatar' => ['required', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:4096'],
+        ], [], [
+            'avatar' => 'รูปโปรไฟล์',
+        ]);
+
+        $user = $request->user();
+        $path = MediaStorage::storeAvatar($data['avatar'], $user->id);
+
+        if ($user->avatar && $user->avatar !== $path) {
+            MediaStorage::delete($user->avatar);
+        }
+
+        $user->update(['avatar' => $path]);
+
+        return redirect()
+            ->route('profile.edit')
+            ->with('success', 'เปลี่ยนรูปโปรไฟล์เรียบร้อยแล้ว');
     }
 
     public function updatePassword(UpdatePasswordRequest $request): RedirectResponse

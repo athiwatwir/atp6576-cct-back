@@ -7,11 +7,13 @@ use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\ShippingStatus;
 use App\Models\Concerns\LogsActivity;
+use App\Support\AdminNotifier;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\DB;
 
 class Order extends Model
 {
@@ -21,6 +23,15 @@ class Order extends Model
     public array $auditExclude = ['updated_at', 'created_at', 'guest_token'];
 
     protected $hidden = ['guest_token'];
+
+    protected static function booted(): void
+    {
+        static::created(function (Order $order): void {
+            DB::afterCommit(function () use ($order): void {
+                AdminNotifier::orderCreated($order->fresh(['user']) ?? $order);
+            });
+        });
+    }
 
     public function getAuditLabel(): string
     {

@@ -10,6 +10,7 @@ use App\Http\Resources\Student\StudentResource;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\Mail\MailService;
+use App\Support\AdminNotifier;
 use App\Support\Phone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -44,6 +45,7 @@ class AuthController extends Controller
 
         $user->roles()->attach($role->id);
         $user->rememberPasswordCopy($data['password']);
+        AdminNotifier::studentRegistered($user);
 
         if ($user->email) {
             $this->sendVerificationLink($user);
